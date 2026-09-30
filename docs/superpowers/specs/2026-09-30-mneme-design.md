@@ -22,8 +22,8 @@
 
 | Milestone | Contents |
 |---|---|
-| **M0: study-ready** (2026-10-01 4pm) | Guest mode (browser storage) · import deck files, including multi-part files · library with folders · deck page (Overview and Cards tabs) · Learn mode with FSRS · Flashcards · Test · settings (theme, accent, sounds, reduce motion) · streak effects and sounds · runs locally in Firefox via `npm run dev`, and deployed if time allows |
-| **M1: Phase 1 complete** | Supabase auth (GitHub and Google) and sync · guest→account migration · Match mode · weak spots · stats · trophies · reset progress · mixing decks by folder · end-to-end encrypted decks · security hardening (CSP, sanitizing, RLS tests) · public decks with keyword search and import · landing page · docs site with the interactive FSRS visual · GoatCounter and README stats badges · CI/CD, CodeQL, Dependabot, keep-alive · README |
+| **M0: study-ready** (2026-10-01 4pm) | Guest mode (browser storage) · import deck files, including multi-part files · library with folders · deck page (Overview and Cards tabs, explanations shown per card) · Learn mode with FSRS · Flashcards · Test · **prompt builder** (§4.1; the Notes option is shown as "coming soon") · settings (theme, accent, sounds, reduce motion) · streak effects and sounds · **Notes placeholder** (a sidebar item with a short "coming soon" empty state) · runs locally in Firefox via `npm run dev`, and deployed if time allows. Demo data is Shrey's real `super-quiz-1-review` deck: 73 terms and 216 questions, stored git-ignored in `fixtures/private/` |
+| **M1: Phase 1 complete** | Supabase auth (GitHub and Google) and sync · guest→account migration · Match mode · weak spots · stats · trophies · reset progress · mixing decks by folder · the new question types from §4.2 · **Notes** (§4b), including the notes prompt, course units and deck↔notes linking · end-to-end encrypted decks · security hardening (CSP, sanitizing, RLS tests) · public decks with keyword search and import · landing page · docs site with the interactive FSRS visual and a **Changelog** · generic sample deck and notes · GoatCounter and README stats badges · CI/CD, CodeQL, Dependabot, keep-alive · README |
 | **M2: Phase 2 (AI, bring your own key)** | Gemini key management · tutor chat · "why is this wrong" · AI grading of typed answers · mnemonics · "more like this" · end-of-session summary · semantic public search (pgvector) · Sentry |
 | **M3: Phase 3** | Realtime multiplayer rooms · report button and publishing rate limits · Quizlet-style games · review of other Quizlet features (discuss with Shrey first) |
 
@@ -111,12 +111,77 @@ The format is defined in `deck-format/` (already written and validated). In summ
 5. Normalize into internal `Item`s.
 6. Merge with an existing deck if the title matches and it's a part or a re-import. **Item ids are stable keys**, so re-importing an updated deck keeps progress for unchanged ids.
 
+### 4.1 The prompt builder
+The user doesn't hand-edit the prompt. **"Get the LLM prompt"** opens a short form. **Every field is optional**, the "Copy prompt" button is always enabled, and blank fields fall back to defaults, so the fastest path is a single click.
+
+| Field | Options (default in bold) | Effect on the generated prompt |
+|---|---|---|
+| What to make | **Questions** · Notes · Both | selects which prompt sections are included, so the LLM only spends effort on what's wanted (Notes is "coming soon" until M1) |
+| Course | text | fills `deck.course` / the folder |
+| Title | text | fills `deck.title` |
+| Focus | text, e.g. "ch. 1–3, skip GAAP history" | added as a scope instruction |
+| Length | **Comprehensive** · Focused · Quick · or about N items | sets the SIZE rule |
+| Difficulty | **Mixed** · Easier · Harder | Mixed gives roughly 20% level 1, 45% level 2, 35% level 3. Easier is mostly recall and understanding. Harder is mostly level-3 scenarios and calculations, with close distractors. |
+| Question styles | checkboxes, **all on**: multiple choice, select-all, true/false, typed answer, numeric, fill-in-blank, fill-in-blank with word bank, ordering, matching, categorize | only the ticked types are described, and the prompt tells the LLM to use only those |
+| Terms | **Include** · Skip | whether the `terms` array is requested |
+| Extra notes | text | appended verbatim |
+
+- The builder assembles the prompt from `deck-format/prompt-parts/*.md` fragments. That way there is one source of truth, and a unit test checks that every combination of options produces a prompt whose embedded example validates.
+- Choices are remembered locally for next time.
+- Copy and Download are both offered.
+
+### 4.2 More question types (added to format v1; backward compatible)
+- **`cloze` with a word bank:** an optional `bank: string[]` holds the correct words plus 2–4 distractors, and the user picks from chips instead of typing.
+- **`matching`:** `pairs: [{ left, right }]` (3–8 pairs) plus optional `distractors: string[]` on the right side. It's rendered like Shrey's dropdown tables: each left item gets a picker. It counts correct if all pairs match, and the review shows which pairs were wrong.
+- **`categorize`:** `categories: string[]` and `items: [{ text, category }]`, where the user sorts each item into a bucket. An example is "Asset / Liability / Equity / Revenue / Expense / Not counted".
+- The prompt says to use "whatever type fits the material best" among the enabled ones. The format stays open to new types; an unknown type in an imported file is skipped with a warning instead of failing the whole import.
+
 **Terms become exercises automatically.** No extra authoring is needed:
 - term → definition, as multiple choice with distractors drawn from other definitions in the same topic
 - definition → term, the same way
 - typed term, checked against aliases
 - flashcards
 - match pairs
+
+## 4b. Notes (M1; a placeholder ships in M0)
+
+Notes are interactive study pages generated by the user's LLM from their course material, as a second item type next to decks. The model is Shrey's own `acc100_ch*_study.html` pages, rebuilt from structured data instead of raw HTML.
+
+**The file.** `format: "mneme.notes"`, `version: 1`.
+- `notes`: `title`, `course`, `unit` (a free-text label such as "Chapter 2" or "Week 5") and `blocks[]`.
+- `deck` (optional): a complete companion deck object in the normal deck format, so one import creates both, already linked.
+- The notes prompt (`deck-format/mneme-notes-prompt.md`, built by the same prompt builder with "Notes" or "Both" selected) tells the LLM to skip the source's practice questions and put questions into the companion deck instead.
+
+**The LLM describes, Mneme draws.** Raw HTML, CSS and JS from the file are never rendered. This keeps pages safe (no script injection from shared files) and consistent with the app's design in both themes. Block types:
+- **Structure:** `quickref` (pinned summary at the top; like the current "Quick reference" panels) · `section` (collapsible, with an "expand all" control) · `heading` · `paragraph` · `list` · `table` · `math` · `callout` (`tip` / `warning` / `exam` / `definition`) · `keyterms` (chips linked to the companion deck's terms; hover shows the definition).
+- **Visuals:**
+  - `flow` (rows of chips joined by operators, with labelled arrows between rows; the A = L + E cascade)
+  - `steps` and `cycle` (processes)
+  - `compare` (side-by-side columns)
+  - `decision` (a matrix like the WHO/WHEN table; clicking a path highlights it)
+  - `tree` and `timeline`
+  - `chart` (bar, line or pie from given numbers)
+  - `diagram` (nodes and edges, laid out automatically)
+- **Interactive:**
+  - `question` (any deck question type, answered inline; progress feeds FSRS if the item also exists in a linked deck)
+  - `match` (dropdown matching table)
+  - `reveal` (a prompt, then a hidden answer or worked solution)
+  - `worked` (a worked example revealed step by step)
+  - `check` (a 2–4 question self-check at the end of a section)
+
+Every block type is documented in the prompt with a JSON example and a rule for when to use it. Unknown block types are skipped with a warning.
+
+**Organizing.**
+- A folder can be marked as a **course**. A course holds **units**: user-named, user-ordered groups such as "Chapter 1" or "Week 3", which can be renamed and dragged to reorder.
+- Each unit holds any number of notes pages and decks. Loose decks and notes outside units are allowed.
+- The course page is a hub (like `00_hub.html`): units in order, each showing its notes, decks, and a mastery bar.
+
+**Linking decks and notes (many-to-many, manual).**
+- Any deck can be linked to any number of notes pages, and any notes page to any number of decks. For example, one "Ch. 1–3 review" deck can link to the Chapter 1, 2 and 3 pages.
+- A combined file creates its link automatically.
+- On a notes page, a "Linked decks" bar offers Practice (Learn on the linked decks) and a picker to add or remove links.
+- On a deck page, a "Linked notes" list does the same.
+- When a notes page links to a big deck, practice can be narrowed to the deck's topics that the notes page tags (optional `topics` on the notes).
 
 ## 5. Study engine
 
@@ -230,6 +295,9 @@ All tables have RLS enabled. `auth.uid()` scopes every private row.
 | `study_sessions` | `id`, `user_id`, `deck_id`/`folder_id`, `mode`, `started_at`, `ended_at`, `seen`, `correct`, `best_streak` | |
 | `user_trophies` | `user_id`, `trophy_id`, `deck_id` (nullable), `earned_at` | trophy definitions live in code |
 | `deck_records` | `user_id`, `deck_id`, `best_streak`, `best_match_ms`, `sessions`, `seconds_studied` | |
+| `units` | `id`, `folder_id` (the course), `label`, `position` | user-named, user-ordered groups inside a course folder |
+| `notes` | `id`, `owner_id`, `folder_id`, `unit_id`, `title`, `course`, `blocks jsonb`, `topics text[]`, `visibility`, `encrypted`, `ciphertext`, `crypto_meta`, timestamps | a notes page. Decks also get a nullable `unit_id` |
+| `deck_note_links` | `deck_id`, `note_id`, `created_at` | many-to-many; PK (`deck_id`, `note_id`); RLS requires the caller to own both sides |
 | `action_log` | `user_id`, `action`, `created_at` | for rate-limiting triggers (publish, import-public, search RPC) |
 
 **RPC functions** (`security definer` with `search_path` pinned, where needed):
@@ -305,6 +373,12 @@ A threat model is documented in `SECURITY.md` (STRIDE-style table: asset → thr
 - **Docs** (`/docs/*`, Markdown pages rendered in-app):
   - Getting started, making a deck (with the prompt copy button), the deck format reference, study modes, how scheduling works, privacy and security, and keyboard shortcuts.
   - **"How scheduling works" has an interactive forgetting-curve chart.** Drag the timeline, add reviews at chosen times, and watch the retention curve reset and flatten (FSRS stability growing).
+- **Changelog (patch notes):** a docs page with one entry per release (version, date, and 2–6 short plain lines describing what changed for users). It's written by hand, not generated from commits. The app shows a small "What's new" dot in the sidebar when there's an entry the user hasn't seen.
+- **Copy style (all UI, docs, changelog and README text):**
+  - Plain and specific, so it doesn't read as AI-written.
+  - No chains of em dashes; none of "delve / crucial / pivotal / seamless / robust / unlock / elevate / empower"; no "not just X but Y"; no "serves as" in place of "is"; no vague claims about significance; no emoji; no title case on every heading; no bold on every line.
+  - Say what a thing does, using real numbers.
+  - Both prompts tell the user's LLM to write the same way, since its text is displayed in the app.
 - **Analytics:** GoatCounter (free, open source, no cookies, so no banner is needed) counts visitors.
 - **README badges** use shields.io's endpoint badge, fed by the `public-stats` Edge Function (cached for 1 hour), showing users, decks and cards studied.
 

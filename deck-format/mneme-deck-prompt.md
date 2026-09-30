@@ -183,6 +183,14 @@ Type-specific fields:
 - For calculations, show the steps.
 - For misconceptions, say why the tempting wrong answer is wrong.
 
+**Writing style** (students read every word of this in the app)
+- Write like a sharp teaching assistant's notes: plain, direct and specific. Use short sentences with real numbers and examples.
+- Don't use filler or AI-sounding wording:
+  - no chains of em dashes
+  - none of these words: "delve", "crucial", "pivotal", "key takeaway", "it's important to note", "not just X but Y"
+  - no hype adjectives, no emoji
+- Wrong-choice `why` notes are one short clause, e.g. "That is cash-basis accounting."
+
 **Ids**
 - Short and descriptive (`q-harbor-adjustment`, `t-contra-asset`), and unique across the whole deck and all parts.
 
