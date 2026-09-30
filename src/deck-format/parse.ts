@@ -31,7 +31,7 @@ const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
 
 /** Find the JSON object inside LLM output: tolerates code fences and chatter before/after. */
-function extractJson(input: string): unknown {
+export function extractJson(input: string): unknown {
   const s = input.replace(/^﻿/, '')
   try { return JSON.parse(s) } catch { /* fall through */ }
   const first = s.indexOf('{'), last = s.lastIndexOf('}')
