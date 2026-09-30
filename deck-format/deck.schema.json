@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shreywy/Mneme/deck-format/deck.schema.json",
+  "title": "Mneme deck",
+  "description": "A study deck for Mneme (format v1). Multi-part decks share deck.title and set deck.part.",
+  "type": "object",
+  "required": ["format", "version", "deck"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "mneme.deck" },
+    "version": { "const": 1 },
+    "deck": {
+      "type": "object",
+      "required": ["title"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/shortText", "maxLength": 120 },
+        "course": { "$ref": "#/$defs/shortText", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/shortText" }, "maxItems": 50 },
+        "language": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+        "part": {
+          "type": "object",
+          "required": ["index", "of"],
+          "additionalProperties": false,
+          "properties": {
+            "index": { "type": "integer", "minimum": 1 },
+            "of": { "type": "integer", "minimum": 1, "maximum": 50 }
+          }
+        }
+      }
+    },
+    "topics": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "$ref": "#/$defs/shortText" },
+          "summary": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "terms": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "required": ["id", "term", "definition", "topic"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "term": { "$ref": "#/$defs/shortText" },
+          "definition": { "$ref": "#/$defs/richText" },
+          "topic": { "$ref": "#/$defs/id" },
+          "aliases": { "type": "array", "items": { "$ref": "#/$defs/shortText" }, "maxItems": 20 },
+          "example": { "$ref": "#/$defs/richText" },
+          "explanation": { "$ref": "#/$defs/richText" },
+          "source": { "$ref": "#/$defs/shortText" }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/multipleChoice" },
+          { "$ref": "#/$defs/multipleSelect" },
+          { "$ref": "#/$defs/trueFalse" },
+          { "$ref": "#/$defs/shortAnswer" },
+          { "$ref": "#/$defs/numeric" },
+          { "$ref": "#/$defs/cloze" },
+          { "$ref": "#/$defs/ordering" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$" },
+    "shortText": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "richText": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "base": {
+      "type": "object",
+      "required": ["id", "type", "prompt", "topic", "explanation", "difficulty"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "prompt": { "$ref": "#/$defs/richText" },
+        "topic": { "$ref": "#/$defs/id" },
+        "explanation": { "$ref": "#/$defs/richText" },
+        "difficulty": { "enum": [1, 2, 3] },
+        "source": { "$ref": "#/$defs/shortText" }
+      }
+    },
+    "choice": {
+      "type": "object",
+      "required": ["text", "correct"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "$ref": "#/$defs/richText" },
+        "correct": { "type": "boolean" },
+        "why": { "$ref": "#/$defs/richText" }
+      }
+    },
+    "multipleChoice": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["choices"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": { "const": "multiple_choice" },
+        "choices": {
+          "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/choice" },
+          "contains": { "properties": { "correct": { "const": true } } }, "minContains": 1, "maxContains": 1
+        }
+      }
+    },
+    "multipleSelect": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["choices"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": { "const": "multiple_select" },
+        "choices": {
+          "type": "array", "minItems": 3, "maxItems": 8, "items": { "$ref": "#/$defs/choice" },
+          "contains": { "properties": { "correct": { "const": true } } }, "minContains": 2
+        }
+      }
+    },
+    "trueFalse": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["answer"],
+      "unevaluatedProperties": false,
+      "properties": { "type": { "const": "true_false" }, "answer": { "type": "boolean" } }
+    },
+    "shortAnswer": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["answer"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": { "const": "short_answer" },
+        "answer": { "$ref": "#/$defs/shortText" },
+        "accept": { "type": "array", "items": { "$ref": "#/$defs/shortText" }, "maxItems": 20 }
+      }
+    },
+    "numeric": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["answer"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": { "const": "numeric" },
+        "answer": { "type": "number" },
+        "tolerance": { "type": "number", "minimum": 0 },
+        "unit": { "type": "string", "maxLength": 20 }
+      }
+    },
+    "cloze": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": { "const": "cloze" },
+        "prompt": { "type": "string", "pattern": "\\{\\{[^{}]+\\}\\}" }
+      }
+    },
+    "ordering": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["items"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": { "const": "ordering" },
+        "items": { "type": "array", "minItems": 3, "maxItems": 12, "items": { "$ref": "#/$defs/shortText" } }
+      }
+    }
+  }
+}
