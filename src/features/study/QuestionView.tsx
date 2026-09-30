@@ -12,11 +12,13 @@ type Props = {
   grade?: Grade
   /** final=true means "submit" (Learn grades immediately); final=false just records the current input (Test). */
   onRespond: (r: Response, final: boolean) => void
+  /** Global keyboard shortcuts and autofocus. Off for inline questions on a notes page. */
+  keyboard?: boolean
 }
 
 export const sizeClass = (s: string) => (s.length > 300 ? 'xlong' : s.length > 140 ? 'long' : '')
 
-export function QuestionView({ ex, mode, response, revealed, grade, onRespond }: Props) {
+export function QuestionView({ ex, mode, response, revealed, grade, onRespond, keyboard = true }: Props) {
   const lead = ex.kind === 'mc' && ex.promptKind === 'term' ? 'Pick the definition'
     : ex.kind === 'mc' && ex.promptKind === 'definition' ? 'Pick the term'
       : ex.kind === 'typed' && ex.promptKind === 'definition' ? 'Type the term'
@@ -33,21 +35,21 @@ export function QuestionView({ ex, mode, response, revealed, grade, onRespond }:
         </div>
       )}
       {ex.kind === 'cloze' && <div className="q" style={{ marginBottom: 8 }}><span className="lead">{lead}</span></div>}
-      <Body ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
+      <Body ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} keyboard={keyboard} />
     </>
   )
 }
 
-function Body({ ex, mode, response, revealed, grade, onRespond }: Props) {
+function Body({ ex, mode, response, revealed, grade, onRespond, keyboard }: Props) {
   switch (ex.kind) {
-    case 'mc': return <Choices ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} />
-    case 'tf': return <TrueFalse answer={ex.answer} mode={mode} response={response} revealed={revealed} onRespond={onRespond} />
-    case 'ms': return <MultiSelect ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} />
-    case 'typed': return <TextAnswer key={ex.key} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} answer={ex.answers[0]} />
-    case 'numeric': return <TextAnswer key={ex.key} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} numeric unit={ex.unit}
+    case 'mc': return <Choices ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} keyboard={keyboard} />
+    case 'tf': return <TrueFalse answer={ex.answer} mode={mode} response={response} revealed={revealed} onRespond={onRespond} keyboard={keyboard} />
+    case 'ms': return <MultiSelect ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} keyboard={keyboard} />
+    case 'typed': return <TextAnswer key={ex.key} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} answer={ex.answers[0]} keyboard={keyboard} />
+    case 'numeric': return <TextAnswer key={ex.key} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} keyboard={keyboard} numeric unit={ex.unit}
       answer={`${ex.unit === '$' ? '$' : ''}${ex.answer.toLocaleString()}${ex.unit && ex.unit !== '$' ? ' ' + ex.unit : ''}`} />
-    case 'cloze': return <ClozeAnswer ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
-    case 'order': return <OrderAnswer ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} />
+    case 'cloze': return <ClozeAnswer ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} keyboard={keyboard} />
+    case 'order': return <OrderAnswer ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} keyboard={keyboard} />
   }
 }
 
@@ -67,9 +69,9 @@ function useNumberKeys(count: number, enabled: boolean, pick: (i: number) => voi
   }, [count, enabled])
 }
 
-function Choices({ ex, mode, response, revealed, onRespond }: { ex: Extract<Exercise, { kind: 'mc' }> } & Omit<Props, 'ex' | 'grade'>) {
+function Choices({ ex, mode, response, revealed, onRespond, keyboard }: { ex: Extract<Exercise, { kind: 'mc' }> } & Omit<Props, 'ex' | 'grade'>) {
   const picked = response?.kind === 'choice' ? response.index : -1
-  useNumberKeys(ex.options.length, !revealed, (i) => onRespond({ kind: 'choice', index: i }, mode === 'learn'))
+  useNumberKeys(ex.options.length, !revealed && !!keyboard, (i) => onRespond({ kind: 'choice', index: i }, mode === 'learn'))
   return (
     <div className="opts">
       {ex.options.map((o, i) => {
@@ -93,10 +95,10 @@ function Choices({ ex, mode, response, revealed, onRespond }: { ex: Extract<Exer
   )
 }
 
-function TrueFalse({ answer, mode, response, revealed, onRespond }: { answer: boolean } & Omit<Props, 'ex' | 'grade'>) {
+function TrueFalse({ answer, mode, response, revealed, onRespond, keyboard }: { answer: boolean } & Omit<Props, 'ex' | 'grade'>) {
   const picked = response?.kind === 'bool' ? response.value : undefined
   const pick = (v: boolean) => onRespond({ kind: 'bool', value: v }, mode === 'learn')
-  useNumberKeys(2, !revealed, (i) => pick(i === 0))
+  useNumberKeys(2, !revealed && !!keyboard, (i) => pick(i === 0))
   return (
     <div className="opts">
       {[true, false].map((v, i) => {
@@ -116,20 +118,20 @@ function TrueFalse({ answer, mode, response, revealed, onRespond }: { answer: bo
   )
 }
 
-function MultiSelect({ ex, mode, response, revealed, onRespond }: { ex: Extract<Exercise, { kind: 'ms' }> } & Omit<Props, 'ex' | 'grade'>) {
+function MultiSelect({ ex, mode, response, revealed, onRespond, keyboard }: { ex: Extract<Exercise, { kind: 'ms' }> } & Omit<Props, 'ex' | 'grade'>) {
   const [sel, setSel] = useState<number[]>(response?.kind === 'multi' ? response.indices : [])
   const toggle = (i: number) => {
     const next = sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i].sort()
     setSel(next)
     if (mode === 'test') onRespond({ kind: 'multi', indices: next }, false)
   }
-  useNumberKeys(ex.options.length, !revealed, toggle)
+  useNumberKeys(ex.options.length, !revealed && !!keyboard, toggle)
   useEffect(() => {
-    if (revealed || mode !== 'learn') return
+    if (revealed || mode !== 'learn' || !keyboard) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter' && sel.length && !isTyping(e)) { e.preventDefault(); e.stopImmediatePropagation(); onRespond({ kind: 'multi', indices: sel }, true) } }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [sel, revealed, mode, onRespond])
+  }, [sel, revealed, mode, onRespond, keyboard])
   return (
     <>
       <div className="opts">
@@ -158,10 +160,10 @@ function MultiSelect({ ex, mode, response, revealed, onRespond }: { ex: Extract<
   )
 }
 
-function TextAnswer({ mode, response, revealed, grade, onRespond, answer, numeric, unit }: Omit<Props, 'ex'> & { answer: string; numeric?: boolean; unit?: string }) {
+function TextAnswer({ mode, response, revealed, grade, onRespond, answer, numeric, unit, keyboard }: Omit<Props, 'ex'> & { answer: string; numeric?: boolean; unit?: string }) {
   const [val, setVal] = useState(response?.kind === 'text' ? response.value : '')
   const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => { if (!revealed) ref.current?.focus() }, [revealed])
+  useEffect(() => { if (!revealed && keyboard) ref.current?.focus() }, [revealed, keyboard])
   const submit = (v: string) => onRespond({ kind: 'text', value: v }, true)
   const cls = revealed ? (grade?.correct ? 'good' : 'bad') : ''
   return (
@@ -186,11 +188,11 @@ function TextAnswer({ mode, response, revealed, grade, onRespond, answer, numeri
   )
 }
 
-function ClozeAnswer({ ex, mode, response, revealed, grade, onRespond }: { ex: Extract<Exercise, { kind: 'cloze' }> } & Omit<Props, 'ex'>) {
+function ClozeAnswer({ ex, mode, response, revealed, grade, onRespond, keyboard }: { ex: Extract<Exercise, { kind: 'cloze' }> } & Omit<Props, 'ex'>) {
   const n = ex.cloze.blanks.length
   const [vals, setVals] = useState<string[]>(response?.kind === 'blanks' ? response.values : Array(n).fill(''))
   const first = useRef<HTMLInputElement>(null)
-  useEffect(() => { if (!revealed) first.current?.focus() }, [revealed])
+  useEffect(() => { if (!revealed && keyboard) first.current?.focus() }, [revealed, keyboard])
   const set = (i: number, v: string) => {
     const next = [...vals]; next[i] = v; setVals(next)
     if (mode === 'test') onRespond({ kind: 'blanks', values: next }, false)
@@ -220,13 +222,13 @@ function ClozeAnswer({ ex, mode, response, revealed, grade, onRespond }: { ex: E
   )
 }
 
-function OrderAnswer({ ex, mode, response, revealed, onRespond }: { ex: Extract<Exercise, { kind: 'order' }> } & Omit<Props, 'ex' | 'grade'>) {
+function OrderAnswer({ ex, mode, response, revealed, onRespond, keyboard }: { ex: Extract<Exercise, { kind: 'order' }> } & Omit<Props, 'ex' | 'grade'>) {
   const [seq, setSeq] = useState<string[]>(response?.kind === 'order' ? response.order : [])
   const pool = ex.shuffled.filter((s) => !seq.includes(s))
   const update = (next: string[]) => { setSeq(next); if (mode === 'test') onRespond({ kind: 'order', order: next }, false) }
-  useNumberKeys(pool.length, !revealed, (i) => pool[i] && update([...seq, pool[i]]))
+  useNumberKeys(pool.length, !revealed && !!keyboard, (i) => pool[i] && update([...seq, pool[i]]))
   useEffect(() => {
-    if (revealed || mode !== 'learn') return
+    if (revealed || mode !== 'learn' || !keyboard) return
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e)) return
       if (e.key === 'Enter' && seq.length === ex.items.length) { e.preventDefault(); e.stopImmediatePropagation(); onRespond({ kind: 'order', order: seq }, true) }
