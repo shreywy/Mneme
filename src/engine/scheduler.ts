@@ -9,6 +9,27 @@ type Slot = { key: string; availableAt: number; consecutive: number; retry: bool
 const GRADUATE_AFTER = 2
 
 /**
+ * Order for introducing new items: topic by topic (in the deck's topic order), and inside a topic
+ * terms and questions are interleaved in proportion, so "All" doesn't show 70 terms before any question.
+ */
+export function studyOrder(items: { key: string; kind: string; topic: string }[], topicOrder: string[]): string[] {
+  const rank = new Map(topicOrder.map((t, i) => [t, i]))
+  const topics = [...new Set(items.map((i) => i.topic))].sort((a, b) => (rank.get(a) ?? 1e9) - (rank.get(b) ?? 1e9))
+  const out: string[] = []
+  for (const t of topics) {
+    const terms = items.filter((i) => i.topic === t && i.kind === 'term')
+    const qs = items.filter((i) => i.topic === t && i.kind !== 'term')
+    let a = 0, b = 0
+    while (a < terms.length || b < qs.length) {
+      // Pick whichever list is further behind its share.
+      const takeTerm = b >= qs.length || (a < terms.length && a / terms.length <= b / qs.length)
+      out.push(takeTerm ? terms[a++].key : qs[b++].key)
+    }
+  }
+  return out
+}
+
+/**
  * The endless Learn queue. Keeps a small working set, brings misses back 3–4 cards later,
  * pushes correct answers further out, and graduates an item after 2 right answers in a row.
  * Graduated items go to the back of the pool, so the session never runs out.

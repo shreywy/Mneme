@@ -11,3 +11,4 @@ playwright-report/
 coverage/
 .DS_Store
 .superpowers/
+.claude/

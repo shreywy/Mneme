@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { LearnSession, type PoolEntry } from './scheduler'
+import { LearnSession, studyOrder, type PoolEntry } from './scheduler'
 import { mulberry32 } from './rng'
 
 const pool = (n: number, mastery: PoolEntry['mastery'] = 'new'): PoolEntry[] =>
   Array.from({ length: n }, (_, i) => ({ key: `k${i}`, mastery, retrievability: 1, order: i }))
+
+describe('studyOrder', () => {
+  it('walks topics in order and mixes terms with questions inside each topic', () => {
+    const items = [
+      { key: 't1', kind: 'term', topic: 'a' }, { key: 't2', kind: 'term', topic: 'a' }, { key: 't3', kind: 'term', topic: 'b' },
+      { key: 'q1', kind: 'question', topic: 'a' }, { key: 'q2', kind: 'question', topic: 'a' }, { key: 'q3', kind: 'question', topic: 'b' },
+    ] as const
+    expect(studyOrder([...items], ['a', 'b'])).toEqual(['t1', 'q1', 't2', 'q2', 't3', 'q3'])
+  })
+})
 
 describe('LearnSession', () => {
   it('never shows the same item twice in a row, and keeps a gap of 2 when it can', () => {

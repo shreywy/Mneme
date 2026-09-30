@@ -171,7 +171,7 @@ Type-specific fields:
 ### Formatting inside text fields
 - These fields allow Markdown: `prompt`, `definition`, `explanation`, `example`, choice `text` and `why`.
 - You may use **bold**, *italic*, `code`, lists and tables (for example, a journal entry as a table).
-- Write math with LaTeX: `$...$` inline and `$$...$$` for display.
+- Write math with LaTeX between **double** dollar signs: `$$\frac{a}{b}$$`, inline or on its own line. A single `$` is always read as a currency sign, so write money normally (`$12,000`).
 - Don't use HTML, images or links; Mneme strips them.
 
 ---
