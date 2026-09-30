@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { parseDeckText } from '../../deck-format/parse'
 import type { ParseResult } from '../../deck-format/types'
 import { importDeck } from '../../data/repo'
+import { plural } from '../../data/stats'
 import { Icon } from '../../ui/Icons'
 import { Sheet } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
@@ -78,7 +79,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               <div className="t">{p.result.deck.title}{p.result.deck.part && <span className="muted" style={{ fontSize: 13, fontFamily: 'var(--sans)' }}> · part {p.result.deck.part.index} of {p.result.deck.part.of}</span>}</div>
               <div className="muted">
                 {p.result.deck.course && <>{p.result.deck.course} · </>}
-                {p.result.deck.items.filter((x) => x.kind === 'term').length} terms · {p.result.deck.items.filter((x) => x.kind === 'question').length} questions · {p.result.deck.topics.length} topics
+                {plural(p.result.deck.items.filter((x) => x.kind === 'term').length, 'term')} · {plural(p.result.deck.items.filter((x) => x.kind === 'question').length, 'question')} · {plural(p.result.deck.topics.length, 'topic')}
               </div>
               {p.result.warnings.length > 0 && (
                 <details className="warn">

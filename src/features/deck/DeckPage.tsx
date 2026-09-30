@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../data/db'
 import * as repo from '../../data/repo'
-import { countMastery, filterItems, relTime, type Filter } from '../../data/stats'
+import { countMastery, filterItems, plural, relTime, type Filter } from '../../data/stats'
 import type { Item } from '../../deck-format/types'
 import { answerText, promptText } from '../../engine/exercises'
 import { TYPE_LABELS } from '../../prompt/build'
@@ -48,7 +48,7 @@ export function DeckPage() {
       <div className="page">
         <h1 className="title">{deck.title}</h1>
         <div className="meta">
-          <span>{deck.termCount} terms</span><i>/</i><span>{deck.questionCount} questions</span><i>/</i><span>{deck.topics.length} topics</span><i>/</i><span>studied {relTime(deck.lastStudiedAt)}</span>
+          <span>{plural(deck.termCount, 'term')}</span><i>/</i><span>{plural(deck.questionCount, 'question')}</span><i>/</i><span>{plural(deck.topics.length, 'topic')}</span><i>/</i><span>studied {relTime(deck.lastStudiedAt)}</span>
         </div>
         {deck.description && <p className="muted" style={{ marginTop: 12, maxWidth: '70ch', lineHeight: 1.55 }}>{deck.description}</p>}
 

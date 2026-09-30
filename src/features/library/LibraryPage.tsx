@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import template from '../../../deck-format/mneme-deck-prompt.md?raw'
 import { db, type DeckRow } from '../../data/db'
 import { deleteFolder, importDeck, renameFolder } from '../../data/repo'
-import { allDeckMastery, relTime, type MasteryCounts } from '../../data/stats'
+import { allDeckMastery, plural, relTime, type MasteryCounts } from '../../data/stats'
 import { extractPromptExample } from '../../deck-format/example'
 import { parseDeckText } from '../../deck-format/parse'
 import { TopBar } from '../../app/Shell'
@@ -66,7 +66,7 @@ function DeckCard({ d, m }: { d: DeckRow; m?: MasteryCounts }) {
   return (
     <Link className="dcard" to={`/deck/${d.id}`}>
       <b>{d.title}</b>
-      <div className="sub">{d.termCount} terms · {d.questionCount} questions · studied {relTime(d.lastStudiedAt)}</div>
+      <div className="sub">{plural(d.termCount, 'term')} · {plural(d.questionCount, 'question')} · studied {relTime(d.lastStudiedAt)}</div>
       <div className="mbar" aria-label={`${c.familiar + c.mastered} of ${total} learned`}>
         <i style={{ flexGrow: c.mastered, background: 'var(--seg4)' }} />
         <i style={{ flexGrow: c.familiar, background: 'var(--seg3)' }} />

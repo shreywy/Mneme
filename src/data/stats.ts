@@ -37,3 +37,6 @@ export function relTime(ms: number | undefined): string {
   const d = Math.floor(s / 86400)
   return d === 1 ? 'yesterday' : `${d} days ago`
 }
+
+/** "1 term", "2 terms". */
+export const plural = (n: number, word: string, many = word + 's') => `${n} ${n === 1 ? word : many}`

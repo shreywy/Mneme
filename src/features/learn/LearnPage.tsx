@@ -133,10 +133,13 @@ export function LearnPage() {
     setStreak(s); onCorrectStreak(s)
   }
 
+  const advancing = useRef(false)
   const next = useCallback(() => {
+    if (advancing.current) return // Enter on a focused button would otherwise fire twice and skip a card
+    advancing.current = true
     commit()
     setLeaving(true)
-    setTimeout(() => { draw(); setLeaving(false); window.scrollTo({ top: 0 }) }, 150)
+    setTimeout(() => { draw(); setLeaving(false); advancing.current = false; window.scrollTo({ top: 0 }) }, 150)
   }, [commit, draw])
 
   const exit = useCallback(() => {
@@ -208,7 +211,7 @@ export function LearnPage() {
           <span className="tip">Add a free Gemini API key in Settings to use the tutor (coming soon)</span>
         </span>
         <div className="right">
-          {revealed && <button className="btn primary" onClick={next} autoFocus>Continue<span className="kbd">Enter</span></button>}
+          {revealed && <button className="btn primary" onClick={next}>Continue<span className="kbd">Enter</span></button>}
         </div>
       </div></div>
     </div>
