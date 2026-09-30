@@ -6,7 +6,6 @@ import type { Block, NormalizedNotes, NotesParseResult, TreeNode } from './types
 type Raw = Record<string, unknown>
 const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v)
 const str = z.string().trim().min(1)
-const strs = z.array(z.string())
 
 // One schema per simple block. Container blocks (quickref, section) and question are handled by hand.
 const SIMPLE: Record<string, z.ZodType> = {

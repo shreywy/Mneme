@@ -9,7 +9,7 @@ import { db, type DeckRecord, type DeckRow, type Folder, type ItemRow, type Stud
 const uid = () => crypto.randomUUID()
 const stripRow = ({ deckId: _d, position: _p, ...item }: ItemRow): Item => item as Item
 
-async function folderForCourse(course: string | undefined): Promise<string | null> {
+export async function folderForCourse(course: string | undefined): Promise<string | null> {
   if (!course) return null
   const all = await db.folders.toArray()
   const hit = all.find((f) => f.name.toLowerCase() === course.toLowerCase())
@@ -147,7 +147,8 @@ export async function resetDeckProgress(deckId: string) {
 }
 
 export async function deleteDeck(deckId: string) {
-  await db.transaction('rw', [db.decks, db.items, db.cards, db.reviews, db.records], async () => {
+  await db.transaction('rw', [db.decks, db.items, db.cards, db.reviews, db.records, db.links], async () => {
+    await db.links.where('deckId').equals(deckId).delete()
     await db.items.where('deckId').equals(deckId).delete()
     await db.cards.where('deckId').equals(deckId).delete()
     await db.reviews.where('deckId').equals(deckId).delete()
