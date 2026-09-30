@@ -63,6 +63,7 @@ Group the material into 3–15 topics, roughly one per lecture section or textbo
 { "id": "revenue-recognition", "name": "Revenue recognition", "summary": "When and how revenue is recorded." }
 ```
 
+<!-- terms -->
 ### Terms (vocabulary: a word or concept and its meaning)
 
 ```json
@@ -81,6 +82,7 @@ Group the material into 3–15 topics, roughly one per lecture section or textbo
 - `term`, `definition` and `topic` are required. Everything else is optional but encouraged.
 - Keep definitions **self-contained** and **under ~30 words**. They appear as multiple-choice options next to other definitions, so they must not contain the term itself.
 - `aliases` are other accepted spellings or names, used for typed answers.
+<!-- /terms -->
 
 ### Questions
 All questions share these fields:
@@ -97,6 +99,7 @@ All questions share these fields:
 
 Type-specific fields:
 
+<!-- type:multiple_choice -->
 **`multiple_choice`**: exactly one correct choice, 4 choices preferred (3–5 allowed). Every choice has a short `why`.
 ```json
 {
@@ -111,16 +114,22 @@ Type-specific fields:
   "explanation": "The revenue recognition principle records revenue when it is earned, regardless of when cash changes hands."
 }
 ```
+<!-- /type -->
 
+<!-- type:multiple_select -->
 **`multiple_select`**: like `multiple_choice`, but two or more choices are correct. State in the prompt that more than one answer applies.
+<!-- /type -->
 
+<!-- type:true_false -->
 **`true_false`**
 ```json
 { "id": "q-unearned-is-liability", "type": "true_false", "topic": "adjusting-entries", "difficulty": 1,
   "prompt": "Unearned revenue is reported as a liability.", "answer": true,
   "explanation": "The company owes the customer goods or services until the revenue is earned." }
 ```
+<!-- /type -->
 
+<!-- type:short_answer -->
 **`short_answer`**: a typed answer of one word or a short phrase. `accept` lists other correct phrasings.
 ```json
 { "id": "q-principle-expenses-match", "type": "short_answer", "topic": "revenue-recognition", "difficulty": 1,
@@ -128,7 +137,9 @@ Type-specific fields:
   "answer": "Matching principle", "accept": ["expense recognition principle", "matching"],
   "explanation": "Matching pairs costs with the revenue they produced, so each period's profit is meaningful." }
 ```
+<!-- /type -->
 
+<!-- type:numeric -->
 **`numeric`**: a typed number. `tolerance` is the allowed absolute error (0 = exact). `unit` is shown next to the input.
 ```json
 { "id": "q-harbor-adjustment", "type": "numeric", "topic": "adjusting-entries", "difficulty": 3,
@@ -136,14 +147,18 @@ Type-specific fields:
   "answer": 2000, "tolerance": 0, "unit": "$",
   "explanation": "$12,000 ÷ 6 months = $2,000 per month; one month has passed." }
 ```
+<!-- /type -->
 
+<!-- type:cloze -->
 **`cloze`**: fill in the blank. Wrap each blank's answer in double braces, and separate other accepted answers with `|`.
 ```json
 { "id": "q-cloze-equation", "type": "cloze", "topic": "accounting-equation", "difficulty": 1,
   "prompt": "Assets = {{Liabilities}} + {{Equity|Owner's equity|Shareholders' equity}}",
   "explanation": "The accounting equation must always balance." }
 ```
+<!-- /type -->
 
+<!-- type:ordering -->
 **`ordering`**: list `items` in the **correct** order. Mneme shuffles them.
 ```json
 { "id": "q-accounting-cycle-order", "type": "ordering", "topic": "accounting-cycle", "difficulty": 2,
@@ -151,6 +166,7 @@ Type-specific fields:
   "items": ["Analyze transactions", "Journalize", "Post to ledger", "Prepare trial balance", "Adjusting entries", "Financial statements"],
   "explanation": "Each step feeds the next, and statements come only after adjustments." }
 ```
+<!-- /type -->
 
 ### Formatting inside text fields
 - These fields allow Markdown: `prompt`, `definition`, `explanation`, `example`, choice `text` and `why`.
