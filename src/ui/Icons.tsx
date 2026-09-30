@@ -1,0 +1,62 @@
+/** Inline SVG sprite. Render <IconSprite/> once; use <Icon name="…"/> anywhere. */
+export function IconSprite() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <symbol id="mark" viewBox="0 0 40 40">
+        <g fill="currentColor">
+          <rect x="5.2" y="3.6" width="5.8" height="3.2" rx="1.3" />
+          <rect x="5.2" y="7.7" width="5.8" height="19.2" />
+          <polygon points="11.4,6 16,6 23.4,30.6 22,34.2" />
+          <polygon points="21.3,32.4 31,6.6 32.6,6.6 22.7,34.2" />
+          <rect x="29.4" y="6" width="8.4" height="1.5" />
+          <rect x="31.2" y="6.5" width="4.3" height="26.4" />
+          <rect x="28.6" y="32.5" width="9.4" height="1.5" />
+        </g>
+        <path d="M7.15 8.2V26.5M9.05 8.2V26.5" stroke="var(--pencil-line)" strokeWidth=".55" />
+        <path d="M5.2 27.7h5.8l-2.9 6.9z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+        <path d="M7.3 32.3h1.6l-.8 2.3z" fill="currentColor" />
+      </symbol>
+      <symbol id="i-lib" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="5" rx="1" /><rect x="4" y="11" width="16" height="9" rx="1" /></symbol>
+      <symbol id="i-notes" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 12h7M9 16h5" /></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" /></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" /></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 4v4M12 16v4M4 12h4M16 12h4M7 7l2 2M15 15l2 2M7 17l2-2M15 9l2-2" /></symbol>
+      <symbol id="i-loop" viewBox="0 0 24 24"><path d="M17 2l3 3-3 3" /><path d="M4 11V9a4 4 0 0 1 4-4h12" /><path d="M7 22l-3-3 3-3" /><path d="M20 13v2a4 4 0 0 1-4 4H4" /></symbol>
+      <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="14" rx="1.5" /><path d="M7 3h12a2 2 0 0 1 2 2v12" /></symbol>
+      <symbol id="i-match" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1" /><rect x="14" y="14" width="7" height="6" rx="1" /><path d="M10 7h3a2 2 0 0 1 2 2v5" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></symbol>
+      <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c-3.9 0-6.5-2.6-6.5-6.1 0-3.8 3.4-5.6 3.9-9.9 2.6 1.6 3.4 4 3.1 6 1.1-.6 1.9-1.8 2-3.1 2 1.7 4 4.3 4 7 0 3.5-2.6 6.1-6.5 6.1z" /></symbol>
+      <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z" /><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M9 20h6M10 17h4" /></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5" /><path d="M4 4v4.5h4.5" /></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></symbol>
+      <symbol id="i-focus" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" /></symbol>
+      <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></symbol>
+      <symbol id="i-volx" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M16 9.5l5 5M21 9.5l-5 5" /></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="1.5" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+      <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" /><path d="M18 3v4h-4M6 21v-4h4" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></symbol>
+      <symbol id="i-prompt" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z" /><path d="M9 9h6M9 12h4" /></symbol>
+    </svg>
+  )
+}
+
+export function Icon({ name, size = 16, className = '' }: { name: string; size?: number; className?: string }) {
+  return (
+    <svg className={`i ${className}`} style={size === 16 ? undefined : { width: size, height: size }} aria-hidden="true">
+      <use href={`#i-${name}`} />
+    </svg>
+  )
+}
+
+export function Wordmark({ collapsedLabel = false }: { collapsedLabel?: boolean }) {
+  return (
+    <span className="wm" aria-label="Mneme">
+      <svg aria-hidden="true"><use href="#mark" /></svg>
+      <span className={collapsedLabel ? 'lbl' : undefined}>neme</span>
+    </span>
+  )
+}

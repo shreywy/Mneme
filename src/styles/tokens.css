@@ -1,0 +1,49 @@
+/* Design tokens. "Paper" theme, light and dark. The accent is set at runtime from settings. */
+:root {
+  --serif: 'Newsreader', Georgia, serif;
+  --sans: 'Hanken Grotesk', system-ui, sans-serif;
+  --r: 10px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+
+  --bg: #F3F0E8;
+  --surface: #FBFAF6;
+  --surface2: #ECE8DD;
+  --ink: #1C1B18;
+  --muted: #6B675D;
+  --line: #DCD6C8;
+  --accent: #4F6B3A;
+  --accent-ink: #FBFAF6;
+  --good: #3F6B3A;
+  --good-bg: #E4EDDF;
+  --bad: #A8402A;
+  --bad-bg: #F5E4DE;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .08);
+  --scrim: rgba(20, 18, 14, .28);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #171613;
+  --surface: #1F1E1A;
+  --surface2: #29271F;
+  --ink: #ECE7DC;
+  --muted: #9C968A;
+  --line: #34322B;
+  --accent-ink: #171613;
+  --good: #9CC58A;
+  --good-bg: rgba(156, 197, 138, .09);
+  --bad: #E58B74;
+  --bad-bg: rgba(229, 139, 116, .09);
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --scrim: rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+:root {
+  --seg1: var(--line);
+  --seg2: color-mix(in oklab, var(--accent) 35%, var(--surface));
+  --seg3: color-mix(in oklab, var(--accent) 65%, var(--surface));
+  --seg4: var(--accent);
+  --pencil-line: var(--bg);
+}
