@@ -11,6 +11,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [x] Sign-in by emailed link or code, account dialog, sync status in the sidebar
 - [x] Local-first sync: Dexie hooks queue changes, push/pull by `updated_at` cursor, Realtime nudges, tombstones for deletes, settings synced last-write-wins
 - [x] GitHub sign-in (OAuth app → Supabase callback)
+- [x] Google sign-in (Google Cloud OAuth client → Supabase callback)
 - [x] Email sender: Gmail SMTP (mneme.auth@gmail.com, set in the dashboard), styled 6-digit code email, PKCE auth flow
 - [x] Keep-alive: a GitHub Action calls `keepalive()` twice a week so the free project doesn't pause
 - [x] Guest decks and progress move into the account on first sign-in; signing out removes this device's copy
@@ -41,7 +42,6 @@ Shrey wants drafts of the bigger designs (text notes especially) before they're 
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
-- [ ] Google sign-in: create a Google Cloud OAuth client with the same Supabase callback URL
 - [ ] **Account becomes its own page** (sign-in included), not a pop-up
 - [ ] **Account menu** (on that page, separate from Settings: Settings is preferences, Account is identity and the destructive actions):
   - [ ] Change username
