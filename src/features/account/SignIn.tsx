@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sheet } from '../../ui/controls'
-import { Icon } from '../../ui/Icons'
 import { toast } from '../../ui/toasts'
-import { confirmAction } from '../../ui/confirm'
-import { relTime } from '../../data/stats'
-import { oauthProviders, sendSignInEmail, signInWithProvider, signOut, type OAuthProvider, syncNow, unsyncedCount, useAccount, verifyCode } from '../../sync/account'
+import { oauthProviders, sendSignInEmail, signInWithProvider, type OAuthProvider, verifyCode } from '../../sync/account'
 
-const STATUS: Record<string, string> = { off: 'Not syncing', syncing: 'Syncing…', synced: 'Synced', offline: 'Offline. Changes will sync when you reconnect.', error: "Couldn't sync. Mneme will keep trying." }
+export const STATUS: Record<string, string> = { off: 'Not syncing', syncing: 'Syncing…', synced: 'Synced', offline: 'Offline. Changes will sync when you reconnect.', error: "Couldn't sync. Mneme will keep trying." }
 
 const PROVIDERS: Record<OAuthProvider, { name: string; icon: React.ReactNode }> = {
   github: { name: 'GitHub', icon: <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg> },
@@ -23,16 +19,8 @@ const PROVIDERS: Record<OAuthProvider, { name: string; icon: React.ReactNode }> 
   },
 }
 
-export function AccountDialog({ onClose }: { onClose: () => void }) {
-  const { user } = useAccount()
-  return (
-    <Sheet onClose={onClose} label="Account" width={460} top>
-      {user ? <SignedIn onClose={onClose} /> : <SignIn />}
-    </Sheet>
-  )
-}
-
-function SignIn() {
+/** Sign in with an OAuth provider, or by a 6-digit code sent to an email address. */
+export function SignIn() {
   const [email, setEmail] = useState(() => localStorage.getItem('mneme.lastEmail') ?? '')
   const [stage, setStage] = useState<'email' | 'code'>('email')
   const [code, setCode] = useState('')
@@ -68,7 +56,7 @@ function SignIn() {
 
   return (
     <>
-      <h2>{stage === 'email' ? 'Sign in to sync' : 'Check your email'}</h2>
+      <h2 className="acct-h">{stage === 'email' ? 'Sign in to sync' : 'Check your email'}</h2>
       {stage === 'email' ? (
         <>
           <p className="lede">Your decks, notes, progress and settings follow you to every device.</p>
@@ -109,35 +97,7 @@ function SignIn() {
   )
 }
 
-function SignedIn({ onClose }: { onClose: () => void }) {
-  const { user, status, lastSync, error } = useAccount()
-  const [, tick] = useState(0)
-  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 5000); return () => clearInterval(t) }, [])
-  return (
-    <>
-      <h2>Account</h2>
-      <p className="lede">{user?.email}</p>
-      <div className="srow"><div className="l"><b>Sync</b><span>{STATUS[status]}{status === 'synced' && lastSync ? ` · ${relTime(lastSync)}` : ''}</span></div>
-        <span className={`syncdot ${status}`} aria-hidden="true" />
-      </div>
-      {error && status === 'error' && <p className="err" style={{ fontSize: 12 }}>{error}</p>}
-      <div className="actions">
-        <button className="btn ghost danger" onClick={async () => {
-          const n = unsyncedCount()
-          if (!await confirmAction({
-            title: 'Sign out?',
-            body: `Your decks stay in your account, and this device's copy is removed.${n ? ` ${n} change${n === 1 ? '' : 's'} haven't synced yet; Mneme will try to upload them first.` : ''}`,
-            confirm: 'Sign out', danger: true,
-          })) return
-          await signOut(); onClose(); toast('Signed out')
-        }}><Icon name="x" />Sign out</button>
-        <button className="btn primary" onClick={() => syncNow()} disabled={status === 'syncing'}><Icon name="reset" />Sync now</button>
-      </div>
-    </>
-  )
-}
-
-function friendly(e: unknown): string {
+export function friendly(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e)
   if (/error sending/i.test(m)) return "Couldn't send the email just now. Try again in a minute, or use another way to sign in."
   if (/rate limit|too many/i.test(m)) return 'Too many emails in a short time. Wait a minute and try again.'

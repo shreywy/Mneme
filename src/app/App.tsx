@@ -6,6 +6,7 @@ import { ArchivePage, LibraryPage } from '../features/library/LibraryPage'
 import { DeckPage } from '../features/deck/DeckPage'
 import { LearnPage } from '../features/learn/LearnPage'
 import { FlashcardsPage } from '../features/flashcards/FlashcardsPage'
+import { AccountPage } from '../features/account/AccountPage'
 import { TestPage } from '../features/test/TestPage'
 import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
@@ -22,6 +23,7 @@ export function App() {
           <Route path="deck/:deckId" element={<DeckPage />} />
           <Route path="notes" element={<NotesPage />} />
           <Route path="archive" element={<ArchivePage />} />
+          <Route path="account" element={<AccountPage />} />
           <Route path="*" element={<LibraryPage />} />
         </Route>
         <Route path="deck/:deckId/learn" element={<LearnPage />} />

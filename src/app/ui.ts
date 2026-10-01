@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type Dialog = null | 'import' | 'prompt' | 'settings' | 'account'
+type Dialog = null | 'import' | 'prompt' | 'settings'
 type UI = {
   dialog: Dialog
   focus: boolean

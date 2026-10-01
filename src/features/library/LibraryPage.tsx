@@ -237,7 +237,7 @@ function Empty() {
             ? status === 'syncing' && !lastSync
               ? 'Bringing in the decks from your account…'
               : `Signed in as ${displayName(user)}. Decks you add here show up on your other devices.`
-            : <>You're in guest mode. Decks and progress stay in this browser.{accountsEnabled && <> <button className="linkbtn" style={{ fontSize: 'inherit', marginTop: 0 }} onClick={() => open('account')}>Sign in</button> to use them on your other devices.</>}</>}
+            : <>You're in guest mode. Decks and progress stay in this browser.{accountsEnabled && <> <Link className="linkbtn" style={{ fontSize: 'inherit' }} to="/account">Sign in</Link> to use them on your other devices.</>}</>}
         </p>
       </div>
     </div>

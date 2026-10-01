@@ -72,5 +72,92 @@ begin
   if t is distinct from 'B secret' then raise exception 'FAIL: B''s deck was changed to %', t; end if;
 end $$;
 
+-- ---------- profiles ----------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
+insert into public.profiles (username) values ('Bee');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.profiles;
+  if n <> 0 then raise exception 'FAIL: A can read B''s profile'; end if;
+
+  update public.profiles set username = 'pwned' where id = '00000000-0000-4000-8000-00000000000b';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A renamed B'; end if;
+
+  begin
+    insert into public.profiles (id, username) values ('00000000-0000-4000-8000-00000000000b', 'forged');
+    raise exception 'FAIL: A created a profile for B';
+  exception when insufficient_privilege or unique_violation then null; -- expected
+  end;
+
+  if public.username_available('bee') then raise exception 'FAIL: "bee" shows as free though B is "Bee"'; end if;
+
+  begin
+    insert into public.profiles (username) values ('BEE');
+    raise exception 'FAIL: usernames are not case-insensitively unique';
+  exception when unique_violation then null; -- expected
+  end;
+
+  begin
+    insert into public.profiles (username) values ('a b!');
+    raise exception 'FAIL: a username with spaces was accepted';
+  exception when check_violation then null; -- expected
+  end;
+
+  insert into public.profiles (username) values ('Aye');
+end $$;
+
+-- ---------- account deletion needs a fresh emailed code ----------
+-- B's session without an OTP sign-in in the last 10 minutes: refused.
+select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
+  'amr', json_build_array(json_build_object('method', 'oauth', 'timestamp', extract(epoch from now())::bigint)))::text, true);
+do $$
+begin
+  perform public.delete_my_account();
+  raise exception 'FAIL: deleted an account without a fresh code';
+exception when insufficient_privilege then null; -- expected
+end $$;
+
+-- An OTP from an hour ago doesn't count either.
+select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
+  'amr', json_build_array(json_build_object('method', 'otp', 'timestamp', extract(epoch from now())::bigint - 3600)))::text, true);
+do $$
+begin
+  perform public.delete_my_account();
+  raise exception 'FAIL: an hour-old code was accepted';
+exception when insufficient_privilege then null; -- expected
+end $$;
+
+-- recently_verified() accepts a fresh emailed-code login however Supabase labels it.
+select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000a', 'role', 'authenticated',
+  'amr', json_build_array(json_build_object('method', 'magiclink', 'timestamp', extract(epoch from now())::bigint)))::text, true);
+do $$ begin if not public.recently_verified() then raise exception 'FAIL: a fresh magiclink login was not accepted'; end if; end $$;
+select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000a', 'role', 'authenticated',
+  'amr', json_build_array(json_build_object('method', 'password', 'timestamp', extract(epoch from now())::bigint)))::text, true);
+do $$ begin if public.recently_verified() then raise exception 'FAIL: a password login counted as an emailed code'; end if; end $$;
+
+-- A fresh code: B is deleted, and every row B owned goes with it. A is untouched.
+select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
+  'amr', json_build_array(json_build_object('method', 'otp', 'timestamp', extract(epoch from now())::bigint)))::text, true);
+select public.delete_my_account();
+
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from auth.users where id = '00000000-0000-4000-8000-00000000000b';
+  if n <> 0 then raise exception 'FAIL: B still exists'; end if;
+  select count(*) into n from public.decks where user_id = '00000000-0000-4000-8000-00000000000b';
+  if n <> 0 then raise exception 'FAIL: B''s decks survived deletion'; end if;
+  select count(*) into n from public.profiles where id = '00000000-0000-4000-8000-00000000000b';
+  if n <> 0 then raise exception 'FAIL: B''s profile survived deletion'; end if;
+  select count(*) into n from public.profiles where id = '00000000-0000-4000-8000-00000000000a';
+  if n <> 1 then raise exception 'FAIL: A''s profile was affected'; end if;
+end $$;
+
 select 'RLS tests passed' as result;
 rollback;

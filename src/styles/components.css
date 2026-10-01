@@ -320,3 +320,59 @@ a.drow:hover { background: var(--surface2); }
 .code-links { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .code-links .linkbtn { margin-top: 0; }
 .code-links .linkbtn:disabled { color: var(--muted); cursor: default; }
+
+.avatar-wrap { position: relative; display: inline-flex; flex: none; }
+.avatar-wrap .syncdot { position: absolute; right: -2px; bottom: -2px; border: 2px solid var(--bg); width: 10px; height: 10px; }
+.avatar.img { overflow: hidden; padding: 0; border: 0; }
+.avatar.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar svg.i { stroke-width: 2; }
+
+/* ---------- account page ---------- */
+.account-page { max-width: 720px; }
+.account-page .acct-email { margin-top: 6px; font-size: 13.5px; }
+.acard { margin-top: 18px; padding: 20px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.account-page > .acard:first-child { margin-top: 0; }
+.acard h2, .acct-h { font-family: var(--serif); font-weight: 500; font-size: 22px; }
+.acard .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.acard .srow:first-of-type { margin-top: 10px; }
+.pc-top { display: flex; align-items: flex-start; gap: 18px; }
+.pc-top > .avatar { margin-top: 4px; transition: background-color .2s, transform .2s var(--spring); }
+.name-state { font-size: 12px; color: var(--muted); min-height: 1.2em; }
+.name-state.free { color: var(--good); }
+.name-state.taken, .name-state.invalid { color: var(--bad); }
+.pc-pick { display: grid; gap: 14px; margin-top: 18px; justify-items: start; }
+.icon-grid { display: grid; grid-template-columns: repeat(6, 40px); gap: 8px; }
+.icon-grid button { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); transition: background-color .15s, color .15s, transform .15s var(--spring); }
+.icon-grid button:hover { color: var(--ink); transform: scale(1.06); }
+.icon-grid button.on { border-color: transparent; }
+.mchip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 99px; background: var(--surface2); font-size: 12.5px; }
+.danger-zone { border-color: color-mix(in oklab, var(--bad) 35%, var(--line)); }
+.danger-zone h2 { color: var(--bad); }
+.acct-foot { display: flex; justify-content: flex-end; margin-top: 18px; }
+
+/* step dots in the clear/delete dialog */
+.steps { display: flex; gap: 18px; margin: 14px 0 4px; list-style: none; padding: 0; font-size: 12.5px; color: var(--muted); counter-reset: step; }
+.steps li { display: flex; align-items: center; gap: 6px; counter-increment: step; }
+.steps li::before { content: counter(step); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; border: 1px solid var(--line); }
+.steps li.on { color: var(--ink); font-weight: 500; }
+.steps li.on::before { background: var(--bad); border-color: var(--bad); color: #fff; }
+.steps li.done::before { content: '✓'; background: var(--surface2); }
+
+/* slide to confirm */
+.slide { position: relative; height: 52px; border-radius: 99px; background: var(--bad-bg); border: 1px solid color-mix(in oklab, var(--bad) 30%, transparent); overflow: hidden; user-select: none; touch-action: none; }
+.slide-fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in oklab, var(--bad) 22%, transparent); border-radius: 99px; transition: width .3s var(--spring); }
+.slide-label { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; font-weight: 500; color: var(--bad); pointer-events: none; padding-left: 40px; }
+.slide-handle { position: absolute; top: 3px; left: 4px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--bad); color: #fff; cursor: grab; transition: transform .3s var(--spring), opacity .15s; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.slide-handle:active { cursor: grabbing; }
+.slide-handle svg.i { width: 20px; height: 20px; stroke-width: 2.2; }
+.slide-handle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.slide.disabled { opacity: .45; }
+.slide.disabled .slide-handle { cursor: not-allowed; }
+.slide.done .slide-label { opacity: 0 !important; }
+
+@media (max-width: 760px) {
+  .acard { padding: 18px 16px; }
+  .icon-grid { grid-template-columns: repeat(6, 1fr); width: 100%; }
+  .icon-grid button { width: auto; aspect-ratio: 1; }
+  .acard .actions .btn { flex: 1; }
+}

@@ -8,6 +8,8 @@ import { Icon, Wordmark } from '../ui/Icons'
 import { isTyping, useUI } from './ui'
 import { Collapse } from '../ui/motion'
 import { accountsEnabled, displayName, useAccount } from '../sync/account'
+import { useProfile } from '../sync/profile'
+import { Avatar } from '../ui/Avatar'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -61,7 +63,7 @@ export function Shell() {
           </nav>
           <FolderTree />
           <div className="foot">
-            <AccountButton onOpen={() => open('account')} />
+            <AccountButton />
             <button className="iconbtn" onClick={() => open('settings')} title="Settings" aria-label="Settings"><Icon name="gear" /></button>
           </div>
         </aside>
@@ -152,15 +154,21 @@ export function TopBar({ crumbs, children }: { crumbs: ReactNode; children?: Rea
   )
 }
 
-function AccountButton({ onOpen }: { onOpen: () => void }) {
+function AccountButton() {
   const { user, status } = useAccount()
+  const profile = useProfile((p) => p.profile)
+  const nav = useNavigate()
+  const setDrawer = useUI((s) => s.setDrawer)
   if (!accountsEnabled) {
     return <><span className="avatar" title="Guest mode: everything is saved in this browser">G</span><span className="who lbl">Guest</span></>
   }
-  const name = user ? displayName(user) : 'Guest'
+  const name = user ? profile?.username ?? displayName(user) : 'Guest'
   return (
-    <button className="acct" onClick={onOpen} title={user ? `${user.email ?? name} · ${status}` : 'Sign in to sync across devices'}>
-      <span className="avatar">{user ? name[0].toUpperCase() : 'G'}{user && <span className={`syncdot ${status}`} />}</span>
+    <button className="acct" onClick={() => { setDrawer(false); nav('/account') }} title={user ? `${name} · ${status}` : 'Sign in to sync across devices'}>
+      <span className="avatar-wrap">
+        {user ? <Avatar avatar={profile?.avatar} name={name} /> : <span className="avatar">G</span>}
+        {user && <span className={`syncdot ${status}`} />}
+      </span>
       <span className="who lbl">{user ? name : <>Guest <span className="signin">Sign in</span></>}</span>
     </button>
   )

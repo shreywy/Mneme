@@ -4,6 +4,7 @@ import { db } from '../data/db'
 import { useSettings } from '../settings/store'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, setOnDirty, SPECS } from './engine'
 import { enabledProviders, supabase, supabaseRemote } from './supabase'
+import { forgetProfile, loadProfile, removeAvatars } from './profile'
 
 export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error'
 type Account = { ready: boolean; user: User | null; status: SyncStatus; lastSync: number | null; error: string | null }
@@ -68,6 +69,7 @@ async function start(user: User) {
     localStorage.setItem(OWNER_KEY, user.id)
   }
   setOnDirty(schedulePush)
+  loadProfile().catch(() => { /* shown from cache; retried on the account page */ })
   await syncNow()
   subscribe(user.id)
   interval = setInterval(() => { void syncNow() }, 60_000)
@@ -171,7 +173,7 @@ export const oauthProviders = () => (providers ??= enabledProviders())
 /** Leaves the page for the provider; Supabase sends the user back here signed in. */
 export async function signInWithProvider(provider: OAuthProvider) {
   if (!supabase) throw new Error('Accounts are not set up in this build.')
-  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin } })
+  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/account` } })
   if (error) throw error
 }
 
@@ -185,12 +187,53 @@ export async function verifyCode(email: string, token: string) {
 export async function signOut() {
   if (!supabase) return
   await syncNow(false).catch(() => {})
+  await forgetLocally('global')
+}
+
+async function forgetLocally(scope: 'global' | 'local') {
   stop()
-  await supabase.auth.signOut()
+  await supabase?.auth.signOut({ scope }).catch(() => { /* the session may already be gone */ })
   currentId = null
   await wipeLocal()
   localStorage.removeItem(OWNER_KEY)
+  forgetProfile()
   set({ user: null, status: 'off', lastSync: null })
+}
+
+// ---------- confirming destructive actions with an emailed code ----------
+// Entering the code signs this device in again, which stamps the session with a fresh "otp" method.
+// The server's delete function checks for that stamp, so the code is a real check, not just a screen.
+
+export async function sendConfirmCode() {
+  const email = useAccount.getState().user?.email
+  if (!email) throw new Error('This account has no email address to send a code to.')
+  await sendSignInEmail(email)
+  return email
+}
+
+export async function confirmWithCode(code: string) {
+  const email = useAccount.getState().user?.email
+  if (!email) throw new Error('This account has no email address.')
+  await verifyCode(email, code)
+}
+
+/** Delete every deck and its progress, everywhere. Goes through sync as ordinary deletions. Folders and notes stay. */
+export async function clearAllDecks(): Promise<number> {
+  const n = await db.decks.count()
+  await db.transaction('rw', [db.decks, db.items, db.cards, db.records, db.reviews, db.links], async () => {
+    for (const t of [db.items, db.cards, db.records, db.reviews, db.links, db.decks] as const) await (t as typeof db.decks).toCollection().delete()
+  })
+  await syncNow(false)
+  return n
+}
+
+/** Permanently delete the account and everything in it, then clear this device. */
+export async function deleteAccount() {
+  if (!supabase) return
+  await removeAvatars()
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) throw new Error(error.code === '42501' ? 'Confirm with the emailed code again; it has expired.' : error.message)
+  await forgetLocally('local')
 }
 
 export const unsyncedCount = pendingCount

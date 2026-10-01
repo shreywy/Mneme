@@ -3,6 +3,7 @@
 This is the single to-do list. Anything agreed in conversation and not built yet goes here. Tick items off as they ship. The full design is in [the spec](superpowers/specs/2026-09-30-mneme-design.md).
 
 ## Done
+- [x] Account page at /account (replaces the pop-up): profile with username and picture (letter or icon on a colour, or an uploaded photo shrunk to ~20 KB in a private-write storage bucket), first-sign-in setup, sync status with Sync now, linked sign-in methods, sign out. Danger zone: clear all decks (emailed code, slide) and delete account (backup offer, emailed code, typed phrase, slide). The server's `delete_my_account()` refuses unless the session came from an emailed code in the last 10 minutes; RLS tests cover profiles, username uniqueness and deletion.
 - [x] Theme polish: light styles (Paper, Sand, Off-white, Light grey, White) shown only in light mode and dark styles only in dark; in-site colour picker (system picker on phones); custom accent; themed thin scrollbars; Settings grouped into collapsible sections; settings sync no longer compares device and server clocks (fixed a custom background coming back)
 - [x] Mobile pass 1: sign-in pinned to the top so the keyboard can't cover it, bigger buttons, autofilled email works, simpler code screen; settings rows laid out one way; flashcards don't scroll the page, text always centred, options behind a cog, "Tap" wording on touch screens
 - [x] Themes: Black, Grey and Blurple grey dark styles next to Paper, and a custom background colour that sets light or dark text from its brightness (synced with the account)
@@ -27,28 +28,21 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - Sandboxed HTML demos on cards and in notes (opaque origin, no network; verified: storage, IndexedDB, the parent DOM and fetch are all blocked)
 
 ## Order of work (agreed 2026-10-01)
-1. **End-to-end pass** of sign-in and sync on mnemee.pages.dev, phone and PC, fixing whatever breaks (planned for 2026-10-02)
-2. **Account page and menu** (below)
+1. ~~**Account page and menu**~~ done 2026-10-01
+2. **End-to-end pass** of sign-in, sync and the account page on mnemee.pages.dev, phone and PC, fixing whatever breaks
 3. **Notes** (imported, LLM-generated notes pages)
 4. **Text notes** (the user's own writing pages)
 5. **AI** (Gemini, bring your own key)
 6. **Preview site, GitHub polish, v1 release**
 7. **Offline desktop app** (much later)
 
-Shrey wants drafts of the bigger designs (text notes especially) before they're built. Small single-feature asks (themes, tweaks) don't wait for their step: build them straight away.
+**Notes and Text notes each start with a preview (mock-ups) and a written design for Shrey to approve**, like a spec; only after approval do we build them and write their prompts. Small single-feature asks (themes, tweaks) don't wait for their step: build them straight away.
 
 ## Next up
 - [ ] **Notes as a page type, not a tab:** importing gives you a *page*, which is either a deck or notes. Remove the Notes tab from the sidebar; notes pages live in folders next to decks. Then: notes page (renderer is built), notes import, notes options in the prompt builder, deck↔notes linking on both pages, course units in the sidebar
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
-- [ ] **Account becomes its own page** (sign-in included), not a pop-up
-- [ ] **Account menu** (on that page, separate from Settings: Settings is preferences, Account is identity and the destructive actions):
-  - [ ] Change username
-  - [ ] Profile picture: preset icons, colours, letters, or an uploaded image (set on first sign-in too, with a few settings)
-  - [ ] Sync now (force a sync), with last-synced time and pending changes
-  - [ ] Clear all decks: needs an emailed code
-  - [ ] Delete account and all data: needs an emailed code, typing a confirmation phrase, then a slide-to-delete. Needs a server function to remove the auth user (an RPC with `security definer`, or an Edge Function), plus a download-everything offer first
 - [ ] Storage clean-up near the free 500 MB limit. A 200-question deck is about 250 KB, so roughly 2,000 decks fit. Watch total database size (not a deck count; reviews and progress grow too). At about 75% (~1,500 decks' worth), ask each user about decks they haven't opened in a long time: "You haven't used this deck in N months. Delete it?", with a download button first. Never delete without a yes.
 - [ ] Sync a deck's notes links and course units once the Notes pages exist (tables are already in place)
 
