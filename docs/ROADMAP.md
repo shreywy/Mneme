@@ -19,6 +19,10 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
+- [ ] Free email sender (custom SMTP) so sign-in codes reach other people. Supabase's built-in email only reaches project members, at 2 per hour. Option: a Gmail account with an app password (about 500 a day, no domain needed), set in Supabase → Authentication → SMTP. **It also unlocks the styled sign-in code email** (`supabase/templates/code.html`): the free tier blocks custom templates on the built-in sender. Uncomment the template block in `supabase/config.toml`, then run `npx supabase config push`.
+- [ ] GitHub sign-in: create the OAuth app with Supabase's callback URL, once the site is hosted
+- [ ] Google sign-in: create a Google Cloud OAuth client, once the site is hosted
+- [ ] Supabase Authentication → URL Configuration: the site URL and redirect URLs for the pages.dev address
 - [ ] Supabase project, migrations committed, typed client
 - [ ] Sign in with GitHub and Google (OAuth with PKCE)
 - [ ] Supabase repository with the same interface as the local one, plus a sync queue

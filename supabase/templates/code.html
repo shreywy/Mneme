@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Your Mneme code</title>
+</head>
+<body style="margin:0;padding:0;background:#F3F0E8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F0E8;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;">
+          <tr>
+            <td style="padding:0 4px 18px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:#1C1B18;letter-spacing:-0.3px;">
+              Mneme
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#FBFAF6;border:1px solid #DCD6C8;border-radius:12px;padding:32px 30px;">
+              <p style="margin:0 0 6px;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.3;color:#1C1B18;">
+                Here's your sign-in code
+              </p>
+              <p style="margin:0 0 24px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#6B675D;">
+                Type it into Mneme to finish signing in. It works for 10 minutes.
+              </p>
+              <p style="margin:0 0 24px;padding:16px 0;text-align:center;background:#ECE8DD;border-radius:9px;font-family:'SF Mono',Consolas,Menlo,monospace;font-size:32px;letter-spacing:10px;color:#1C1B18;font-weight:600;">
+                {{ .Token }}
+              </p>
+              <p style="margin:0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.55;color:#6B675D;">
+                If you didn't ask for this, you can ignore this email. Nobody can sign in without the code.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 4px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#8A857A;">
+              Sent to {{ .Email }} because someone tried to sign in to Mneme with this address.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
