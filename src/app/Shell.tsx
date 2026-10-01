@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../data/db'
-import { createFolder } from '../data/repo'
+import type { Folder } from '../data/db'
+import { createFolder, descendants, listArchive, listLibrary } from '../data/repo'
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
 import { isTyping, useUI } from './ui'
@@ -70,49 +70,66 @@ export function Shell() {
 }
 
 function FolderTree() {
-  const data = useLiveQuery(async () => ({ folders: await db.folders.orderBy('position').toArray(), decks: await db.decks.orderBy('title').toArray() }), [])
+  const data = useLiveQuery(async () => ({ ...(await listLibrary()), archived: (await listArchive()) }), [])
   const loc = useLocation()
   const nav = useNavigate()
-  const [adding, setAdding] = useState(false)
-  const [name, setName] = useState('')
+  const { openFolders, set } = useSettings()
   if (!data) return <div className="tree" />
-  const add = async () => {
-    const n = name.trim()
-    setAdding(false); setName('')
-    if (n) nav(`/folder/${await createFolder(n)}`)
+  const { folders, decks } = data
+  const archivedCount = data.archived.folders.length + data.archived.decks.length
+  // Keep the path to the open deck or folder expanded.
+  const activeDeck = decks.find((d) => loc.pathname.startsWith(`/deck/${d.id}`))
+  const activeFolder = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : activeDeck?.folderId
+  const forced = new Set<string>()
+  for (let f = folders.find((x) => x.id === activeFolder); f; f = folders.find((x) => x.id === f!.parentId)) forced.add(f.id)
+  const isOpen = (id: string) => openFolders.includes(id) || forced.has(id)
+  const toggle = (id: string) => set({ openFolders: openFolders.includes(id) ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
+  const count = (id: string) => { const ids = descendants(folders, id); return decks.filter((d) => d.folderId && ids.has(d.folderId)).length }
+
+  const Node = ({ f, depth }: { f: Folder; depth: number }) => {
+    const kids = folders.filter((x) => x.parentId === f.id).sort(byName)
+    const ds = decks.filter((d) => d.folderId === f.id).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
+    const open = isOpen(f.id)
+    return (
+      <div className="tnode">
+        <div className={`trow ${loc.pathname === `/folder/${f.id}` ? 'active' : ''}`} style={{ paddingLeft: 4 + depth * 14 }}>
+          <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'} disabled={!kids.length && !ds.length}>
+            <Icon name="down2" size={14} />
+          </button>
+          <Link to={`/folder/${f.id}`}><Icon name="folder" /><span className="t">{f.name}</span><span className="n">{count(f.id)}</span></Link>
+        </div>
+        {open && (
+          <>
+            {kids.map((k) => <Node key={k.id} f={k} depth={depth + 1} />)}
+            {ds.map((d) => (
+              <Link key={d.id} to={`/deck/${d.id}`} className={`tdeck ${loc.pathname.startsWith(`/deck/${d.id}`) ? 'active' : ''}`} style={{ paddingLeft: 30 + depth * 14 }}>
+                <span className="t">{d.title}</span>
+              </Link>
+            ))}
+          </>
+        )}
+      </div>
+    )
   }
-  const loose = data.decks.filter((d) => !d.folderId)
+  const loose = decks.filter((d) => !d.folderId)
   return (
     <>
-      <div className="sec">Folders<button onClick={() => setAdding(true)} title="New folder" aria-label="New folder">+</button></div>
+      <div className="sec">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
       <div className="tree">
-        {adding && (
-          <div style={{ padding: '2px 4px 6px' }}>
-            <input className="input" autoFocus placeholder="Folder name" value={name} style={{ height: 30 }}
-              onChange={(e) => setName(e.target.value)} onBlur={add}
-              onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setAdding(false); setName('') } }} />
-          </div>
+        {folders.length === 0 && loose.length === 0 && <div className="empty">Imported decks show up here, grouped by course.</div>}
+        {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
+        {loose.map((d) => (
+          <Link key={d.id} to={`/deck/${d.id}`} className={`tdeck ${loc.pathname.startsWith(`/deck/${d.id}`) ? 'active' : ''}`} style={{ paddingLeft: 12 }}><span className="t">{d.title}</span></Link>
+        ))}
+        {archivedCount > 0 && (
+          <Link to="/archive" className={`tdeck archive-link ${loc.pathname === '/archive' ? 'active' : ''}`} style={{ paddingLeft: 10 }}>
+            <Icon name="archive" /><span className="t">Archive</span><span className="n">{archivedCount}</span>
+          </Link>
         )}
-        {data.folders.length === 0 && loose.length === 0 && !adding && <div className="empty">Imported decks show up here, grouped by course.</div>}
-        {data.folders.map((f) => {
-          const decks = data.decks.filter((d) => d.folderId === f.id)
-          return (
-            <div key={f.id}>
-              <Link to={`/folder/${f.id}`} className={loc.pathname === `/folder/${f.id}` ? 'active' : ''}>
-                <Icon name="folder" /><span className="t">{f.name}</span><span className="n">{decks.length}</span>
-              </Link>
-              {decks.map((d) => <TreeDeck key={d.id} id={d.id} title={d.title} active={loc.pathname.startsWith(`/deck/${d.id}`)} />)}
-            </div>
-          )
-        })}
-        {loose.map((d) => <TreeDeck key={d.id} id={d.id} title={d.title} active={loc.pathname.startsWith(`/deck/${d.id}`)} loose />)}
       </div>
     </>
   )
-}
-
-function TreeDeck({ id, title, active, loose }: { id: string; title: string; active: boolean; loose?: boolean }) {
-  return <Link to={`/deck/${id}`} className={`${loose ? '' : 'sub'} ${active ? 'active' : ''}`}><span className="t">{title}</span></Link>
 }
 
 /** Top bar used by shell pages: breadcrumb on the left, actions on the right. */

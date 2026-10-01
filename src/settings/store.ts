@@ -25,7 +25,7 @@ type Settings = {
   learnPanel: boolean
   learnMatch: boolean
   hiddenHints: string[]
-  collapsedFolders: string[]
+  openFolders: string[]
   libraryView: 'grid' | 'list'
   librarySort: 'recent' | 'name' | 'progress'
   set: (patch: Partial<Omit<Settings, 'set'>>) => void
@@ -44,7 +44,7 @@ export const useSettings = create<Settings>()(
       learnPanel: false,
       learnMatch: true,
       hiddenHints: [],
-      collapsedFolders: [],
+      openFolders: [],
       libraryView: 'grid',
       librarySort: 'recent',
       set: (patch) => set(patch),

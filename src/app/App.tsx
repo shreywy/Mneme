@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import { IconSprite } from '../ui/Icons'
 import { Toasts } from '../ui/toasts'
 import { Shell } from './Shell'
-import { LibraryPage } from '../features/library/LibraryPage'
+import { ArchivePage, LibraryPage } from '../features/library/LibraryPage'
 import { DeckPage } from '../features/deck/DeckPage'
 import { LearnPage } from '../features/learn/LearnPage'
 import { FlashcardsPage } from '../features/flashcards/FlashcardsPage'
@@ -21,6 +21,7 @@ export function App() {
           <Route path="folder/:folderId" element={<LibraryPage />} />
           <Route path="deck/:deckId" element={<DeckPage />} />
           <Route path="notes" element={<NotesPage />} />
+          <Route path="archive" element={<ArchivePage />} />
           <Route path="*" element={<LibraryPage />} />
         </Route>
         <Route path="deck/:deckId/learn" element={<LearnPage />} />
