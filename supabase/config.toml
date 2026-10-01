@@ -244,15 +244,16 @@ otp_expiry = 600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Styled sign-in code email. Supabase only allows custom templates once a custom SMTP sender is set
-# (see docs/ROADMAP.md). After that, uncomment these and run `npx supabase config push`.
-# [auth.email.template.magic_link]
-# subject = "Your Mneme sign-in code"
-# content_path = "./supabase/templates/code.html"
-#
-# [auth.email.template.confirmation]
-# subject = "Your Mneme sign-in code"
-# content_path = "./supabase/templates/code.html"
+# Styled sign-in code email (needs the custom SMTP sender, which is set in the dashboard: its
+# password lives there, so [auth.email.smtp] stays undeclared here and `config push` leaves it alone).
+# magic_link is sent to existing users, confirmation to new ones; both carry only the 6-digit code.
+[auth.email.template.magic_link]
+subject = "Your Mneme sign-in code"
+content_path = "./supabase/templates/code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Mneme sign-in code"
+content_path = "./supabase/templates/code.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

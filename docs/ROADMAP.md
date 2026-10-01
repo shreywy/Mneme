@@ -8,6 +8,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [x] Sign-in by emailed link or code, account dialog, sync status in the sidebar
 - [x] Local-first sync: Dexie hooks queue changes, push/pull by `updated_at` cursor, Realtime nudges, tombstones for deletes, settings synced last-write-wins
 - [x] GitHub sign-in (OAuth app → Supabase callback)
+- [x] Email sender: Gmail SMTP (mneme.auth@gmail.com, set in the dashboard), styled 6-digit code email, PKCE auth flow
 - [x] Keep-alive: a GitHub Action calls `keepalive()` twice a week so the free project doesn't pause
 - [x] Guest decks and progress move into the account on first sign-in; signing out removes this device's copy
 - Guest mode with everything stored in the browser (IndexedDB)
@@ -26,10 +27,8 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
-- [ ] **Next, in order:** (1) the free email sender, (2) an end-to-end test pass of sign-in and sync on mnemee.pages.dev (two devices, phone included), fixing whatever breaks, (3) only then new features
-- [ ] Free email sender (custom SMTP) so sign-in codes reach other people. Supabase's built-in email only reaches project members, at 2 per hour. Option: a Gmail account with an app password (about 500 a day, no domain needed), set in Supabase → Authentication → SMTP. **It also unlocks the styled sign-in code email** (`supabase/templates/code.html`): the free tier blocks custom templates on the built-in sender. Uncomment the template block in `supabase/config.toml`, then run `npx supabase config push`.
+- [ ] **Next, in order:** (1) ~~the free email sender~~ done, (2) an end-to-end test pass of sign-in and sync on mnemee.pages.dev (two devices, phone included), fixing whatever breaks, (3) only then new features
 - [ ] Google sign-in: create a Google Cloud OAuth client with the same Supabase callback URL
-- [ ] Move to PKCE once sign-in is by code or OAuth only (emailed links need the implicit flow to work across devices)
 - [ ] Profile: username and avatar (preset icons, colours, letters, or an uploaded image), set on first sign-in along with a few settings
 - [ ] Storage clean-up near the free 500 MB limit. A 200-question deck is about 250 KB, so roughly 2,000 decks fit. Watch total database size (not a deck count; reviews and progress grow too). At about 75% (~1,500 decks' worth), ask each user about decks they haven't opened in a long time: "You haven't used this deck in N months. Delete it?", with a download button first. Never delete without a yes.
 - [ ] Sync a deck's notes links and course units once the Notes pages exist (tables are already in place)

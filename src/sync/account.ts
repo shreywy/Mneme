@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { db } from '../data/db'
 import { useSettings } from '../settings/store'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, setOnDirty, SPECS } from './engine'
-import { supabase, supabaseRemote } from './supabase'
+import { enabledProviders, supabase, supabaseRemote } from './supabase'
 
 export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error'
 type Account = { ready: boolean; user: User | null; status: SyncStatus; lastSync: number | null; error: string | null }
@@ -147,14 +147,18 @@ async function wipeLocal() {
 
 export async function sendSignInEmail(email: string) {
   if (!supabase) throw new Error('Accounts are not set up in this build.')
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin, shouldCreateUser: true } })
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
   if (error) throw error
 }
 
-/** Leaves the page for GitHub; Supabase sends the user back here signed in. */
-export async function signInWithGitHub() {
+export type OAuthProvider = 'github' | 'google'
+let providers: Promise<Record<string, boolean>> | null = null
+export const oauthProviders = () => (providers ??= enabledProviders())
+
+/** Leaves the page for the provider; Supabase sends the user back here signed in. */
+export async function signInWithProvider(provider: OAuthProvider) {
   if (!supabase) throw new Error('Accounts are not set up in this build.')
-  const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: location.origin } })
+  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin } })
   if (error) throw error
 }
 
@@ -180,6 +184,6 @@ export const unsyncedCount = pendingCount
 
 /** GitHub username when signed in with GitHub, otherwise the part of the email before the @. */
 export function displayName(user: User): string {
-  const m = user.user_metadata as { user_name?: string; preferred_username?: string } | undefined
-  return m?.user_name ?? m?.preferred_username ?? user.email?.split('@')[0] ?? 'You'
+  const m = user.user_metadata as { user_name?: string; preferred_username?: string; full_name?: string } | undefined
+  return m?.user_name ?? m?.preferred_username ?? m?.full_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'You'
 }

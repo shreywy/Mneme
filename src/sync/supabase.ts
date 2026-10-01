@@ -11,12 +11,20 @@ export const supabase: SupabaseClient | null = url && key
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      // Implicit flow so an emailed sign-in link works on any device (PKCE needs the same browser).
-      // Once the code email is live, sign-in uses the 6-digit code and this can move to PKCE.
-      flowType: 'implicit',
+      // Email sign-in is by 6-digit code, so the only redirect is OAuth, which returns to the same browser.
+      flowType: 'pkce',
     },
   })
   : null
+
+/** Which OAuth providers are switched on in the dashboard, so the sign-in dialog only shows those. */
+export async function enabledProviders(): Promise<Record<string, boolean>> {
+  if (!url || !key) return {}
+  try {
+    const r = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+    return r.ok ? ((await r.json()) as { external?: Record<string, boolean> }).external ?? {} : {}
+  } catch { return {} }
+}
 
 export function supabaseRemote(sb: SupabaseClient): Remote {
   return {
