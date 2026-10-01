@@ -21,6 +21,13 @@ type Settings = {
   correctSound: CorrectSound
   reduceMotion: boolean
   sidebar: 'full' | 'rail'
+  learnShuffle: boolean
+  learnPanel: boolean
+  learnMatch: boolean
+  hiddenHints: string[]
+  collapsedFolders: string[]
+  libraryView: 'grid' | 'list'
+  librarySort: 'recent' | 'name' | 'progress'
   set: (patch: Partial<Omit<Settings, 'set'>>) => void
 }
 
@@ -33,11 +40,23 @@ export const useSettings = create<Settings>()(
       correctSound: 'chime',
       reduceMotion: false,
       sidebar: 'full',
+      learnShuffle: true,
+      learnPanel: false,
+      learnMatch: true,
+      hiddenHints: [],
+      collapsedFolders: [],
+      libraryView: 'grid',
+      librarySort: 'recent',
       set: (patch) => set(patch),
     }),
     { name: 'mneme.settings' },
   ),
 )
+
+export const hideHint = (id: string) => {
+  const { hiddenHints, set } = useSettings.getState()
+  if (!hiddenHints.includes(id)) set({ hiddenHints: [...hiddenHints, id] })
+}
 
 /** Apply theme, accent and motion settings to <html>. Called on load and whenever settings change. */
 export function applySettings(s: Pick<Settings, 'theme' | 'accent' | 'reduceMotion'>) {

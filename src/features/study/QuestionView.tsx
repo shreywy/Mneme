@@ -173,7 +173,7 @@ function TextAnswer({ mode, response, revealed, grade, onRespond, answer, numeri
         <input ref={ref} className={`input ${cls}`} value={val} readOnly={revealed} inputMode={numeric ? 'decimal' : 'text'} autoComplete="off" spellCheck={false}
           placeholder={numeric ? 'Type a number' : 'Type your answer'}
           onChange={(e) => { setVal(e.target.value); if (mode === 'test') onRespond({ kind: 'text', value: e.target.value }, false) }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !revealed && mode === 'learn') { e.preventDefault(); e.stopPropagation(); if (val.trim()) submit(val) } }} />
+          onKeyDown={(e) => { if (e.key === 'Enter' && !revealed) { e.preventDefault(); e.stopPropagation(); if (val.trim()) submit(val) } }} />
         {unit && unit !== '$' && <span className="unit">{unit}</span>}
         {mode === 'learn' && !revealed && <button className="btn ghost" onClick={() => submit('')} title="Show the answer">Don't know</button>}
       </div>
@@ -208,7 +208,7 @@ function ClozeAnswer({ ex, mode, response, revealed, grade, onRespond, keyboard 
               <input ref={p === 0 ? first : undefined} value={vals[p]} readOnly={revealed} aria-label={`Blank ${p + 1}`} autoComplete="off" spellCheck={false}
                 className={revealed ? (grade?.blanks?.[p] ? 'good' : 'bad') : ''}
                 onChange={(e) => set(p, e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !revealed && mode === 'learn') { e.preventDefault(); e.stopPropagation(); onRespond({ kind: 'blanks', values: vals }, true) } }} />
+                onKeyDown={(e) => { if (e.key === 'Enter' && !revealed && (mode === 'learn' || vals.some((v) => v.trim()))) { e.preventDefault(); e.stopPropagation(); onRespond({ kind: 'blanks', values: vals }, true) } }} />
               {revealed && !grade?.blanks?.[p] && <span className="fix">{ex.cloze.blanks[p][0]}</span>}
             </span>
           ))}

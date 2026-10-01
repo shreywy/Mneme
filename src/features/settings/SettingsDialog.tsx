@@ -34,6 +34,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <div className="srow"><div className="l"><b>Reduce motion</b><span>Turns animations off</span></div>
         <Toggle on={s.reduceMotion} onChange={(reduceMotion) => s.set({ reduceMotion })} label="Reduce motion" />
       </div>
+      <div className="srow"><div className="l"><b>Hidden tips</b><span>{s.hiddenHints.length ? `${s.hiddenHints.length} tip${s.hiddenHints.length === 1 ? '' : 's'} hidden` : 'No tips hidden'}</span></div>
+        <button className="btn sm" disabled={!s.hiddenHints.length} onClick={() => { s.set({ hiddenHints: [] }); toast('Tips are back') }}>Show them again</button>
+      </div>
+      <div className="srow"><div className="l"><b>Match rounds in Learn</b><span>A quick matching round every few term cards</span></div>
+        <Toggle on={s.learnMatch} onChange={(learnMatch) => s.set({ learnMatch })} label="Match rounds in Learn" />
+      </div>
       <div className="srow"><div className="l"><b>Gemini API key</b><span>Optional. Unlocks the tutor and other AI tools in a later update.</span></div>
         <button className="btn sm" disabled>Coming soon</button>
       </div>

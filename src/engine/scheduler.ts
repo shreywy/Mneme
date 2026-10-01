@@ -4,7 +4,7 @@ import type { Rng } from './rng'
 export type PoolEntry = { key: string; mastery: Mastery; retrievability: number; order: number }
 export type Pick = { key: string; format: 'recall' | 'typed' }
 
-type Slot = { key: string; availableAt: number; consecutive: number; retry: boolean; startMastery: Mastery }
+type Slot = { key: string; availableAt: number; consecutive: number; retry: boolean; missed: boolean; startMastery: Mastery }
 
 const GRADUATE_AFTER = 2
 
@@ -30,12 +30,16 @@ export function studyOrder(items: { key: string; kind: string; topic: string }[]
 }
 
 /**
- * The endless Learn queue. Keeps a small working set, brings misses back 3–4 cards later,
- * pushes correct answers further out, and graduates an item after 2 right answers in a row.
- * Graduated items go to the back of the pool, so the session never runs out.
+ * The endless Learn queue.
+ * - A small working set holds cards in play.
+ * - A miss comes back 3–4 cards later and stays close until it's right twice in a row.
+ * - A card right on the first try steps aside and returns 12–25 cards later (typed, if it's a term).
+ * - Two right in a row sends a card 40–70 cards away.
+ * New cards keep flowing in, so the first few don't cycle. The session never runs out.
  */
 export class LearnSession {
   private queue: Slot[]
+  private waiting: (Slot & { returnAt: number })[] = []
   private working: Slot[] = []
   private history: string[] = []
   private t = 0
@@ -43,17 +47,19 @@ export class LearnSession {
   private readonly rng: Rng
   private readonly total: number
 
-  constructor(entries: PoolEntry[], opts: { workingSize?: number; rng?: Rng } = {}) {
-    this.size = opts.workingSize ?? 7
+  constructor(entries: PoolEntry[], opts: { workingSize?: number; rng?: Rng; shuffle?: boolean } = {}) {
+    this.size = opts.workingSize ?? 6
     this.rng = opts.rng ?? Math.random
     this.total = entries.length
     const rank = (e: PoolEntry) =>
       e.mastery === 'learning' ? 0
         : e.mastery !== 'new' && e.retrievability < 0.85 ? 1
           : e.mastery === 'new' ? 2 : 3
-    const sorted = [...entries].sort((a, b) =>
-      rank(a) - rank(b) || (rank(a) === 2 ? a.order - b.order : a.retrievability - b.retrievability) || a.order - b.order)
-    this.queue = sorted.map((e) => ({ key: e.key, availableAt: 0, consecutive: 0, retry: false, startMastery: e.mastery }))
+    const jitter = new Map(entries.map((e) => [e.key, this.rng()]))
+    const sorted = [...entries].sort((a, b) => rank(a) - rank(b)
+      || (rank(a) === 2 ? (opts.shuffle ? jitter.get(a.key)! - jitter.get(b.key)! : a.order - b.order) : a.retrievability - b.retrievability)
+      || a.order - b.order)
+    this.queue = sorted.map((e) => ({ key: e.key, availableAt: 0, consecutive: 0, retry: false, missed: false, startMastery: e.mastery }))
     this.refill()
   }
 
@@ -61,9 +67,15 @@ export class LearnSession {
   workingKeys() { return this.working.map((w) => w.key) }
 
   private refill() {
-    while (this.working.length < this.size && this.queue.length) {
-      const s = this.queue.shift()!
-      this.working.push({ ...s, availableAt: this.t, consecutive: 0, retry: false })
+    while (this.working.length < this.size) {
+      this.waiting.sort((a, b) => a.returnAt - b.returnAt)
+      let s: Slot | undefined
+      if (this.waiting.length && this.waiting[0].returnAt <= this.t) s = this.waiting.shift()
+      else if (this.queue.length) s = this.queue.shift()
+      else if (this.waiting.length) s = this.waiting.shift()
+      if (!s) break
+      const { returnAt: _r, ...slot } = s as Slot & { returnAt?: number }
+      this.working.push({ ...slot, availableAt: this.t })
     }
   }
 
@@ -86,23 +98,26 @@ export class LearnSession {
     return { key: pick.key, format: pick.retry ? 'recall' : format }
   }
 
+  private park(i: number, from: number, spread: number) {
+    const [w] = this.working.splice(i, 1)
+    this.waiting.push({ ...w, returnAt: this.t + from + Math.floor(this.rng() * spread) })
+  }
+
   record(key: string, correct: boolean) {
     const i = this.working.findIndex((w) => w.key === key)
     if (i === -1) return
     const w = this.working[i]
-    if (correct) {
-      w.consecutive++
-      w.retry = false
-      if (w.consecutive >= GRADUATE_AFTER) {
-        this.working.splice(i, 1)
-        this.queue.push({ ...w, startMastery: 'familiar' })
-      } else {
-        w.availableAt = this.t + 6 + Math.floor(this.rng() * 5)
-      }
-    } else {
+    if (!correct) {
       w.consecutive = 0
       w.retry = true
+      w.missed = true
       w.availableAt = this.t + 3 + Math.floor(this.rng() * 2)
+      return
     }
+    w.consecutive++
+    w.retry = false
+    if (w.consecutive >= GRADUATE_AFTER) { w.missed = false; w.startMastery = 'familiar'; this.park(i, 40, 31) }
+    else if (!w.missed) this.park(i, 12, 14)
+    else w.availableAt = this.t + 5 + Math.floor(this.rng() * 4)
   }
 }
