@@ -56,6 +56,11 @@ export function LearnPage() {
   const termsSinceMatch = useRef(0)
   const recentTerms = useRef<string[]>([])
   const cardN = useRef(0)
+  const [panelClosing, setPanelClosing] = useState(false)
+  const closePanel = () => {
+    setPanelClosing(true)
+    setTimeout(() => { setSettings({ learnPanel: false }); setPanelClosing(false) }, 210)
+  }
 
   // Load deck, states and build the session. Rebuilt when shuffle is toggled.
   useEffect(() => {
@@ -263,7 +268,7 @@ export function LearnPage() {
         )}
       </div>
 
-      {learnPanel && <StatsPanel stats={stats} m={m} total={total} best={best.current} started={started.current} byKey={data.byKey} onClose={() => setSettings({ learnPanel: false })} />}
+      {learnPanel && <StatsPanel stats={stats} m={m} total={total} best={best.current} started={started.current} byKey={data.byKey} closing={panelClosing} onClose={closePanel} />}
 
       <div className="dock"><div className="in">
         <div className="left" />
@@ -272,7 +277,7 @@ export function LearnPage() {
             <button className="ai" aria-disabled="true"><Icon name="spark" />Ask the tutor</button>
             <span className="tip">Add a free Gemini API key in Settings to use the tutor (coming soon)</span>
           </span>
-          <button className={`ai ${learnPanel ? 'on' : ''}`} onClick={() => setSettings({ learnPanel: !learnPanel })} aria-pressed={learnPanel}>
+          <button className={`ai ${learnPanel ? 'on' : ''}`} onClick={() => (learnPanel ? closePanel() : setSettings({ learnPanel: true }))} aria-pressed={learnPanel}>
             <Icon name="chart" />Session stats
           </button>
         </div>
@@ -291,15 +296,16 @@ function ContinueRow({ onNext, children }: { onNext: () => void; children?: Reac
   )
 }
 
-function StatsPanel({ stats, m, total, best, started, byKey, onClose }: {
-  stats: Stats; m: ReturnType<typeof countMastery>; total: number; best: number; started: number; byKey: Map<string, Item>; onClose: () => void
+function StatsPanel({ stats, m, total, best, started, byKey, closing, onClose }: {
+  stats: Stats; m: ReturnType<typeof countMastery>; total: number; best: number; started: number; byKey: Map<string, Item>; closing: boolean; onClose: () => void
 }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   const secs = Math.floor((now - started) / 1000)
   return (
-    <aside className="statspanel" aria-label="Session stats">
-      <div className="sp-head"><b>This session</b><button className="iconbtn" onClick={onClose} aria-label="Close stats"><Icon name="x" /></button></div>
+    <aside className={`statspanel ${closing ? 'closing' : ''}`} aria-label="Session stats">
+      <div className="sp-head"><b>This session</b><button className="iconbtn" onClick={onClose} aria-label="Close stats"><Icon name="down2" /></button></div>
+      <div className="sp-cols"><div>
       <div className="sp-grid">
         <div><span>Answered</span><b>{stats.answered}</b></div>
         <div><span>Right</span><b>{stats.correct}</b></div>
@@ -319,10 +325,12 @@ function StatsPanel({ stats, m, total, best, started, byKey, onClose }: {
         <div><span className="dot" style={{ background: 'var(--seg3)' }} />Familiar<b>{m.familiar}</b></div>
         <div><span className="dot" style={{ background: 'var(--seg4)' }} />Mastered<b>{m.mastered}</b></div>
       </div>
-      <div className="sp-sec">Missed this session</div>
+      </div><div>
+      <div className="sp-sec" style={{ marginTop: 4 }}>Missed this session</div>
       {stats.misses.length === 0 ? <p className="empty-note">None yet.</p> : (
         <ul className="sp-misses">{stats.misses.map((k) => { const it = byKey.get(k); return it ? <li key={k}><Markdown inline>{promptText(it)}</Markdown></li> : null })}</ul>
       )}
+      </div></div>
     </aside>
   )
 }

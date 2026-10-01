@@ -6,7 +6,6 @@ import * as repo from '../../data/repo'
 import { countMastery, filterItems, plural, relTime, type Filter } from '../../data/stats'
 import type { Item } from '../../deck-format/types'
 import { answerText, promptText } from '../../engine/exercises'
-import { TYPE_LABELS } from '../../prompt/build'
 import { Markdown } from '../../content/Markdown'
 import { Demo } from '../../content/Demo'
 import { TopBar } from '../../app/Shell'
@@ -15,9 +14,10 @@ import { Seg, Tabs } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
 import { confirmAction } from '../../ui/confirm'
 import { CardEditor, DeckInfoEditor } from './CardEditor'
+import { downloadJson, fileSlug, toDeckFile } from '../../deck-format/export'
 import { FolderSelect } from '../library/FolderSelect'
 
-type Tab = 'overview' | 'cards' | 'manage'
+type Tab = 'overview' | 'cards'
 
 export function DeckPage() {
   const { deckId = '' } = useParams()
@@ -60,6 +60,7 @@ export function DeckPage() {
     <>
       <TopBar crumbs={<><Link to="/">Library</Link>{crumbs.map((f) => <span key={f.id}> / <Link to={`/folder/${f.id}`}>{f.name}</Link></span>)} / <b>{deck.title}</b></>}>
         <button className="btn ghost sm" onClick={() => setInfoOpen(true)}><Icon name="edit" />Edit info</button>
+        <button className="btn ghost sm" onClick={() => { downloadJson(`${fileSlug(deck.title)}.mneme.json`, toDeckFile(deck, items)); toast('Deck exported', 'Saved as a .mneme.json file you can re-import or share') }}><Icon name="down" />Export</button>
         <button className="btn ghost sm" onClick={archive}><Icon name="archive" />Archive</button>
       </TopBar>
       <div className="page">
@@ -68,7 +69,7 @@ export function DeckPage() {
           {deck.course && <><span>{deck.course}</span><i>/</i></>}
           <span>{plural(deck.termCount, 'term')}</span><i>/</i><span>{plural(deck.questionCount, 'question')}</span><i>/</i><span>{plural(deck.topics.length, 'topic')}</span><i>/</i><span>studied {relTime(deck.lastStudiedAt)}</span>
         </div>
-        {deck.description && <p className="muted" style={{ marginTop: 12, maxWidth: '70ch', lineHeight: 1.55 }}>{deck.description}</p>}
+        {deck.description && <Description text={deck.description} />}
 
         <div className="bar-row">
           <button className="btn primary" disabled={!shown.length} onClick={() => nav(`/deck/${deckId}/learn${qs}`)}><Icon name="loop" />Learn</button>
@@ -89,7 +90,7 @@ export function DeckPage() {
         </div>
 
         <div style={{ marginTop: 34 }}>
-          <Tabs value={tab} onChange={setTab} tabs={[{ value: 'overview', label: 'Overview' }, { value: 'cards', label: `Cards (${shown.length})` }, { value: 'manage', label: 'Edit cards' }]} />
+          <Tabs value={tab} onChange={setTab} tabs={[{ value: 'overview', label: 'Overview' }, { value: 'cards', label: `All cards (${shown.length})` }]} />
         </div>
 
         {tab === 'overview' && (
@@ -140,8 +141,7 @@ export function DeckPage() {
             </div>
           </div>
         )}
-        {tab === 'cards' && <CardsTable items={shown} topics={deck.topics} />}
-        {tab === 'manage' && (
+        {tab === 'cards' && (
           <ManageCards items={shown} topics={deck.topics} onEdit={setEditing} onDelete={async (it) => {
             if (await confirmAction({ title: 'Delete this card?', body: promptText(it).slice(0, 140), confirm: 'Delete card', danger: true })) { await repo.deleteItem(deckId, it.key); toast('Card deleted') }
           }} />
@@ -152,7 +152,7 @@ export function DeckPage() {
           onClose={() => setEditing(null)}
           onSave={async (it) => { await repo.saveItem(deckId, it); setEditing(null); toast(editing === 'new' ? 'Card added' : 'Card saved') }} />
       )}
-      {tab === 'manage' && !editing && (
+      {tab === 'cards' && !editing && (
         <button className="fab btn primary" onClick={() => setEditing('new')}><Icon name="plus" />Add a card</button>
       )}
       {infoOpen && (
@@ -176,61 +176,75 @@ function fmtDuration(s: number) {
   return mm < 60 ? `${mm} min` : `${Math.floor(mm / 60)}h ${mm % 60}m`
 }
 
-const typeLabel = (it: Item) => (it.kind === 'term' ? 'Term' : TYPE_LABELS[it.qtype])
 const whyOf = (it: Item) => (it.kind === 'question' ? it.explanation : [it.explanation, it.example && `*Example:* ${it.example}`].filter(Boolean).join('\n\n'))
 
-function CardsTable({ items, topics }: { items: Item[]; topics: { id: string; name: string }[] }) {
-  if (!items.length) return <p className="empty-note" style={{ marginTop: 22 }}>No cards match this filter.</p>
+const GROUP_ORDER = ['term', 'multiple_choice', 'multiple_select', 'true_false', 'short_answer', 'numeric', 'cloze', 'ordering', 'scenario'] as const
+const GROUP_LABEL: Record<string, string> = { term: 'Terms', multiple_choice: 'Multiple choice', multiple_select: 'Select all that apply', true_false: 'True or false', short_answer: 'Typed answer', numeric: 'Numeric', cloze: 'Fill in the blank', ordering: 'Put in order', scenario: 'Cases with questions' }
+
+function ManageCards({ items, topics, onEdit, onDelete }: { items: Item[]; topics: { id: string; name: string }[]; onEdit: (it: Item) => void; onDelete: (it: Item) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const needle = q.trim().toLowerCase()
+  const list = needle ? items.filter((it) => JSON.stringify(it).toLowerCase().includes(needle)) : items
+  const groups = GROUP_ORDER.map((g) => ({ g, cards: list.filter((it) => (it.kind === 'term' ? 'term' : it.qtype) === g) })).filter((x) => x.cards.length)
+  const isOpen = (g: string) => (needle ? true : open[g] ?? groups.length === 1)
   return (
-    <div className="panel ctable" style={{ marginTop: 22 }}>
-      <div className="ct-row ct-head"><span>Type</span><span>Question or term</span><span>Answer</span><span>Explanation</span></div>
-      {items.map((it) => (
-        <div className="ct-row" key={it.key}>
-          <span className="ct-type" title={topics.find((t) => t.id === it.topic)?.name}>{typeLabel(it)}</span>
-          <div className="ct-q"><Markdown>{promptText(it)}</Markdown></div>
-          <div className="ct-a"><Markdown>{answerText(it)}</Markdown></div>
-          <div className="ct-e"><Markdown>{whyOf(it) || ''}</Markdown></div>
-        </div>
+    <div style={{ marginTop: 22 }}>
+      <div className="searchbar"><Icon name="search" /><input className="input" placeholder={`Search ${items.length} cards`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      {groups.length === 0 && <p className="empty-note">No cards match.</p>}
+      {groups.map(({ g, cards }) => (
+        <section className={`cgroup ${isOpen(g) ? 'open' : ''}`} key={g}>
+          <button className="cg-head" onClick={() => setOpen({ ...open, [g]: !isOpen(g) })} aria-expanded={isOpen(g)}>
+            <svg className="i chev"><use href="#i-down2" /></svg>
+            <b>{GROUP_LABEL[g]}</b><span className="muted">{cards.length}</span>
+          </button>
+          {isOpen(g) && <div className="cg-body">{cards.map((it) => <CardRow key={it.key} it={it} topics={topics} onEdit={onEdit} onDelete={onDelete} />)}</div>}
+        </section>
       ))}
     </div>
   )
 }
 
-function ManageCards({ items, topics, onEdit, onDelete }: { items: Item[]; topics: { id: string; name: string }[]; onEdit: (it: Item) => void; onDelete: (it: Item) => void }) {
-  const [q, setQ] = useState('')
-  const needle = q.trim().toLowerCase()
-  const list = needle ? items.filter((it) => JSON.stringify(it).toLowerCase().includes(needle)) : items
+function CardRow({ it, topics, onEdit, onDelete }: { it: Item; topics: { id: string; name: string }[]; onEdit: (it: Item) => void; onDelete: (it: Item) => void }) {
   return (
-    <div style={{ marginTop: 22 }}>
-      <div className="searchbar"><Icon name="search" /><input className="input" placeholder={`Search ${items.length} cards`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      {list.map((it) => (
-        <div className="mcard" key={it.key}>
-          <div className="mc-head">
-            <span className="ct-type">{typeLabel(it)}</span>
-            <span className="muted" style={{ fontSize: 12 }}>{topics.find((t) => t.id === it.topic)?.name}</span>
-            <span style={{ flex: 1 }} />
-            <button className="iconbtn" onClick={() => onEdit(it)} title="Edit" aria-label="Edit card"><Icon name="edit" /></button>
-            <button className="iconbtn" onClick={() => onDelete(it)} title="Delete" aria-label="Delete card"><Icon name="trash" /></button>
-          </div>
-          <div className="mc-q"><Markdown>{it.kind === 'term' ? `**${it.term}**: ${it.definition}` : it.prompt}</Markdown></div>
-          {it.kind === 'question' && (it.qtype === 'multiple_choice' || it.qtype === 'multiple_select') && (
-            <ul className="mc-choices">
-              {it.choices.map((c, k) => (
-                <li key={k} className={c.correct ? 'right' : ''}>
-                  <span className="mark">{c.correct ? <Icon name="check" size={14} /> : <Icon name="x" size={12} />}</span>
-                  <div><Markdown inline>{c.text}</Markdown>{c.why && <span className="optwhy">{c.why}</span>}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {it.kind === 'question' && !(it.qtype === 'multiple_choice' || it.qtype === 'multiple_select') && (
-            <div className="mc-ans"><span>Answer</span><Markdown inline>{answerText(it)}</Markdown>{it.qtype === 'short_answer' && it.accept.length > 0 && <span className="muted"> · also accepts {it.accept.join(', ')}</span>}</div>
-          )}
-          {it.kind === 'term' && it.aliases.length > 0 && <div className="mc-ans"><span>Also accepts</span>{it.aliases.join(', ')}</div>}
-          {whyOf(it) && <div className="mc-why"><Markdown>{whyOf(it)}</Markdown></div>}
-          {it.demo && <DemoToggle demo={it.demo} />}
-        </div>
-      ))}
+    <div className="mcard">
+      <div className="mc-head">
+        <span className="ct-type">{topics.find((t) => t.id === it.topic)?.name}</span>
+        <span style={{ flex: 1 }} />
+        <button className="iconbtn" onClick={() => onEdit(it)} title="Edit" aria-label="Edit card"><Icon name="edit" /></button>
+        <button className="iconbtn" onClick={() => onDelete(it)} title="Delete" aria-label="Delete card"><Icon name="trash" /></button>
+      </div>
+      <div className="mc-q"><Markdown>{it.kind === 'term' ? `**${it.term}**: ${it.definition}` : it.prompt}</Markdown></div>
+      {it.kind === 'question' && (it.qtype === 'multiple_choice' || it.qtype === 'multiple_select') && (
+        <ul className="mc-choices">
+          {it.choices.map((c, k) => (
+            <li key={k} className={c.correct ? 'right' : ''}>
+              <span className="mark">{c.correct ? <Icon name="check" size={14} /> : <Icon name="x" size={12} />}</span>
+              <div><Markdown inline>{c.text}</Markdown>{c.why && <span className="optwhy">{c.why}</span>}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {it.kind === 'question' && it.qtype === 'scenario' && (
+        <ol className="mc-parts">{it.parts.map((p) => <li key={p.key}><Markdown>{p.prompt}</Markdown><div className="mc-ans"><span>Answer</span><Markdown inline>{answerText(p)}</Markdown></div></li>)}</ol>
+      )}
+      {it.kind === 'question' && !['multiple_choice', 'multiple_select', 'scenario'].includes(it.qtype) && (
+        <div className="mc-ans"><span>Answer</span><Markdown inline>{answerText(it)}</Markdown>{it.qtype === 'short_answer' && it.accept.length > 0 && <span className="muted"> · also accepts {it.accept.join(', ')}</span>}</div>
+      )}
+      {it.kind === 'term' && it.aliases.length > 0 && <div className="mc-ans"><span>Also accepts</span>{it.aliases.join(', ')}</div>}
+      {whyOf(it) && <div className="mc-why"><Markdown>{whyOf(it)}</Markdown></div>}
+      {it.demo && <DemoToggle demo={it.demo} />}
+    </div>
+  )
+}
+
+function Description({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const long = text.length > 160
+  return (
+    <div className="desc">
+      <p className={`muted ${long && !open ? 'clamp' : ''}`}>{text}</p>
+      {long && <button className="linkbtn" onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Show more'}</button>}
     </div>
   )
 }

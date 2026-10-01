@@ -30,6 +30,8 @@ export function TestPage() {
   const [phase, setPhase] = useState<Phase>('setup')
   const [count, setCount] = useState('20')
   const [timed, setTimed] = useState(false)
+  const [custom, setCustom] = useState('15')
+  const [secs, setSecs] = useState('60')
   const [exs, setExs] = useState<Exercise[]>([])
   const [answers, setAnswers] = useState<(Response | undefined)[]>([])
   const [i, setI] = useState(0)
@@ -48,13 +50,14 @@ export function TestPage() {
   }, [deckId, filter, topic])
 
   const start = () => {
-    const n = count === 'all' ? pool.length : Math.min(pool.length, parseInt(count, 10))
+    const want = count === 'all' ? pool.length : count === 'custom' ? parseInt(custom, 10) || 1 : parseInt(count, 10)
+    const n = Math.max(1, Math.min(pool.length, want))
     const chosen = shuffle(pool).slice(0, n)
     setExs(chosen.map((it) => buildExercise(it, all, 'recall')))
     setAnswers(Array(n).fill(undefined))
     setI(0)
     setConfirmSubmit(false)
-    setDeadline(timed ? Date.now() + n * 60_000 : 0)
+    setDeadline(timed ? Date.now() + n * Math.max(5, parseInt(secs, 10) || 60) * 1000 : 0)
     setPhase('run')
   }
 
@@ -113,10 +116,18 @@ export function TestPage() {
           <div className="panel" style={{ marginTop: 20 }}>
             <h3>Set up a test <span>{pool.length} cards available</span></h3>
             <p className="empty-note">One question per screen. Nothing is graded until you submit, and the test doesn't change your Learn progress.</p>
-            <div className="srow"><div className="l"><b>Questions</b></div>
-              <Seg value={count} onChange={setCount} options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '40', label: '40' }, { value: 'all', label: `All ${pool.length}` }]} />
+            <div className="srow"><div className="l"><b>Questions</b><span>{count === 'custom' ? `Up to ${pool.length}` : ''}</span></div>
+              <div className="srow-ctl">
+                <Seg value={count} onChange={setCount} options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: 'all', label: `All ${pool.length}` }, { value: 'custom', label: 'Custom' }]} />
+                {count === 'custom' && <input className="input num" inputMode="numeric" aria-label="Number of questions" value={custom} onChange={(e) => setCustom(e.target.value.replace(/\D/g, ''))} />}
+              </div>
             </div>
-            <div className="srow"><div className="l"><b>Timer</b><span>One minute per question</span></div><Toggle on={timed} onChange={setTimed} label="Timer" /></div>
+            <div className="srow"><div className="l"><b>Timer</b><span>{timed ? `${Math.max(5, parseInt(secs, 10) || 60)} seconds per question` : 'Off'}</span></div>
+              <div className="srow-ctl">
+                {timed && <label className="secs"><input className="input num" inputMode="numeric" aria-label="Seconds per question" value={secs} onChange={(e) => setSecs(e.target.value.replace(/\D/g, ''))} /><span>sec each</span></label>}
+                <Toggle on={timed} onChange={setTimed} label="Timer" />
+              </div>
+            </div>
             <div className="actions"><button className="btn primary" disabled={!pool.length} onClick={start}>Start the test<span className="kbd">Enter</span></button></div>
           </div>
         )}

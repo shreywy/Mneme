@@ -60,13 +60,15 @@
 .app.rail { grid-template-columns: 62px 1fr; }
 .app.focus { grid-template-columns: 0 1fr; }
 .side { position: sticky; top: 0; height: 100vh; z-index: 20; background: var(--bg); border-right: 1px solid var(--line); padding: 14px 12px 14px; display: flex; flex-direction: column; gap: 3px; overflow: hidden; white-space: nowrap; transition: opacity .2s var(--ease), width .24s var(--ease), box-shadow .24s var(--ease); }
+.side { width: 248px; }
 .app.rail .side { width: 62px; }
 .app.rail.peek .side { width: 248px; box-shadow: 12px 0 40px rgba(0, 0, 0, .10); }
 .app.focus .side { opacity: 0; pointer-events: none; }
 .brand { display: flex; align-items: center; gap: 9px; padding: 0 4px 16px 10px; font-size: 25px; height: 48px; color: var(--ink); text-decoration: none; }
 .brand .collapse { margin-left: auto; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--muted); font-size: 14px; transition: background-color .15s, color .15s, transform .3s var(--ease); }
 .brand .collapse:hover { background: var(--surface2); color: var(--ink); }
-.app.rail .brand .collapse { transform: rotate(180deg); }
+.app.rail .brand .collapse { transform: none; }
+.app.rail.peek .brand .collapse { color: var(--accent); }
 .lbl { transition: opacity .15s var(--ease); }
 .app.rail:not(.peek) :is(.lbl, .nav .k, .tree, .sec, .brand .collapse, .soon) { opacity: 0; pointer-events: none; }
 .nav a, .nav button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 7px; color: var(--muted); text-decoration: none; font-weight: 500; transition: background-color .15s, color .15s; }

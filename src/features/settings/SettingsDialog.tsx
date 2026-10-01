@@ -1,13 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ACCENTS, useSettings, type CorrectSound } from '../../settings/store'
 import { sfx } from '../../sound/sfx'
 import { Seg, Sheet, Toggle } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
 import { db } from '../../data/db'
+import { ensurePersistentStorage, exportBackup, restoreBackup } from '../../data/backup'
+import { downloadJson } from '../../deck-format/export'
+import { confirmAction } from '../../ui/confirm'
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = useSettings()
   const [confirmReset, setConfirmReset] = useState(false)
+  const [persisted, setPersisted] = useState<boolean | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { navigator.storage?.persisted?.().then(setPersisted).catch(() => setPersisted(null)) }, [])
+  const backup = async () => {
+    downloadJson(`mneme-backup-${new Date().toISOString().slice(0, 10)}.json`, await exportBackup())
+    toast('Backup downloaded', 'Keep it somewhere safe, like your Drive')
+  }
+  const restore = async (file: File) => {
+    try {
+      const data = JSON.parse(await file.text())
+      if (!await confirmAction({ title: 'Restore this backup?', body: 'Decks, folders and progress from the file are added. Anything with the same id is replaced by the backup version.', confirm: 'Restore' })) return
+      const r = await restoreBackup(data)
+      toast('Backup restored', `${r.decks} deck${r.decks === 1 ? '' : 's'}`)
+    } catch (e) { toast("Couldn't restore", e instanceof Error ? e.message : 'The file could not be read', 'x') }
+  }
   const resetAll = async () => {
     await db.transaction('rw', db.cards, db.reviews, db.records, async () => { await db.cards.clear(); await db.reviews.clear(); await db.records.clear() })
     setConfirmReset(false)
@@ -33,6 +51,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       </div>
       <div className="srow"><div className="l"><b>Reduce motion</b><span>Turns animations off</span></div>
         <Toggle on={s.reduceMotion} onChange={(reduceMotion) => s.set({ reduceMotion })} label="Reduce motion" />
+      </div>
+      <div className="srow"><div className="l"><b>Your data</b>
+          <span>{persisted ? 'Saved in this browser, marked as persistent so it is not cleared automatically.' : 'Saved in this browser. Ask for persistent storage so the browser keeps it under low disk space.'}</span></div>
+        {!persisted && <button className="btn sm" onClick={async () => { const p = await ensurePersistentStorage(); setPersisted(p); toast(p ? 'Storage is now persistent' : "The browser said no", p ? undefined : 'Firefox may ask first, or allow it after you use the site more', p ? 'check' : 'x') }}>Make persistent</button>}
+      </div>
+      <div className="srow"><div className="l"><b>Backup</b><span>Every deck, folder and your progress in one file. Restore it here or in another browser.</span></div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn sm" onClick={backup}>Download</button>
+          <button className="btn sm ghost" onClick={() => fileRef.current?.click()}>Restore…</button>
+          <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = '' }} />
+        </div>
       </div>
       <div className="srow"><div className="l"><b>Hidden tips</b><span>{s.hiddenHints.length ? `${s.hiddenHints.length} tip${s.hiddenHints.length === 1 ? '' : 's'} hidden` : 'No tips hidden'}</span></div>
         <button className="btn sm" disabled={!s.hiddenHints.length} onClick={() => { s.set({ hiddenHints: [] }); toast('Tips are back') }}>Show them again</button>

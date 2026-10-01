@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { parseDeckText } from '../../deck-format/parse'
 import type { ParseResult } from '../../deck-format/types'
 import { importDeck } from '../../data/repo'
+import { ensurePersistentStorage } from '../../data/backup'
 import { plural } from '../../data/stats'
 import { Icon } from '../../ui/Icons'
 import { Sheet } from '../../ui/controls'
@@ -39,6 +40,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     setBusy(true)
     let lastId = ''
     for (const p of good) lastId = (await importDeck(p.result.deck)).deckId
+    ensurePersistentStorage()
     setBusy(false)
     const titles = [...new Set(good.map((p) => p.result.deck.title))]
     toast(titles.length === 1 ? `Imported ${titles[0]}` : `Imported ${titles.length} decks`, `${good.reduce((n, p) => n + p.result.deck.items.length, 0)} items`)

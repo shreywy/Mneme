@@ -47,7 +47,8 @@ export function Shell() {
           <div className="brand">
             <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}><Wordmark collapsedLabel /></Link>
             <button className="collapse" onClick={() => { set({ sidebar: rail ? 'full' : 'rail' }); setPeek(false) }}
-              title={rail ? 'Expand sidebar  [' : 'Collapse sidebar  ['} aria-label="Toggle sidebar"><Icon name="chev" /></button>
+              title={rail ? 'Pin the sidebar open  [' : 'Collapse the sidebar  ['} aria-label={rail ? 'Pin the sidebar open' : 'Collapse the sidebar'}>
+              <Icon name={rail ? 'pin' : 'chev'} /></button>
           </div>
           <nav className="nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="lib" /><span className="lbl">Library</span></NavLink>
