@@ -140,3 +140,36 @@ describe('questions on a page', () => {
     expect(await notes.deckForQuestion(noteId, 'q1')).toBe(withQ)
   })
 })
+
+describe('marks', () => {
+  it('adds, edits and removes highlights, annotations and bookmarks', async () => {
+    const { noteId } = await notes.importNotes(page())
+    const anchor = { quote: 'x', prefix: '', suffix: '', offset: 0 }
+    const h = await notes.addMark({ noteId, kind: 'highlight', block: 0, anchor, color: 'yellow' })
+    const a = await notes.addMark({ noteId, kind: 'note', block: 0, anchor, text: 'Ask about this' })
+    await notes.addMark({ noteId, kind: 'bookmark', block: 0 })
+    expect((await notes.marksFor(noteId)).map((m) => m.kind).sort()).toEqual(['bookmark', 'highlight', 'note'])
+    await notes.updateMark(a, { text: 'Asked, it was on the exam' })
+    expect((await notes.marksFor(noteId)).find((m) => m.id === a)?.text).toBe('Asked, it was on the exam')
+    await notes.deleteMark(h)
+    expect((await notes.marksFor(noteId)).length).toBe(2)
+  })
+  it('deleting a page removes its marks', async () => {
+    const { noteId } = await notes.importNotes(page())
+    await notes.addMark({ noteId, kind: 'bookmark', block: 0 })
+    await notes.deleteNote(noteId)
+    expect(await db.marks.count()).toBe(0)
+  })
+})
+
+describe('plain text of a page', () => {
+  it('collects the words from every block, but not block types', () => {
+    const blocks = [
+      { type: 'section', title: 'Demand', open: true, blocks: [{ type: 'paragraph', text: 'Buyers want less at higher prices.' }, { type: 'callout', tone: 'exam', text: 'Shifts vs movements' }] },
+      { type: 'keyterms', items: [{ term: 'Elasticity', definition: 'How much quantity responds' }] },
+    ] as NormalizedNotes['blocks']
+    const t = notes.plainText(blocks)
+    for (const w of ['Demand', 'higher prices', 'Shifts vs movements', 'Elasticity', 'quantity responds']) expect(t).toContain(w)
+    expect(t).not.toMatch(/\bsection\b|\bcallout\b|\bexam\b/)
+  })
+})

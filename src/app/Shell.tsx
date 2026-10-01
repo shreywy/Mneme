@@ -12,6 +12,11 @@ import { Collapse } from '../ui/motion'
 import { accountsEnabled, displayName, useAccount } from '../sync/account'
 import { useProfile } from '../sync/profile'
 import { Avatar } from '../ui/Avatar'
+import { useContextItems } from '../ui/ContextMenu'
+import { confirmAction } from '../ui/confirm'
+import { toast } from '../ui/toasts'
+import { deleteNote, setNoteArchived } from '../data/notes'
+import { deleteDeck, setArchived } from '../data/repo'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -63,9 +68,10 @@ export function Shell() {
             <button onClick={() => open('import')}><Icon name="upload" /><span className="lbl">Import</span></button>
           </nav>
           <FolderTree />
+          <PageMenu />
           <div className="foot">
             <AccountButton />
-            <button className="iconbtn" onClick={() => open('settings')} title="Settings" aria-label="Settings"><Icon name="gear" /></button>
+            <NavLink to="/settings" className={({ isActive }) => `iconbtn ${isActive ? 'on' : ''}`} onClick={() => setDrawer(false)} title="Settings" aria-label="Settings"><Icon name="gear" /></NavLink>
           </div>
         </aside>
         <main className="main">
@@ -98,7 +104,7 @@ function FolderTree() {
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
   const count = (id: string) => { const ids = descendants(folders, id); return pages.filter((p) => p.folderId && ids.has(p.folderId)).length }
   const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
-    <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title}>
+    <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}>
       <Icon name={p.kind === 'note' ? 'notes' : 'cards'} size={13} /><span className="t">{p.title}</span>
     </Link>
   )
@@ -184,4 +190,39 @@ function AccountButton() {
       <span className="who lbl">{user ? name : <>Guest <span className="signin">Sign in</span></>}</span>
     </button>
   )
+}
+
+/** Right-click on a deck or notes card (library, sidebar): open, study, archive, delete. */
+export function PageMenu() {
+  const nav = useNavigate()
+  useContextItems((_e, { target }) => {
+    const el = target.closest<HTMLElement>('[data-page-id]')
+    if (!el) return null
+    const kind = el.dataset.pageKind as 'deck' | 'note', id = el.dataset.pageId!, title = el.dataset.pageTitle ?? ''
+    const url = kind === 'deck' ? `/deck/${id}` : `/notes/${id}`
+    return [
+      { label: 'Open', icon: kind === 'deck' ? 'cards' : 'notes', onSelect: () => nav(url) },
+      { label: 'Open in a new tab', icon: 'external', onSelect: () => { window.open(url, '_blank', 'noopener') } },
+      ...(kind === 'deck' ? [
+        { sep: true as const },
+        { label: 'Learn', icon: 'loop', onSelect: () => nav(`${url}/learn`) },
+        { label: 'Flashcards', icon: 'flip', onSelect: () => nav(`${url}/flashcards`) },
+        { label: 'Test', icon: 'check', onSelect: () => nav(`${url}/test`) },
+      ] : []),
+      { sep: true as const },
+      { label: 'Archive', icon: 'archive', onSelect: async () => { await (kind === 'deck' ? setArchived('deck', id, true) : setNoteArchived(id, true)); toast(`${kind === 'deck' ? 'Deck' : 'Notes'} archived`, 'Find it under Archive in the sidebar', 'archive') } },
+      {
+        label: 'Delete…', icon: 'trash', danger: true, onSelect: async () => {
+          const ok = await confirmAction(kind === 'deck'
+            ? { title: `Delete "${title}"?`, body: 'Its cards and progress are removed for good. Archiving keeps them instead.', confirm: 'Delete deck', danger: true }
+            : { title: `Delete "${title}"?`, body: 'The notes page, its highlights and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true })
+          if (!ok) return
+          if (kind === 'deck') await deleteDeck(id); else await deleteNote(id)
+          toast(kind === 'deck' ? 'Deck deleted' : 'Notes deleted')
+          if (location.pathname.startsWith(url)) nav('/')
+        },
+      },
+    ]
+  })
+  return null
 }

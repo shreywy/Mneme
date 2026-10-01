@@ -383,3 +383,21 @@ a.drow:hover { background: var(--surface2); }
 .drow b svg.i { color: var(--muted); }
 .tunit { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 6px; padding-bottom: 2px; }
 .tdeck svg.i { color: var(--muted); margin-right: 6px; flex: none; }
+
+/* ---------- right-click menu ---------- */
+.ctxmenu { position: fixed; z-index: 80; min-width: 210px; max-width: 300px; padding: 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 44px rgba(0, 0, 0, .22); outline: none; animation: cpin .12s var(--ease); font-size: 13.5px; }
+.ctx-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--ink); text-align: left; }
+.ctx-item .ic { width: 16px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.ctx-item .lb { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ctx-item .lb small { font-size: 11.5px; color: var(--muted); }
+.ctx-item .kb { font-size: 11.5px; color: var(--muted); }
+.ctx-item.focus:not(:disabled), .ctx-item:hover:not(:disabled) { background: var(--surface2); }
+.ctx-item:disabled { opacity: .5; cursor: default; }
+.ctx-item.danger { color: var(--bad); }
+.ctx-item.danger .ic { color: var(--bad); }
+.ctx-sep { height: 1px; background: var(--line); margin: 5px 6px; }
+.ctx-custom { padding: 4px 6px; }
+@media (hover: none) { .ctxmenu { font-size: 15px; } .ctx-item { padding: 10px 12px; } }
+.settings-page { max-width: 720px; }
+.settings-page .sset:first-of-type { margin-top: 22px; }
+.foot .iconbtn.on { background: var(--surface2); color: var(--ink); }

@@ -52,6 +52,13 @@ export function IconSprite() {
       <symbol id="i-down2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
       <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z" /><path d="M12 14v6" /></symbol>
       <symbol id="i-pinoff" viewBox="0 0 24 24"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z" /><path d="M12 14v6M4 4l16 16" /></symbol>
+      <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M7.8 16.2L18 4M16.2 16.2L6 4" /></symbol>
+      <symbol id="i-paste" viewBox="0 0 24 24"><path d="M9 4h6v3H9z" /><path d="M15 5h3v16H6V5h3" /></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" /></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></symbol>
+      <symbol id="i-highlight" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z" /><path d="M4 21h16" /></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></symbol>
+      <symbol id="i-comment" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" /></symbol>
       <symbol id="i-prompt" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z" /><path d="M9 9h6M9 12h4" /></symbol>
     </svg>
   )

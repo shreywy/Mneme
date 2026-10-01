@@ -13,6 +13,21 @@ import { toast } from '../../ui/toasts'
 import { FolderSelect } from '../library/FolderSelect'
 import { BlockIndexCtx, BlockView, EndMarker, NotesHooksCtx, type NotesHooks } from './blocks'
 import { LinkPicker } from './LinkPicker'
+import { ReadingTools } from './ReadingTools'
+import { KeyTermsCtx, type KeyTerm } from '../../content/keyterms'
+import type { Block } from '../../notes-format/types'
+
+/** Key terms the page defines (keyterms blocks), plus the terms of its linked decks. Page terms win. */
+function collectTerms(blocks: Block[], deckTerms: KeyTerm[]): KeyTerm[] {
+  const out = new Map<string, KeyTerm>()
+  const walk = (bs: Block[]) => bs.forEach((b) => {
+    if (b.type === 'keyterms') b.items.forEach((t) => out.set(t.term.toLowerCase(), t))
+    if (b.type === 'section' || b.type === 'quickref') walk(b.blocks)
+  })
+  walk(blocks)
+  for (const t of deckTerms) if (!out.has(t.term.toLowerCase()) && t.term.length >= 3) out.set(t.term.toLowerCase(), t)
+  return [...out.values()]
+}
 
 export function NotesPage() {
   const { noteId = '' } = useParams()
@@ -31,6 +46,22 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
   const sections = useMemo(() => note.blocks.flatMap((b, i) => (b.type === 'section' ? [{ i, title: b.title }] : b.type === 'quickref' ? [{ i, title: b.title ?? 'Quick reference' }] : [])), [note.blocks])
   const hasSections = note.blocks.some((b) => b.type === 'section')
   const [current, setCurrent] = useState<number | null>(null)
+  const [finding, setFinding] = useState(false)
+  const marks = useLiveQuery(() => notesRepo.marksFor(note.id), [note.id]) ?? []
+  const deckTerms = useLiveQuery(async () => {
+    const ids = decks.map((d) => d.id)
+    if (!ids.length) return []
+    const items = await db.items.where('deckId').anyOf(ids).toArray()
+    return items.flatMap((it) => (it.kind === 'term' ? [{ term: it.term, definition: it.definition }] : []))
+  }, [decks.map((d) => d.id).join()]) ?? []
+  const terms = useMemo(() => collectTerms(note.blocks, deckTerms), [note.blocks, deckTerms])
+  const bookmarks = marks.filter((m) => m.kind === 'bookmark').sort((a, b) => a.block - b.block || (a.anchor?.offset ?? 0) - (b.anchor?.offset ?? 0))
+  // Ctrl+F opens Mneme's find bar on a notes page (it can see inside folded sections).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !e.shiftKey && !e.altKey) { e.preventDefault(); setFinding(true) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const hooks = useMemo<NotesHooks>(() => ({
     reached: (i) => { if (hasSections ? note.blocks[i]?.type === 'section' : i === 0) void notesRepo.markRead(note.id, i) },
@@ -74,6 +105,20 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
             </button>
           ))}
           {!sections.length && <div className="muted small">One page, no sections.</div>}
+          {bookmarks.length > 0 && (
+            <>
+              <div className="toc-h" style={{ marginTop: 16 }}>Bookmarks</div>
+              {bookmarks.map((m) => (
+                <div key={m.id} className="toc-bm">
+                  <button className="toc-row" onClick={() => jump(m.block)} title={m.anchor?.quote}>
+                    <Icon name="bookmark" size={13} />
+                    <span className="t">{m.text || (m.anchor ? `“${m.anchor.quote.slice(0, 48)}${m.anchor.quote.length > 48 ? '…' : ''}”` : sections.slice().reverse().find((s) => s.i <= m.block)?.title ?? 'Top of the page')}</span>
+                  </button>
+                  <button className="iconbtn" aria-label="Remove bookmark" onClick={() => notesRepo.deleteMark(m.id)}><Icon name="x" size={12} /></button>
+                </div>
+              ))}
+            </>
+          )}
         </nav>
 
         <article ref={articleRef} className="notes-body">
@@ -95,18 +140,22 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
               <select className="select" value={activeSection ?? ''} onChange={(e) => jump(Number(e.target.value))} aria-label="Jump to a section">
                 {activeSection === null && <option value="">Contents</option>}
                 {sections.map((s) => <option key={s.i} value={s.i}>{s.title}{read.has(s.i) ? '  ✓' : ''}</option>)}
+                {bookmarks.length > 0 && <optgroup label="Bookmarks">{bookmarks.map((m) => <option key={m.id} value={m.block}>{m.text || m.anchor?.quote.slice(0, 40) || 'Bookmark'}</option>)}</optgroup>}
               </select>
             </label>
           )}
 
           <NotesHooksCtx.Provider value={hooks}>
-            {note.blocks.map((b, i) => (
-              <div key={i} id={`b-${i}`} data-block={i} className={`nblock nb-${b.type}`}>
-                <BlockIndexCtx.Provider value={i}><BlockView b={b} /></BlockIndexCtx.Provider>
-              </div>
-            ))}
+            <KeyTermsCtx.Provider value={terms}>
+              {note.blocks.map((b, i) => (
+                <div key={i} id={`b-${i}`} data-block={i} className={`nblock nb-${b.type}`}>
+                  <BlockIndexCtx.Provider value={i}><BlockView b={b} openAll={finding ? true : null} /></BlockIndexCtx.Provider>
+                </div>
+              ))}
+            </KeyTermsCtx.Provider>
             {!hasSections && <BlockIndexCtx.Provider value={0}><EndMarker /></BlockIndexCtx.Provider>}
           </NotesHooksCtx.Provider>
+          <ReadingTools noteId={note.id} articleRef={articleRef} marks={marks} terms={terms} finding={finding} setFinding={setFinding} layoutKey={note.blocks} />
 
           <LinkedDecks noteId={note.id} decks={decks} onLink={() => setPicker(true)} />
           <Manage note={note} folders={folders} />

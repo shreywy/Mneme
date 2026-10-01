@@ -46,6 +46,7 @@ export const SPECS: Spec[] = [
   { remote: 'deck_records', table: () => db.records, idOf: (r) => String(r.deckId), localKey: byKey(() => db.records) },
   { remote: 'notes', table: () => db.notes, idOf: (r) => String(r.id), localKey: byKey(() => db.notes) },
   { remote: 'deck_note_links', table: () => db.links, idOf: (r) => `${r.noteId}|${r.deckId}`, localKey: byPair(() => db.links) },
+  { remote: 'note_marks', table: () => db.marks, idOf: (r) => String(r.id), localKey: byKey(() => db.marks) },
 ]
 
 // ---------- pending queue ----------

@@ -1,6 +1,6 @@
 import type { NormalizedDeck } from '../deck-format/types'
 import type { NormalizedNotes } from '../notes-format/types'
-import { db, type DeckRow, type NoteRow } from './db'
+import { db, type DeckRow, type NoteMark, type NoteRow } from './db'
 import { folderForCourse, hiddenFolderIds, importDeck } from './repo'
 
 export type ImportOptions = {
@@ -58,8 +58,9 @@ export async function notesForDeck(deckId: string): Promise<NoteRow[]> {
 }
 
 export async function deleteNote(noteId: string) {
-  await db.transaction('rw', db.notes, db.links, async () => {
+  await db.transaction('rw', db.notes, db.links, db.marks, async () => {
     await db.links.where('noteId').equals(noteId).delete()
+    await db.marks.where('noteId').equals(noteId).delete()
     await db.notes.delete(noteId)
   })
 }
@@ -111,4 +112,32 @@ export async function deckForQuestion(noteId: string, key: string): Promise<stri
     if (item?.kind === 'question') return l.deckId
   }
   return null
+}
+
+// ---------- highlights, annotations, bookmarks ----------
+
+export async function addMark(m: Omit<NoteMark, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const now = Date.now()
+  const id = crypto.randomUUID()
+  await db.marks.put({ ...m, id, createdAt: now, updatedAt: now })
+  return id
+}
+export async function updateMark(id: string, patch: Partial<Pick<NoteMark, 'color' | 'text' | 'anchor' | 'block'>>) {
+  const m = await db.marks.get(id)
+  if (m) await db.marks.put({ ...m, ...patch, updatedAt: Date.now() })
+}
+export const deleteMark = (id: string) => db.marks.delete(id)
+export const marksFor = (noteId: string) => db.marks.where('noteId').equals(noteId).toArray()
+
+const NOT_TEXT = new Set(['type', 'tone', 'kind', 'qtype', 'key', 'id', 'topic', 'html', 'height', 'open', 'ordered', 'correct'])
+/** All the words on a page, for search. */
+export function plainText(blocks: unknown): string {
+  const out: string[] = []
+  const walk = (v: unknown, key?: string) => {
+    if (typeof v === 'string') { if (!key || !NOT_TEXT.has(key)) out.push(v); return }
+    if (Array.isArray(v)) { v.forEach((x) => walk(x, key)); return }
+    if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (!NOT_TEXT.has(k)) walk(x, k)
+  }
+  walk(blocks)
+  return out.join(' ')
 }

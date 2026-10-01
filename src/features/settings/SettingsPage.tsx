@@ -4,14 +4,15 @@ import { ColorPicker } from '../../ui/ColorPicker'
 import { Collapse } from '../../ui/motion'
 import { Icon } from '../../ui/Icons'
 import { sfx } from '../../sound/sfx'
-import { Seg, Sheet, Toggle } from '../../ui/controls'
+import { Seg, Toggle } from '../../ui/controls'
+import { TopBar } from '../../app/Shell'
 import { toast } from '../../ui/toasts'
 import { db } from '../../data/db'
 import { ensurePersistentStorage, exportBackup, restoreBackup } from '../../data/backup'
 import { downloadJson } from '../../deck-format/export'
 import { confirmAction } from '../../ui/confirm'
 
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsPage() {
   const s = useSettings()
   const [confirmReset, setConfirmReset] = useState(false)
   const [persisted, setPersisted] = useState<boolean | null>(null)
@@ -39,8 +40,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const palettes = dark ? DARK_PALETTES : LIGHT_PALETTES
   const palette = dark ? s.darkPalette : s.lightPalette
   return (
-    <Sheet onClose={onClose} label="Settings">
-      <h2>Settings</h2>
+    <>
+    <TopBar crumbs={<b>Settings</b>} />
+    <div className="page settings-page">
+      <h1 className="title">Settings</h1>
+      <p className="muted" style={{ marginTop: 6 }}>Preferences for how Mneme looks and behaves. Your account, sync and the destructive actions are on the Account page.</p>
       <Section id="look" title="Appearance" summary="Theme, colours, motion" defaultOpen>
         <div className="srow"><div className="l"><b>Theme</b><span>{s.customBg ? 'Your custom background decides light or dark' : 'Light, dark, or follow your device'}</span></div>
           <Seg value={s.theme} onChange={(theme) => s.set({ theme, customBg: null })} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} />
@@ -111,7 +115,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <button className="btn sm" disabled>Coming soon</button>
         </div>
       </Section>
-    </Sheet>
+    </div>
+    </>
   )
 }
 

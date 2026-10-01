@@ -44,6 +44,20 @@ export type NoteRow = {
   archivedAt?: number
 }
 export type Link = { noteId: string; deckId: string; createdAt: number }
+export type MarkColor = 'yellow' | 'green' | 'blue' | 'pink'
+/** A highlight, annotation ("note") or bookmark on a notes page. `block` is the top-level block it sits in;
+ *  `anchor` pins it to a span of text (a bookmark without one marks the whole block). */
+export type NoteMark = {
+  id: string
+  noteId: string
+  kind: 'highlight' | 'note' | 'bookmark'
+  block: number
+  anchor?: { quote: string; prefix: string; suffix: string; offset: number }
+  color?: MarkColor
+  text?: string
+  createdAt: number
+  updatedAt: number
+}
 export type DeckRecord = { deckId: string; bestStreak: number; sessions: number; secondsStudied: number; answered: number; correct: number }
 
 class MnemeDB extends Dexie {
@@ -55,6 +69,7 @@ class MnemeDB extends Dexie {
   records!: Table<DeckRecord, string>
   notes!: Table<NoteRow, string>
   links!: Table<Link, [string, string]>
+  marks!: Table<NoteMark, string>
 
   constructor() {
     super('mneme')
@@ -73,6 +88,10 @@ class MnemeDB extends Dexie {
     // v3: reviews get a global syncId so the same review from two devices is never duplicated.
     this.version(3).stores({
       reviews: '++id, deckId, at, correct, syncId',
+    })
+    // v4: highlights, annotations and bookmarks on notes pages.
+    this.version(4).stores({
+      marks: 'id, noteId',
     })
   }
 }

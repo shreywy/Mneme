@@ -12,6 +12,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
 insert into public.decks (id, doc) values ('deck-b', '{"title":"B secret"}');
 insert into public.items (id, doc) values ('deck-b|t1', '{"deckId":"deck-b","kind":"term"}');
+insert into public.note_marks (id, doc) values ('mark-b', '{"noteId":"n1","kind":"note","text":"B private"}');
 
 do $$
 declare n int;
@@ -31,6 +32,11 @@ begin
   if n <> 0 then raise exception 'FAIL: A can read B''s decks (% rows)', n; end if;
   select count(*) into n from public.items;
   if n <> 0 then raise exception 'FAIL: A can read B''s items'; end if;
+  select count(*) into n from public.note_marks;
+  if n <> 0 then raise exception 'FAIL: A can read B''s highlights and annotations'; end if;
+  update public.note_marks set doc = '{"text":"pwned"}' where id = 'mark-b';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A changed B''s annotation'; end if;
 
   update public.decks set doc = '{"title":"pwned"}' where id = 'deck-b';
   get diagnostics n = row_count;

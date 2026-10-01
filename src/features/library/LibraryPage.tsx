@@ -53,7 +53,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
   const inScope = folder ? repo.descendants(lib.folders, folder.id) : null
   const haystack = (p: Page) => p.kind === 'deck'
     ? `${p.title} ${p.unit ?? ''} ${p.deck.course ?? ''} ${p.deck.description ?? ''}`
-    : `${p.title} ${p.unit ?? ''} ${p.note.course ?? ''} ${p.note.summary ?? ''}`
+    : `${p.title} ${p.unit ?? ''} ${p.note.course ?? ''} ${p.note.summary ?? ''} ${notesText(p.note)}`
   const searchHits = needle ? pages.filter((p) => (!inScope || (p.folderId && inScope.has(p.folderId))) && haystack(p).toLowerCase().includes(needle)).sort(byChosenSort) : []
   const here = pages.filter((p) => p.folderId === parentId)
   const groups = groupByUnit(here, librarySort === 'recent' ? undefined : byChosenSort)
@@ -142,6 +142,9 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
   )
 }
 
+// Page text is flattened once per notes page and remembered, so search stays quick while typing.
+const textCache = new WeakMap<NoteRow, string>()
+const notesText = (n: NoteRow) => { let t = textCache.get(n); if (t === undefined) { t = notesRepo.plainText(n.blocks); textCache.set(n, t) } return t }
 const readPct = (n: NoteRow) => { const r = notesRepo.readingProgress(n); return r.total ? r.read / r.total : 0 }
 
 function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view: 'grid' | 'list'; showFolder?: boolean }) {
@@ -153,7 +156,7 @@ function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view
           const pct = p.kind === 'deck' ? learnedPct(p.deck, lib.mastery.get(p.id)) : readPct(p.note)
           const what = p.kind === 'deck' ? plural(p.deck.termCount + p.deck.questionCount, 'card') : `Notes · ${plural(notesRepo.readingProgress(p.note).total, 'section')}`
           return (
-            <Link key={p.id} className={`drow ${p.kind}`} to={pageUrl(p)} style={{ '--i': i } as React.CSSProperties}>
+            <Link key={p.id} className={`drow ${p.kind}`} to={pageUrl(p)} style={{ '--i': i } as React.CSSProperties} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}>
               <b><Icon name={p.kind === 'deck' ? 'cards' : 'notes'} size={14} />{p.title}</b>
               <span className="muted">{showFolder && folderName(p.folderId) ? `${folderName(p.folderId)} · ` : ''}{what}</span>
               <span className="mbar"><i style={{ flexGrow: pct, background: p.kind === 'deck' ? 'var(--seg4)' : 'var(--read)' }} /><i style={{ flexGrow: 1 - pct, background: 'var(--seg1)' }} /></span>
@@ -178,7 +181,7 @@ function NoteCard({ n, folder, i = 0 }: { n: NoteRow; folder?: string; i?: numbe
   const r = notesRepo.readingProgress(n)
   const sections = n.blocks.filter((b) => b.type === 'section').length
   return (
-    <Link className="dcard ncard" to={`/notes/${n.id}`} style={{ '--i': i } as React.CSSProperties}>
+    <Link className="dcard ncard" to={`/notes/${n.id}`} style={{ '--i': i } as React.CSSProperties} data-page-kind="note" data-page-id={n.id} data-page-title={n.title}>
       <span className="kind"><Icon name="notes" size={13} />Notes{folder ? ` · ${folder}` : ''}</span>
       <b>{n.title}</b>
       <div className="sub">{sections ? plural(sections, 'section') : 'One page'}{n.unit ? ` · ${n.unit}` : ''} · opened {relTime(n.lastOpenedAt)}</div>
@@ -194,7 +197,7 @@ function DeckCard({ d, m, folder, i = 0 }: { d: DeckRow; m?: MasteryCounts; fold
   const total = d.termCount + d.questionCount
   const c = m ?? { new: total, learning: 0, familiar: 0, mastered: 0 }
   return (
-    <Link className="dcard" to={`/deck/${d.id}`} style={{ '--i': i } as React.CSSProperties}>
+    <Link className="dcard" to={`/deck/${d.id}`} style={{ '--i': i } as React.CSSProperties} data-page-kind="deck" data-page-id={d.id} data-page-title={d.title}>
       <span className="kind"><Icon name="cards" size={13} />Deck{folder ? ` · ${folder}` : ''}</span>
       <b>{d.title}</b>
       <div className="sub">{plural(d.termCount, 'term')} · {plural(d.questionCount, 'question')}{d.unit ? ` · ${d.unit}` : ''} · studied {relTime(d.lastStudiedAt)}</div>

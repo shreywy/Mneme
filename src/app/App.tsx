@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { IconSprite } from '../ui/Icons'
+import { ContextMenuHost } from '../ui/ContextMenu'
 import { Toasts } from '../ui/toasts'
 import { Shell } from './Shell'
 import { ArchivePage, LibraryPage } from '../features/library/LibraryPage'
@@ -7,6 +8,7 @@ import { DeckPage } from '../features/deck/DeckPage'
 import { LearnPage } from '../features/learn/LearnPage'
 import { FlashcardsPage } from '../features/flashcards/FlashcardsPage'
 import { AccountPage } from '../features/account/AccountPage'
+import { SettingsPage } from '../features/settings/SettingsPage'
 import { TestPage } from '../features/test/TestPage'
 import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
@@ -25,6 +27,7 @@ export function App() {
           <Route path="notes" element={<Navigate to="/" replace />} />
           <Route path="archive" element={<ArchivePage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<LibraryPage />} />
         </Route>
         <Route path="deck/:deckId/learn" element={<LearnPage />} />
@@ -34,6 +37,7 @@ export function App() {
       <Dialogs />
       <ConfirmHost />
       <Toasts />
+      <ContextMenuHost />
     </BrowserRouter>
   )
 }
