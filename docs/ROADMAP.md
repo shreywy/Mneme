@@ -26,7 +26,8 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
-- [ ] Free email sender (custom SMTP, on hold: GitHub sign-in covers other people for now) so sign-in codes reach other people. Supabase's built-in email only reaches project members, at 2 per hour. Option: a Gmail account with an app password (about 500 a day, no domain needed), set in Supabase → Authentication → SMTP. **It also unlocks the styled sign-in code email** (`supabase/templates/code.html`): the free tier blocks custom templates on the built-in sender. Uncomment the template block in `supabase/config.toml`, then run `npx supabase config push`.
+- [ ] **Next, in order:** (1) the free email sender, (2) an end-to-end test pass of sign-in and sync on mnemee.pages.dev (two devices, phone included), fixing whatever breaks, (3) only then new features
+- [ ] Free email sender (custom SMTP) so sign-in codes reach other people. Supabase's built-in email only reaches project members, at 2 per hour. Option: a Gmail account with an app password (about 500 a day, no domain needed), set in Supabase → Authentication → SMTP. **It also unlocks the styled sign-in code email** (`supabase/templates/code.html`): the free tier blocks custom templates on the built-in sender. Uncomment the template block in `supabase/config.toml`, then run `npx supabase config push`.
 - [ ] Google sign-in: create a Google Cloud OAuth client with the same Supabase callback URL
 - [ ] Move to PKCE once sign-in is by code or OAuth only (emailed links need the implicit flow to work across devices)
 - [ ] Profile: username and avatar (preset icons, colours, letters, or an uploaded image), set on first sign-in along with a few settings
