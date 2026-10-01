@@ -5,6 +5,8 @@ type UI = {
   dialog: Dialog
   focus: boolean
   peek: boolean
+  drawer: boolean
+  setDrawer: (v: boolean) => void
   open: (d: Dialog) => void
   close: () => void
   setFocus: (v: boolean) => void
@@ -15,6 +17,8 @@ export const useUI = create<UI>((set) => ({
   dialog: null,
   focus: false,
   peek: false,
+  drawer: false,
+  setDrawer: (drawer) => set({ drawer }),
   open: (dialog) => set({ dialog }),
   close: () => set({ dialog: null }),
   setFocus: (focus) => set({ focus }),

@@ -72,6 +72,15 @@ export function FlashcardsPage() {
     }, 170)
   }, [order.length, i])
   const hintHidden = useSettings((s) => s.hiddenHints.includes('fc-keys'))
+  const swipe = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const onPointerDown = (e: React.PointerEvent) => { swipe.current = { x: e.clientX, y: e.clientY, moved: false } }
+  const onPointerUp = (e: React.PointerEvent) => {
+    const s = swipe.current
+    if (!s) return
+    const dx = e.clientX - s.x, dy = e.clientY - s.y
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { s.moved = true; go(dx < 0 ? i + 1 : i - 1) }
+  }
+  const onCardClick = () => { if (swipe.current?.moved) { swipe.current = null; return } setFlipped((f) => !f) }
   const rate = useCallback(async (r: Grade) => {
     if (!card || !flipped) return
     if (r === Rating.Again) setAgain((a) => [...a, card])
@@ -130,8 +139,8 @@ export function FlashcardsPage() {
         )}
         {card && faces && (
           <>
-            <div className={`fc-wrap ${slide}`}>
-              <div key={i} className={`fc ${flipped ? 'flipped' : ''}`} onClick={() => setFlipped((f) => !f)} role="button" aria-label="Flip card" tabIndex={0}>
+            <div className={`fc-wrap ${slide}`} onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
+              <div key={i} className={`fc ${flipped ? 'flipped' : ''}`} onClick={onCardClick} role="button" aria-label="Flip card" tabIndex={0}>
                 <div className="face front">
                   <span className="lab">{faces.frontLabel}</span>
                   <AutoAlign className={`big-t ${sizeClass(faces.front)}`} text={faces.front} />

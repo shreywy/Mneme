@@ -248,3 +248,69 @@
   .ce-row { grid-template-columns: 22px 1fr 30px; }
   .ce-row .why { grid-column: 2; }
 }
+
+/* ---------- phones and small tablets (also iOS "Add to Home Screen") ---------- */
+.menu-btn, .drawer-scrim { display: none; }
+@supports (height: 100dvh) { .app { min-height: 100dvh; } .side { height: 100dvh; } .study { min-height: 100dvh; } }
+@media (max-width: 760px) {
+  .app, .app.rail, .app.focus { grid-template-columns: 1fr; }
+  .side, .app.rail .side { position: fixed; left: 0; top: 0; bottom: 0; width: min(300px, 86vw); height: auto; transform: translateX(-104%); transition: transform .26s var(--ease); box-shadow: 12px 0 40px rgba(0, 0, 0, .18); padding-top: max(14px, env(safe-area-inset-top)); padding-bottom: max(14px, env(safe-area-inset-bottom)); z-index: 40; }
+  .app.focus .side { opacity: 1; pointer-events: auto; }
+  .app.drawer .side { transform: none; }
+  .app.rail .side :is(.lbl, .nav .k, .tree, .sec, .soon) { opacity: 1; pointer-events: auto; }
+  .brand .collapse { display: none; }
+  .drawer-scrim { display: block; position: fixed; inset: 0; background: var(--scrim); z-index: 39; animation: fadein .2s var(--ease); }
+  .menu-btn { display: grid; margin-left: -6px; }
+  .top { padding: 0 12px; padding-top: env(safe-area-inset-top); height: calc(54px + env(safe-area-inset-top)); gap: 8px; }
+  .app.focus .top { height: calc(54px + env(safe-area-inset-top)); opacity: 1; border-bottom-color: var(--line); }
+  .top .btn { font-size: 0; padding: 0 9px; gap: 0; }
+  .top .btn .kbd, .focusbtn { display: none; }
+  .crumb { font-size: 12.5px; }
+  .page { padding: 22px 16px 100px; }
+  h1.title { font-size: 31px; }
+  .bar-row .btn { flex: 1 1 auto; }
+  .bar-row .seg { margin-left: 0; }
+  .bar-gap { display: none; }
+  .libbar .seg, .libbar > .btn { flex: none; }
+  .hero-empty { margin-top: 3vh; }
+  .hero-empty h1 { font-size: 30px; }
+  .formgrid { grid-template-columns: 1fr; }
+  .sheet { width: calc(100vw - 16px); max-height: 88dvh; padding: 22px 18px; }
+  .input, .textarea, .select, .answerbox .input, .cloze input { font-size: 16px; } /* stops iOS zooming into fields */
+  .fab { right: 16px; bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .toasts { top: calc(64px + env(safe-area-inset-top)); right: 12px; left: 12px; }
+  .toast { min-width: 0; max-width: none; }
+
+  .lbar { grid-template-columns: auto 1fr auto; padding: 0 10px; padding-top: env(safe-area-inset-top); height: calc(56px + env(safe-area-inset-top)); gap: 8px; }
+  .lbar .deckname { display: none; }
+  .lbar .kbd { display: none; }
+  .prog { gap: 8px; font-size: 11.5px; }
+  .lb-right { gap: 4px; }
+  .lb-right .seg button { padding: 0 8px; font-size: 12px; }
+  .stage { padding: 14px 16px 150px; }
+  .q { font-size: 22px; margin: 12px 0 18px; }
+  .q.long { font-size: 18px; }
+  .q.xlong { font-size: 16.5px; }
+  .opt { padding: 13px 14px; font-size: 15px; }
+  .opt .kbd { display: none; }
+  .dock { padding: 12px 12px calc(14px + env(safe-area-inset-bottom)); }
+  .dock .in { grid-template-columns: auto 1fr auto; }
+  .ai { font-size: 12.5px; padding: 0 8px; }
+  .statspanel { top: auto; left: 10px; right: 10px; bottom: calc(70px + env(safe-area-inset-bottom)); width: auto; max-height: 55dvh; }
+  .study.with-panel .stage { transform: none; }
+  .cont-row .btn.primary { flex: 1; }
+  .fc { min-height: 300px; }
+  .fc .face { padding: 38px 22px 26px; }
+  .fc .big-t { font-size: 25px; }
+  .rate { grid-template-columns: repeat(2, 1fr); }
+  .matchround .mr-cols { grid-template-columns: 1fr 1.3fr; gap: 8px; }
+  .mr-item { padding: 10px; font-size: 13px; }
+  .mr-item.term { font-size: 15px; }
+  .navgrid button { width: 38px; height: 38px; }
+  .review-card { padding: 16px; }
+  .case { font-size: 14.5px; }
+}
+@media (hover: none) {
+  .hint-line .hide-x { opacity: 1; }
+  .twist { width: 28px; height: 28px; }
+}

@@ -9,7 +9,9 @@ import { isTyping, useUI } from './ui'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
-  const { focus, setFocus, peek, setPeek, open } = useUI()
+  const { focus, setFocus, peek, setPeek, open, drawer, setDrawer } = useUI()
+  const loc = useLocation()
+  useEffect(() => { setDrawer(false) }, [loc.pathname, setDrawer])
   const rail = sidebar === 'rail'
   const peekT = useRef<number>(0)
   const unpeekT = useRef<number>(0)
@@ -39,7 +41,8 @@ export function Shell() {
 
   return (
     <>
-      <div className={`app ${rail ? 'rail' : ''} ${rail && peek ? 'peek' : ''} ${focus ? 'focus' : ''}`}>
+      <div className={`app ${rail ? 'rail' : ''} ${rail && peek ? 'peek' : ''} ${focus ? 'focus' : ''} ${drawer ? 'drawer' : ''}`}>
+        {drawer && <div className="drawer-scrim" onClick={() => setDrawer(false)} />}
         <aside className="side" onMouseEnter={onSideEnter} onMouseLeave={onSideLeave}>
           <div className="brand">
             <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}><Wordmark collapsedLabel /></Link>
@@ -134,13 +137,14 @@ function FolderTree() {
 
 /** Top bar used by shell pages: breadcrumb on the left, actions on the right. */
 export function TopBar({ crumbs, children }: { crumbs: ReactNode; children?: ReactNode }) {
-  const { setFocus } = useUI()
+  const { setFocus, setDrawer } = useUI()
   return (
     <div className="top">
+      <button className="iconbtn menu-btn" onClick={() => setDrawer(true)} aria-label="Open menu"><Icon name="menu" /></button>
       <div className="crumb">{crumbs}</div>
       <span className="grow" />
       {children}
-      <button className="btn ghost sm" onClick={() => setFocus(true)} title="Focus mode  F"><Icon name="focus" />Focus<span className="kbd">F</span></button>
+      <button className="btn ghost sm focusbtn" onClick={() => setFocus(true)} title="Focus mode  F"><Icon name="focus" />Focus<span className="kbd">F</span></button>
     </div>
   )
 }
