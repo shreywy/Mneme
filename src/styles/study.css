@@ -269,7 +269,7 @@
   .app.focus .side { opacity: 1; pointer-events: auto; }
   .app.drawer .side { transform: none; }
   .app.rail .side :is(.lbl, .nav .k, .tree, .sec, .soon) { opacity: 1; pointer-events: auto; }
-  .brand .collapse { display: none; }
+  .brand .side-toggle { display: none; }
   .drawer-scrim { display: block; position: fixed; inset: 0; background: var(--scrim); z-index: 39; animation: fadein .2s var(--ease); }
   .menu-btn { display: grid; margin-left: -6px; }
   .top { padding: 0 12px; padding-top: env(safe-area-inset-top); height: calc(54px + env(safe-area-inset-top)); gap: 8px; }

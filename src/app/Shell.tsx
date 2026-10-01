@@ -49,7 +49,7 @@ export function Shell() {
         <aside className="side" onMouseEnter={onSideEnter} onMouseLeave={onSideLeave}>
           <div className="brand">
             <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}><Wordmark collapsedLabel /></Link>
-            <button className="collapse" onClick={() => { set({ sidebar: rail ? 'full' : 'rail' }); setPeek(false) }}
+            <button className="side-toggle" onClick={() => { set({ sidebar: rail ? 'full' : 'rail' }); setPeek(false) }}
               title={rail ? 'Pin the sidebar open  [' : 'Collapse the sidebar  ['} aria-label={rail ? 'Pin the sidebar open' : 'Collapse the sidebar'}>
               <Icon name={rail ? 'pin' : 'chev'} /></button>
           </div>
