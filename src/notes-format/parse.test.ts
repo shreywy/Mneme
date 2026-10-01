@@ -113,3 +113,38 @@ describe('splitObjects', () => {
     expect(splitObjects('no json here')).toEqual(['no json here'])
   })
 })
+
+describe('derivation, plot and figure blocks', () => {
+  it('reads all three', () => {
+    const r = parseNotesText(wrap([
+      { type: 'derivation', title: 'Break-even', lines: [{ lhs: '0', rhs: '(P - V)Q - F', why: 'profit is zero' }, { rhs: '15Q - 24{,}000' }] },
+      { type: 'plot', x: { label: 'Units', min: 0, max: 3000 }, y: { min: 0, max: 120000, unit: '$' }, lines: [{ label: 'Revenue', fn: '40x' }, { label: 'Cost', fn: '24000 + 25x' }], points: [{ x: 1600, y: 64000, label: 'Break-even' }], areas: [{ between: [0, 1], from: 1600, label: 'Profit', tone: 'good' }] },
+      { type: 'figure', svg: '<svg viewBox="0 0 10 10"><rect width="5" height="5" fill="accent"/></svg>', alt: 'A square' },
+    ]))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.warnings).toEqual([])
+    expect(r.notes.blocks.map((b) => b.type)).toEqual(['derivation', 'plot', 'figure'])
+  })
+  it('skips a plot whose formula is not maths, with a reason', () => {
+    const r = parseNotesText(wrap([{ type: 'paragraph', text: 'x' }, { type: 'plot', x: { min: 0, max: 1 }, y: { min: 0, max: 1 }, lines: [{ fn: 'alert(1)' }] }]))
+    expect(r.ok && r.notes.blocks.length).toBe(1)
+    expect(r.ok && r.warnings.join(' ')).toMatch(/not a formula/)
+  })
+  it('skips a figure that is not an svg', () => {
+    const r = parseNotesText(wrap([{ type: 'paragraph', text: 'x' }, { type: 'figure', svg: '<div>no</div>', alt: 'x' }]))
+    expect(r.ok && r.notes.blocks.length).toBe(1)
+  })
+})
+
+describe('the prompt teaches valid blocks', () => {
+  it('every derivation, plot and figure example in the prompt imports without warnings', () => {
+    const catalog = PROMPT.slice(PROMPT.indexOf('## 4. Block catalog'), PROMPT.indexOf('## 5.'))
+    const examples = [...catalog.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)].map((m) => m[1]).filter((j) => /"type": "(derivation|plot|figure)"/.test(j))
+    expect(examples.length).toBe(3)
+    for (const ex of examples) {
+      const r = parseNotesText(wrap([JSON.parse(ex)]))
+      expect(r.ok && r.warnings).toEqual([])
+    }
+  })
+})

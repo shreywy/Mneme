@@ -3,6 +3,8 @@
 This is the single to-do list. Anything agreed in conversation and not built yet goes here. Tick items off as they ship. The full design is in [the spec](superpowers/specs/2026-09-30-mneme-design.md).
 
 ## Done
+- [x] Notes phase 3: `derivation` (steps lined up on the relation, a reason per step), `plot` (formulas or points, axes, shaded areas, marked points, hover readout; formulas read by a safe parser, never eval), `figure` (AI-drawn SVG rebuilt from an allowlist, colours as theme roles, nothing can run or load). Prompt catalog, choices and example updated; tests check every example in the prompt imports cleanly. Cheat sheets include derivations and plots.
+- [x] Sidebar: drop onto any page to join its unit and place it; hand order kept, alphabetical until then. Page menus open above the page. Contents rail slides away.
 - [x] Notes phase 4 (moved ahead of phase 3): cheat sheet builder at /cheatsheet. Any mix of notes pages and decks; include quick references, formulas, key terms, exam tips, worked answers, charts; Cozy (2 columns), Balanced (3), Crunched (4, small type, thin margins); Letter or A4; page estimate; print or save as PDF. Opened from a notes page's menu or by right-clicking a card.
 - [x] Notes QC round 1: notes in parts (one file per chapter, merged with chapter dividers; paste or upload several at once); prompt sends a file or one code block, explains before it quizzes, writes every formula as maths, and reuses deck ids for questions on the page; contents rail with chapter dividers, tick/untick, jump opens the section, hide contents; page menu (export notes file, print/PDF, mark unread, remove highlights and notes); annotations on hover; one-click highlight; add a note to a highlight; sidebar drag and drop into folders and units; uniform tables with column lines on wide ones; list bullets fixed; chart labels wrap; questions no longer reshuffle; Back button on Settings and Account
 - [x] Notes phase 2: find on the page (Ctrl+F, opens folded sections) and library search inside notes; key-term hovers (page terms and linked decks' terms); highlights in four colours, annotations with margin markers, bookmarks (selection or spot) listed in the contents, all synced (`note_marks`, owner-only, RLS-tested); selection toolbar for phones; app-wide right-click menu (copy/cut/paste/select all, notes actions, deck and notes cards, Explain with Gemini shown for later)
@@ -84,6 +86,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 
 ## Text notes (the user's own pages; draft the design with Shrey first)
+- [ ] Reuse the notes blocks for writing: LaTeX that's easy to type (live preview), and easy graphics of any sort (plots from a formula, figures, tables, diagrams). The derivation, plot and figure blocks already take plain data an editor can produce.
 - [ ] Pageless editor in the style of Google Docs but sleeker: headings, lists, tables, diagrams, code blocks with syntax highlighting for many languages, highlighting, and annotations (comments attached to selected text)
 - [ ] Paste and drag in images; draw over them and over the page with good pen settings (colour, width, highlighter, eraser)
 - [ ] Images aren't stored by Mneme: upload them to a free image host (Imgur API or similar) and keep only the link

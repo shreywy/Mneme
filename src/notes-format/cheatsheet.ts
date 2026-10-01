@@ -32,10 +32,11 @@ export function gatherSheet(sources: SheetSource[], inc: SheetInclude): SheetSec
       for (const b of src.blocks) if (b.type === 'quickref') quick.push(...b.blocks)
       walk(src.blocks, (b) => {
         if (b.type === 'math') formulas.push({ tex: b.tex, ...(b.caption ? { caption: b.caption } : {}) })
+        if (b.type === 'derivation') formulas.push({ tex: '\\begin{aligned}' + b.lines.map((l) => `${l.lhs ?? ''} &${l.rel ?? '='} ${l.rhs}`).join(' \\\\ ') + '\\end{aligned}', ...(b.title ? { caption: b.title } : {}) })
         if (b.type === 'keyterms') for (const t of b.items) if (!seenTerms.has(t.term.toLowerCase())) { seenTerms.add(t.term.toLowerCase()); terms.push(t) }
         if (b.type === 'callout' && (b.tone === 'exam' || b.tone === 'warning')) tips.push(b.text)
         if (b.type === 'worked') worked.push({ prompt: b.prompt, ...(b.answer ? { answer: b.answer } : {}), ...(b.steps.length ? { last: b.steps[b.steps.length - 1] } : {}) })
-        if (b.type === 'chart' || b.type === 'flow' || b.type === 'compare') charts.push(b)
+        if (b.type === 'chart' || b.type === 'flow' || b.type === 'compare' || b.type === 'plot' || b.type === 'figure') charts.push(b)
       })
       if (inc.quickref && quick.length) parts.push({ kind: 'quickref', blocks: quick })
       if (inc.formulas && formulas.length) parts.push({ kind: 'formulas', items: formulas })

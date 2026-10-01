@@ -7,6 +7,7 @@ import { shuffle } from '../../engine/rng'
 import { sfx } from '../../sound/sfx'
 import { QuestionView } from '../study/QuestionView'
 import { Demo } from '../../content/Demo'
+import { Derivation, Figure, Plot } from './figures'
 import { Chart, Compare, Cycle, Decision, Diagram, Flow, Steps, Timeline, Tree } from './visuals'
 
 type B<T extends Block['type']> = Extract<Block, { type: T }>
@@ -88,6 +89,9 @@ export function BlockView({ b, openAll }: { b: Block; openAll?: boolean | null }
     case 'tree': return <Tree b={b} />
     case 'timeline': return <Timeline b={b} />
     case 'chart': return <Chart b={b} />
+    case 'derivation': return <Derivation b={b} />
+    case 'plot': return <Plot b={b} />
+    case 'figure': return <Figure b={b} />
     case 'diagram': return <Diagram b={b} />
     case 'question': return <InlineQuestion b={b} />
     case 'match': return <Match b={b} />

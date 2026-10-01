@@ -159,6 +159,36 @@ A part that is only `=`, `+`, `−`, `×`, `÷` or `→` is drawn as an operator
 { "type": "diagram", "nodes": [{ "id": "rev", "label": "Revenue" }, { "id": "profit", "label": "Profit" }], "edges": [{ "from": "rev", "to": "profit", "label": "increases" }] }
 ```
 
+**`derivation`**: maths worked one step per line, lined up on the `=`, each step with a short reason. Use it for algebra and for rearranging formulas. Each line has `rhs` (required), optional `lhs` (leave it out to continue with `=`), optional `rel` (`=` by default; also `\\le`, `\\approx`, `\\Rightarrow`), and `why`. Write the sides as LaTeX without `⟦⟧`.
+```json
+{ "type": "derivation", "title": "Break-even units", "lines": [
+  { "lhs": "\\text{Profit}", "rhs": "(P - V)Q - F", "why": "the profit equation" },
+  { "lhs": "0", "rhs": "(40 - 25)Q - 24{,}000", "why": "break-even means zero profit" },
+  { "lhs": "Q", "rhs": "\\frac{24{,}000}{15} = 1{,}600", "why": "divide by the contribution margin" } ] }
+```
+
+**`plot`**: a graph Mneme draws: lines from a formula in `x` or from points, with axes, shaded areas and marked points. Use it for supply and demand, cost and revenue lines, any function, physics graphs. Readers can hover to read values.
+- `x` and `y`: `{ "label": "Units", "min": 0, "max": 3000, "unit": "$" }` (`unit` optional; `"$"` puts a dollar sign on the numbers).
+- `lines` (1 to 6): `{ "label": "Revenue", "fn": "40x" }`, or `{ "label": "Measured", "points": [[0, 1], [1, 3], [2, 4]] }`. Add `"dashed": true` for a guide line. A formula uses `x`, numbers, `+ - * / ^`, brackets, `sqrt`, `sin`, `cos`, `tan`, `exp`, `ln`, `log`, `abs`, `pi`, `e`. Write `2x` or `2*x`, never `2·x`.
+- `points` (optional): `{ "x": 1600, "y": 64000, "label": "Break-even" }`.
+- `areas` (optional): shade between two lines `{ "between": [0, 1], "from": 1600, "label": "Profit", "tone": "good" }`, or under one line `{ "between": [0] }`. `tone` is `good`, `bad` or `accent`.
+```json
+{ "type": "plot", "title": "Cost-volume-profit", "x": { "label": "Units sold", "min": 0, "max": 3000 }, "y": { "label": "Dollars", "min": 0, "max": 120000, "unit": "$" },
+  "lines": [ { "label": "Revenue", "fn": "40x" }, { "label": "Total cost", "fn": "24000 + 25x" } ],
+  "points": [ { "x": 1600, "y": 64000, "label": "Break-even" } ],
+  "areas": [ { "between": [0, 1], "from": 1600, "label": "Profit", "tone": "good" }, { "between": [1, 0], "to": 1600, "label": "Loss", "tone": "bad" } ] }
+```
+
+**`figure`**: a labelled drawing you make as SVG, for what a plot can't show: a cell, a circuit, a free-body diagram, a map of a process. Rules:
+- One `<svg>` with a `viewBox` (no width or height). Shapes only: `g`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `text`, `tspan`, `defs`, `marker` (for arrowheads). No styles, scripts, images, links or fonts. Mneme removes anything else.
+- Colours by role, not hex: `ink`, `muted`, `line`, `surface`, `accent`, `accent2`, `accent3`, `good`, `bad`, `none`. Mneme turns them into the page's colours, in light and dark.
+- Keep text short and at least `font-size="12"` in a viewBox about 600 wide. Under about 150 elements.
+- It goes in a JSON string: escape `"` as `\"`, and write `<` as `<` and `>` as `>` so chat apps don't draw it.
+- Always give `alt`: one sentence saying what the figure shows.
+```json
+{ "type": "figure", "alt": "A box labelled Firm with arrows for revenue in and costs out", "caption": "Money in and out", "svg": "<svg viewBox=\"0 0 600 200\"><rect x=\"220\" y=\"60\" width=\"160\" height=\"80\" rx=\"10\" fill=\"surface\" stroke=\"ink\"/><text x=\"300\" y=\"106\" text-anchor=\"middle\" font-size=\"18\" fill=\"ink\">Firm</text></svg>" }
+```
+
 ### Interactive (checked right on the page)
 
 **`question`**: one question in the same format as a Mneme deck question. The types are `multiple_choice`, `multiple_select`, `true_false`, `short_answer`, `numeric`, `cloze` and `ordering`. Give it an `id` and an `explanation`. **With a companion deck, put the same question, with the same `id`, in the deck too:** answering it on the page then counts toward the deck.
@@ -208,7 +238,9 @@ In notes, a question doesn't need `topic` or `difficulty`.
 - **Explanation first, questions second.** Most of every section is teaching: paragraphs, examples, visuals, worked examples. Interactive checks come at the end of a section and are short. A section should never have more checks than paragraphs of explanation.
 - **Write every formula as maths.** Any equation or formula, even a simple one like ⟦A = L + E⟧ or ⟦\\text{Profit} = \\text{Revenue} - \\text{Expenses}⟧ (backslashes doubled, as in all JSON), goes in maths (`⟦…⟧` inline, or a `math` block), not plain text. Plain text is for words.
 - **Pick the visual that fits.**
-  - An equation that breaks down: `flow`, or `math` with an aligned derivation.
+  - An equation that breaks down, or algebra to rearrange: `derivation` (or `flow` for a simple sum).
+  - A graph or a function (supply and demand, cost lines, physics): `plot`.
+  - A picture that a plot can't show (a cell, a circuit, forces on a block): `figure`.
   - A process: `steps` or `cycle`.
   - Two things students confuse: `compare`.
   - A rule with cases: `decision`.
@@ -312,6 +344,7 @@ A short page on a general topic, showing most block types. Real pages are longer
             { "link": "happens at", "parts": ["Equilibrium price"] }
           ] },
           { "type": "math", "tex": "Q_d = 100 - 10P \\qquad Q_s = 20 + 10P" },
+          { "type": "plot", "title": "Where they meet", "x": { "label": "Price", "min": 0, "max": 10 }, "y": { "label": "Quantity", "min": 0, "max": 120 }, "lines": [ { "label": "Demand", "fn": "100 - 10x" }, { "label": "Supply", "fn": "20 + 10x" } ], "points": [ { "x": 4, "y": 60, "label": "Equilibrium" } ] },
           { "type": "worked", "prompt": "With the two equations above, find the equilibrium price.", "steps": ["Set them equal: ⟦100 - 10P = 20 + 10P⟧", "Collect terms: ⟦80 = 20P⟧", "Solve: ⟦P = 4⟧"], "answer": "A price of 4, where 60 units are bought and sold" },
           { "type": "question", "question": { "id": "n-q-eq-qty", "type": "numeric", "prompt": "At that price, how many units are sold?", "answer": 60, "tolerance": 0, "explanation": "⟦Q_d = 100 - 10(4) = 60⟧ and ⟦Q_s = 20 + 10(4) = 60⟧." } },
           { "type": "reveal", "prompt": "Why doesn't a price above equilibrium last?", "answer": "Sellers offer more than buyers want, so unsold stock piles up. Sellers cut prices to clear it, which pushes the price back down." }

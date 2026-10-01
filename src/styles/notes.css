@@ -379,3 +379,35 @@ figcaption, .hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
 .notes-page.no-toc .toc { display: flex; opacity: 0; transform: translateX(40px); visibility: hidden; pointer-events: none; overflow: hidden;
   transition: opacity .2s var(--ease), transform .3s var(--ease), visibility 0s linear .3s; }
 @media (max-width: 960px) { .notes-page.no-toc { grid-template-columns: minmax(0, 1fr); } .notes-page.no-toc .toc { display: none; } }
+
+/* ---------- derivations, plots, figures ---------- */
+.deriv { margin: 16px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow-x: auto; }
+.deriv-grid { display: grid; grid-template-columns: max-content max-content max-content minmax(0, 1fr); column-gap: 10px; row-gap: 8px; align-items: baseline; }
+.deriv-row { display: contents; }
+.deriv .lhs { text-align: right; }
+.deriv .why-step { color: var(--muted); font-size: 13px; padding-left: 14px; }
+.deriv .katex { font-size: 1.12em; }
+.plot { margin: 16px 0; }
+.plot-box { position: relative; }
+.plot svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+.plot .grid { stroke: var(--line); stroke-dasharray: 2 4; }
+.plot .zero, .plot .frame { stroke: color-mix(in oklab, var(--ink) 40%, transparent); stroke-width: 1.2; }
+.plot .axis { font: 11.5px var(--sans); fill: var(--muted); }
+.plot .axis-label { font: 500 12.5px var(--sans); fill: var(--ink); }
+.plot .area-label { font: 600 12px var(--sans); fill: var(--ink); opacity: .75; }
+.plot .pt { fill: var(--surface); stroke: var(--ink); stroke-width: 2.2; }
+.plot .pt-label { font: 600 12px var(--sans); fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; }
+.plot .guide { stroke: var(--muted); stroke-dasharray: 3 3; }
+.plot-tip { position: absolute; top: 6px; transform: translateX(10px); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .12); white-space: nowrap; }
+.plot-tip span { display: flex; align-items: center; gap: 6px; }
+.plot-tip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.plot .legend-list code.fn { margin-left: 6px; font-size: 11.5px; color: var(--muted); background: var(--surface2); padding: 1px 5px; border-radius: 5px; }
+.figure { margin: 16px 0; }
+.figure-box { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 12px; }
+.figure-box svg { width: 100%; height: auto; max-height: 520px; display: block; font-family: var(--sans); fill: var(--ink); }
+.figure-box svg text { fill: var(--ink); font-family: var(--sans); }
+@media (max-width: 760px) {
+  .plot .axis { font-size: 16px; } .plot .axis-label, .plot .pt-label { font-size: 17px; }
+  .deriv-grid { grid-template-columns: max-content max-content minmax(0, 1fr); }
+  .deriv .why-step { grid-column: 1 / -1; padding-left: 0; margin-top: -4px; }
+}

@@ -1,6 +1,13 @@
 import type { NormalizedDeck, QuestionItem } from '../deck-format/types'
 
 export type TreeNode = { label: string; children: TreeNode[] }
+export type PlotAxis = { label?: string; min: number; max: number; unit?: string }
+/** A line on a plot: a formula in x ("24000 + 25x") or a list of [x, y] points. */
+export type PlotLine = { label?: string; fn?: string; points?: [number, number][]; dashed?: boolean }
+export type PlotPoint = { x: number; y: number; label?: string }
+/** Shade between two lines (by index), or between one line and the x-axis, from x = `from` to `to`. */
+export type PlotArea = { between: number[]; from?: number; to?: number; label?: string; tone?: 'good' | 'bad' | 'accent' }
+export type DerivationLine = { lhs?: string; rel?: string; rhs: string; why?: string }
 export type CalloutTone = 'tip' | 'warning' | 'exam' | 'definition' | 'note'
 
 export type Block =
@@ -13,6 +20,12 @@ export type Block =
   | { type: 'list'; ordered: boolean; items: string[] }
   | { type: 'table'; columns: string[]; rows: string[][]; caption?: string }
   | { type: 'math'; tex: string; caption?: string }
+  /** Maths worked one step per line, lined up on the relation, each step with a short reason. */
+  | { type: 'derivation'; title?: string; lines: DerivationLine[] }
+  /** A graph Mneme draws from a description: functions or points, axes, shaded areas, marked points. */
+  | { type: 'plot'; title?: string; caption?: string; x: PlotAxis; y: PlotAxis; lines: PlotLine[]; points?: PlotPoint[]; areas?: PlotArea[] }
+  /** A picture the AI drew as SVG. Cleaned and recoloured before it's shown. */
+  | { type: 'figure'; svg: string; alt: string; caption?: string }
   | { type: 'callout'; tone: CalloutTone; title?: string; text: string }
   | { type: 'keyterms'; items: { term: string; definition: string }[] }
   | { type: 'flow'; rows: { parts: string[]; link?: string }[] }

@@ -27,7 +27,7 @@ const LENGTH = {
   thorough: 'Thorough: everything in the material, up to 12 sections, 30 to 45 minutes. Split the reply (output rule 5) if you have to.',
 }
 const VISUALS = {
-  none: 'None: no `flow`, `steps`, `cycle`, `compare`, `decision`, `tree`, `timeline`, `chart`, `diagram` or `demo` blocks. Use paragraphs, lists, tables and callouts.',
+  none: 'None: no `flow`, `steps`, `cycle`, `compare`, `decision`, `tree`, `timeline`, `chart`, `plot`, `figure`, `diagram` or `demo` blocks. Use paragraphs, lists, tables and callouts.',
   some: 'Some: a visual only where it explains better than words, at most one per section.',
   lots: 'Lots: show ideas visually wherever the material allows, one or two visuals per section.',
 }
@@ -38,7 +38,7 @@ const QUESTIONS = {
 }
 const MATHS = {
   plain: 'If the material has maths, give each formula with a one-line example. Keep working short.',
-  steps: 'If the material has maths, show the working step by step: `worked` blocks for calculations, and `math` blocks that line up each step of a derivation.',
+  steps: 'If the material has maths, show the working step by step: `worked` blocks for calculations, `derivation` blocks for algebra (one step per line, each with its reason), and a `plot` when a graph makes it clearer.',
 }
 
 /** The "Choices for these notes" block that goes under the settings. */

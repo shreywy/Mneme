@@ -38,3 +38,15 @@ describe('gatherSheet', () => {
     expect(gatherSheet([{ kind: 'note', id: 'x', title: 'Empty', blocks: [{ type: 'paragraph', text: 'only prose' }] }], { quickref: true, formulas: true, terms: true, tips: true, worked: true, charts: true })).toEqual([])
   })
 })
+
+describe('gatherSheet with derivations and plots', () => {
+  it('puts a derivation with the formulas, lined up, and a plot with the charts', () => {
+    const s = gatherSheet([{ kind: 'note', id: 'n', title: 'T', blocks: [
+      { type: 'derivation', lines: [{ lhs: 'A', rhs: 'L + E' }, { rhs: '10' }] },
+      { type: 'plot', x: { min: 0, max: 1 }, y: { min: 0, max: 1 }, lines: [{ fn: 'x' }] },
+    ] }], { quickref: false, formulas: true, terms: false, tips: false, worked: false, charts: true })
+    const f = s[0].parts[0]
+    expect(f.kind === 'formulas' && f.items[0].tex).toBe(String.raw`\begin{aligned}A &= L + E \\  &= 10\end{aligned}`)
+    expect(s[0].parts[1].kind).toBe('charts')
+  })
+})

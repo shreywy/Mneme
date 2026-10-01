@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { extractJson, parseDeckText, parseDemo } from '../deck-format/parse'
+import { compileExpr } from '../content/expr'
 import type { NormalizedDeck } from '../deck-format/types'
 import type { Block, NormalizedNotes, NotesParseResult, TreeNode } from './types'
 
 type Raw = Record<string, unknown>
 const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v)
 const str = z.string().trim().min(1)
+
+const axis = z.object({ label: z.string().optional(), unit: z.string().optional(), min: z.coerce.number(), max: z.coerce.number() }).refine((a) => a.max > a.min, 'axis max must be above min')
+const canCompile = (f: string) => { try { compileExpr(f); return true } catch { return false } }
 
 // One schema per simple block. Container blocks (quickref, section) and question are handled by hand.
 const SIMPLE: Record<string, z.ZodType> = {
@@ -33,6 +37,22 @@ const SIMPLE: Record<string, z.ZodType> = {
   match: z.object({ title: z.string().optional(), pairs: z.array(z.object({ left: str, right: str })).min(2).max(12) }),
   reveal: z.object({ prompt: str, answer: str }),
   worked: z.object({ prompt: str, steps: z.array(str).min(1), answer: z.string().optional() }),
+  derivation: z.object({
+    title: z.string().optional(),
+    lines: z.array(z.object({ lhs: z.string().optional(), rel: z.string().max(12).optional(), rhs: str, why: z.string().optional() })).min(1).max(24),
+  }),
+  plot: z.object({
+    title: z.string().optional(), caption: z.string().optional(),
+    x: axis, y: axis,
+    lines: z.array(z.object({
+      label: z.string().optional(), dashed: z.boolean().optional(),
+      fn: z.string().max(200).optional().refine((f) => f === undefined || canCompile(f), 'fn is not a formula Mneme can read (use x, numbers, + - * / ^, sqrt, sin, ln…)'),
+      points: z.array(z.tuple([z.coerce.number(), z.coerce.number()])).max(400).optional(),
+    }).refine((l) => !!l.fn || (l.points?.length ?? 0) >= 2, 'each line needs a fn or at least two points')).min(1).max(6),
+    points: z.array(z.object({ x: z.coerce.number(), y: z.coerce.number(), label: z.string().optional() })).max(20).optional(),
+    areas: z.array(z.object({ between: z.array(z.number().int().min(0)).min(1).max(2), from: z.number().optional(), to: z.number().optional(), label: z.string().optional(), tone: z.enum(['good', 'bad', 'accent']).optional() })).max(6).optional(),
+  }),
+  figure: z.object({ svg: z.string().max(200_000).refine((v) => /<svg[\s>]/i.test(v), 'svg must be an <svg> drawing'), alt: z.string().trim().min(1).catch('Figure'), caption: z.string().optional() }),
 }
 
 function tree(v: unknown, depth = 0): TreeNode | null {
