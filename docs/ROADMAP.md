@@ -3,6 +3,11 @@
 This is the single to-do list. Anything agreed in conversation and not built yet goes here. Tick items off as they ship. The full design is in [the spec](superpowers/specs/2026-09-30-mneme-design.md).
 
 ## Done
+- [x] Hosting on Cloudflare Pages at https://mnemee.pages.dev, auto-deploying from `main`
+- [x] Supabase project: migrations committed, owner-only RLS on every table, RLS tests that try to read, change and forge another user's rows (`npm run test:db`)
+- [x] Sign-in by emailed link or code, account dialog, sync status in the sidebar
+- [x] Local-first sync: Dexie hooks queue changes, push/pull by `updated_at` cursor, Realtime nudges, tombstones for deletes, settings synced last-write-wins
+- [x] Guest decks and progress move into the account on first sign-in; signing out removes this device's copy
 - Guest mode with everything stored in the browser (IndexedDB)
 - Deck format, prompt builder, forgiving importer, multi-part decks
 - Learn (FSRS, shuffled endless queue, Match rounds, stats panel), Flashcards, Test with review
@@ -20,17 +25,14 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Accounts and sync (Supabase)
 - [ ] Free email sender (custom SMTP) so sign-in codes reach other people. Supabase's built-in email only reaches project members, at 2 per hour. Option: a Gmail account with an app password (about 500 a day, no domain needed), set in Supabase → Authentication → SMTP. **It also unlocks the styled sign-in code email** (`supabase/templates/code.html`): the free tier blocks custom templates on the built-in sender. Uncomment the template block in `supabase/config.toml`, then run `npx supabase config push`.
-- [ ] GitHub sign-in: create the OAuth app with Supabase's callback URL, once the site is hosted
-- [ ] Google sign-in: create a Google Cloud OAuth client, once the site is hosted
-- [ ] Supabase Authentication → URL Configuration: the site URL and redirect URLs for the pages.dev address
-- [ ] Supabase project, migrations committed, typed client
-- [ ] Sign in with GitHub and Google (OAuth with PKCE)
-- [ ] Supabase repository with the same interface as the local one, plus a sync queue
-- [ ] Move guest decks and progress into an account on first sign-in
+- [ ] GitHub sign-in: the OAuth app exists (callback is Supabase's). Paste its client ID and secret into Supabase → Authentication → Sign In / Providers → GitHub, then test the button on mnemee.pages.dev
+- [ ] Google sign-in: create a Google Cloud OAuth client with the same Supabase callback URL
+- [ ] Move to PKCE once sign-in is by code or OAuth only (emailed links need the implicit flow to work across devices)
+- [ ] Sync a deck's notes links and course units once the Notes pages exist (tables are already in place)
 - [ ] GitHub Action keep-alive so the free project doesn't pause
 
 ## Security (portfolio focus)
-- [ ] Row-level security on every table, with pgTAP tests that try to read another user's data
+- [x] Row-level security on every table, with tests that try to read another user's data
 - [ ] End-to-end encrypted decks (AES-256-GCM, a PBKDF2-derived key-encryption key, the passphrase never leaves the browser)
 - [ ] Content Security Policy and security headers via Cloudflare Pages `_headers`. Demo frames use `srcdoc`, which inherits the page's CSP, so either serve demos from a separate sandbox origin with its own CSP, or allow inline scripts only in that frame.
 - [ ] Automated e2e test for the demo sandbox (the manual probe exists: see the 2026-10-01 session)

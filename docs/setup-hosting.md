@@ -11,7 +11,7 @@ About 5 minutes. Every push to `main` then rebuilds the site on its own.
    |---|---|
    | Project name | `mneme` (this becomes `mneme.pages.dev`; if it's taken, try `mneme-study`) |
    | Production branch | `main` |
-   | Framework preset | `Vite` (or `None`) |
+   | Framework preset | `None` (Vite isn't in the list; the build command below is all it needs) |
    | Build command | `npm run build` |
    | Build output directory | `dist` |
 

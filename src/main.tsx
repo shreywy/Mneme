@@ -13,10 +13,13 @@ import './styles/components.css'
 import './styles/study.css'
 import { applySettings, useSettings } from './settings/store'
 import { App } from './app/App'
+import { initAccount } from './sync/account'
 
 applySettings(useSettings.getState())
 useSettings.subscribe(applySettings)
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applySettings(useSettings.getState()))
+
+void initAccount()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -27,7 +27,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     } catch (e) { toast("Couldn't restore", e instanceof Error ? e.message : 'The file could not be read', 'x') }
   }
   const resetAll = async () => {
-    await db.transaction('rw', db.cards, db.reviews, db.records, async () => { await db.cards.clear(); await db.reviews.clear(); await db.records.clear() })
+    // toCollection().delete() (not clear()) so each deletion is queued for sync
+    await db.transaction('rw', db.cards, db.reviews, db.records, async () => { await db.cards.toCollection().delete(); await db.reviews.toCollection().delete(); await db.records.toCollection().delete() })
     setConfirmReset(false)
     toast('Progress reset', 'Your decks are still here')
   }

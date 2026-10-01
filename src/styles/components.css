@@ -242,3 +242,21 @@ a.drow:hover { background: var(--surface2); }
 }
 
 .i.flip-x { transform: scaleX(-1); }
+
+/* ---------- account ---------- */
+.acct { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 4px; border-radius: 8px; text-align: left; transition: background-color .15s; }
+.acct:hover { background: var(--surface2); }
+.acct .who { margin: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.acct .signin { color: var(--accent); font-weight: 500; margin-left: 6px; }
+.avatar { position: relative; }
+.syncdot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; }
+.avatar .syncdot { position: absolute; right: -2px; bottom: -2px; border: 2px solid var(--bg); width: 10px; height: 10px; }
+.syncdot.synced { background: var(--good); }
+.syncdot.syncing { background: #C8962C; animation: pulse 1s ease-in-out infinite; }
+.syncdot.error { background: var(--bad); }
+.syncdot.offline { background: var(--muted); }
+@keyframes pulse { 50% { opacity: .4; } }
+.code-input { height: 56px; font-size: 28px; letter-spacing: 10px; text-align: center; font-family: ui-monospace, Consolas, monospace; }
+.btn.oauth { width: 100%; justify-content: center; height: 42px; margin-top: 18px; gap: 10px; }
+.or { display: flex; align-items: center; gap: 12px; margin: 16px 0 6px; color: var(--muted); font-size: 12px; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }

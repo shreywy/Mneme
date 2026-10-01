@@ -157,11 +157,11 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://localhost:5178"
+site_url = "https://mnemee.pages.dev"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://localhost:5178", "http://localhost:5178/**"]
+additional_redirect_urls = ["https://mnemee.pages.dev", "https://mnemee.pages.dev/**", "https://*.mnemee.pages.dev/**", "http://localhost:5178", "http://localhost:5178/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -330,6 +330,10 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+# GitHub sign-in is configured in the dashboard (Authentication > Sign In / Providers), where its
+# client secret lives. It's left out of this file on purpose: `config push` leaves undeclared
+# providers alone, so pushing from here can't switch it off or blank the secret.
+
 [auth.external.apple]
 enabled = false
 client_id = ""

@@ -7,6 +7,7 @@ import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
 import { isTyping, useUI } from './ui'
 import { Collapse } from '../ui/motion'
+import { accountsEnabled, useAccount } from '../sync/account'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -60,8 +61,7 @@ export function Shell() {
           </nav>
           <FolderTree />
           <div className="foot">
-            <span className="avatar" title="Guest mode: everything is saved in this browser">G</span>
-            <span className="who lbl">Guest</span>
+            <AccountButton onOpen={() => open('account')} />
             <button className="iconbtn" onClick={() => open('settings')} title="Settings" aria-label="Settings"><Icon name="gear" /></button>
           </div>
         </aside>
@@ -149,5 +149,19 @@ export function TopBar({ crumbs, children }: { crumbs: ReactNode; children?: Rea
       {children}
       <button className="btn ghost sm focusbtn" onClick={() => setFocus(true)} title="Focus mode  F"><Icon name="focus" />Focus<span className="kbd">F</span></button>
     </div>
+  )
+}
+
+function AccountButton({ onOpen }: { onOpen: () => void }) {
+  const { user, status } = useAccount()
+  if (!accountsEnabled) {
+    return <><span className="avatar" title="Guest mode: everything is saved in this browser">G</span><span className="who lbl">Guest</span></>
+  }
+  const name = user?.email?.split('@')[0] ?? 'Guest'
+  return (
+    <button className="acct" onClick={onOpen} title={user ? `${user.email} · ${status}` : 'Sign in to sync across devices'}>
+      <span className="avatar">{user ? name[0].toUpperCase() : 'G'}{user && <span className={`syncdot ${status}`} />}</span>
+      <span className="who lbl">{user ? name : <>Guest <span className="signin">Sign in</span></>}</span>
+    </button>
   )
 }

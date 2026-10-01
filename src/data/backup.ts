@@ -11,7 +11,7 @@ export async function exportBackup() {
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 /** JSON turns Dates into strings; FSRS card fields need real Dates back. */
-function revive(v: unknown): unknown {
+export function revive(v: unknown): unknown {
   if (typeof v === 'string' && ISO.test(v)) return new Date(v)
   if (Array.isArray(v)) return v.map(revive)
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, revive(x)]))
