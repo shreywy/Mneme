@@ -29,8 +29,8 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Order of work (agreed 2026-10-01)
 1. ~~**Account page and menu**~~ done 2026-10-01
-2. ~~**Guest end-to-end pass**~~ done 2026-10-01 ([results](testing/e2e-2026-10-01.md))
-3. **Notes** (imported, LLM-generated notes pages)
+2. ~~**Guest end-to-end pass**~~ done 2026-10-01; Shrey confirmed sync works from his phone ([results](testing/e2e-2026-10-01.md))
+3. **Notes** (imported, LLM-generated notes pages). Preview and design for review: https://claude.ai/artifact/SjxNTc6KryekgCXGwbJsuW (includes new ideas 10–18: derivations, Mneme-drawn plots, AI-drawn figures, slide images, cheat sheet, key-term hovers, quiz a section, make a card from a highlight, search in notes)
 4. **Text notes** (the user's own writing pages)
 5. **AI** (Gemini, bring your own key)
 6. **Full end-to-end pass**: everything, signed in, phone and PC, including sync and the account page ([checklist](testing/e2e-2026-10-01.md#part-2-signed-in-to-do-needs-shrey-to-sign-in))
