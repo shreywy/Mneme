@@ -293,8 +293,8 @@ A short page on a general topic, showing most block types. Real pages are longer
             { "link": "happens at", "parts": ["Equilibrium price"] }
           ] },
           { "type": "math", "tex": "Q_d = 100 - 10P \\qquad Q_s = 20 + 10P" },
-          { "type": "worked", "prompt": "With the two equations above, find the equilibrium price.", "steps": ["Set them equal: $$100 - 10P = 20 + 10P$$", "Collect terms: $$80 = 20P$$", "Solve: $$P = 4$$"], "answer": "A price of 4, where 60 units are bought and sold" },
-          { "type": "question", "question": { "id": "n-q-eq-qty", "type": "numeric", "prompt": "At that price, how many units are sold?", "answer": 60, "tolerance": 0, "explanation": "$$Q_d = 100 - 10(4) = 60$$ and $$Q_s = 20 + 10(4) = 60$$." } },
+          { "type": "worked", "prompt": "With the two equations above, find the equilibrium price.", "steps": ["Set them equal: ⟦100 - 10P = 20 + 10P⟧", "Collect terms: ⟦80 = 20P⟧", "Solve: ⟦P = 4⟧"], "answer": "A price of 4, where 60 units are bought and sold" },
+          { "type": "question", "question": { "id": "n-q-eq-qty", "type": "numeric", "prompt": "At that price, how many units are sold?", "answer": 60, "tolerance": 0, "explanation": "⟦Q_d = 100 - 10(4) = 60⟧ and ⟦Q_s = 20 + 10(4) = 60⟧." } },
           { "type": "reveal", "prompt": "Why doesn't a price above equilibrium last?", "answer": "Sellers offer more than buyers want, so unsold stock piles up. Sellers cut prices to clear it, which pushes the price back down." }
         ]
       }
