@@ -36,3 +36,25 @@ describe('buildNotesPrompt', () => {
     expect(parseNotesText(example(buildNotesPrompt(NOTES, DECK, { withDeck: true }))).ok).toBe(true)
   })
 })
+
+describe('notes choices', () => {
+  it('defaults to standard length, some visuals, a few questions, maths shown step by step', () => {
+    const p = buildNotesPrompt(NOTES, DECK, { withDeck: false })
+    expect(p).toContain('### Choices for these notes')
+    expect(p).toMatch(/\*\*Length\.\*\* Standard/)
+    expect(p).toMatch(/\*\*Visuals\.\*\* Some/)
+    expect(p).toMatch(/\*\*Questions on the page\.\*\* A few/)
+    expect(p).toMatch(/step by step/)
+  })
+  it('says none when visuals and questions are turned off', () => {
+    const p = buildNotesPrompt(NOTES, DECK, { withDeck: false, visuals: 'none', questions: 'none', length: 'short', maths: 'plain' })
+    expect(p).toMatch(/\*\*Visuals\.\*\* None: no `flow`/)
+    expect(p).toMatch(/\*\*Questions on the page\.\*\* None/)
+    expect(p).toMatch(/\*\*Length\.\*\* Short/)
+  })
+  it('always tells the model to teach in order and skip maths the course does not have', () => {
+    const p = buildNotesPrompt(NOTES, DECK, { withDeck: false })
+    expect(p).toContain('**Teach, in order.**')
+    expect(p).toContain('**Maths only where the course has it.**')
+  })
+})

@@ -2,6 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
+import { listNotes } from '../data/notes'
+import { groupByUnit, pagesOf, pageUrl, type Page } from '../data/pages'
 import { createFolder, descendants, listArchive, listLibrary } from '../data/repo'
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
@@ -57,9 +59,8 @@ export function Shell() {
           </div>
           <nav className="nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="lib" /><span className="lbl">Library</span></NavLink>
-            <NavLink to="/notes" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="notes" /><span className="lbl">Notes</span><span className="soon">soon</span></NavLink>
             <button onClick={() => open('prompt')}><Icon name="prompt" /><span className="lbl">Get the LLM prompt</span></button>
-            <button onClick={() => open('import')}><Icon name="upload" /><span className="lbl">Import a deck</span></button>
+            <button onClick={() => open('import')}><Icon name="upload" /><span className="lbl">Import</span></button>
           </nav>
           <FolderTree />
           <div className="foot">
@@ -78,31 +79,48 @@ export function Shell() {
 }
 
 function FolderTree() {
-  const data = useLiveQuery(async () => ({ ...(await listLibrary()), archived: (await listArchive()) }), [])
+  const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), archived: (await listArchive()) }), [])
   const loc = useLocation()
   const nav = useNavigate()
   const { openFolders, set } = useSettings()
   if (!data) return <div className="tree" />
-  const { folders, decks } = data
-  const archivedCount = data.archived.folders.length + data.archived.decks.length
-  // Keep the path to the open deck or folder expanded.
-  const activeDeck = decks.find((d) => loc.pathname.startsWith(`/deck/${d.id}`))
-  const activeFolder = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : activeDeck?.folderId
+  const { folders, decks, notes } = data
+  const pages = pagesOf(decks, notes)
+  const archivedCount = data.archived.folders.length + data.archived.decks.length + data.archived.notes.length
+  const isActive = (p: Page) => loc.pathname.startsWith(pageUrl(p))
+  // Keep the path to the open page or folder expanded.
+  const activePage = pages.find(isActive)
+  const activeFolder = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : activePage?.folderId
   const forced = new Set<string>()
   for (let f = folders.find((x) => x.id === activeFolder); f; f = folders.find((x) => x.id === f!.parentId)) forced.add(f.id)
   const isOpen = (id: string) => openFolders.includes(id) || forced.has(id)
   const toggle = (id: string) => set({ openFolders: openFolders.includes(id) ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
-  const count = (id: string) => { const ids = descendants(folders, id); return decks.filter((d) => d.folderId && ids.has(d.folderId)).length }
+  const count = (id: string) => { const ids = descendants(folders, id); return pages.filter((p) => p.folderId && ids.has(p.folderId)).length }
+  const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
+    <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title}>
+      <Icon name={p.kind === 'note' ? 'notes' : 'cards'} size={13} /><span className="t">{p.title}</span>
+    </Link>
+  )
+  const PageList = ({ list, pad }: { list: Page[]; pad: number }) => {
+    const groups = groupByUnit(list)
+    const labelled = groups.some((g) => g.unit)
+    return <>{groups.map((g) => (
+      <div key={g.unit ?? '-'}>
+        {labelled && <div className="tunit" style={{ paddingLeft: pad + 2 }}>{g.unit ?? 'No unit'}</div>}
+        {g.pages.map((p) => <PageLink key={p.id} p={p} pad={pad} />)}
+      </div>
+    ))}</>
+  }
 
   const Node = ({ f, depth }: { f: Folder; depth: number }) => {
     const kids = folders.filter((x) => x.parentId === f.id).sort(byName)
-    const ds = decks.filter((d) => d.folderId === f.id).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
+    const ps = pages.filter((p) => p.folderId === f.id)
     const open = isOpen(f.id)
     return (
       <div className="tnode">
         <div className={`trow ${loc.pathname === `/folder/${f.id}` ? 'active' : ''}`} style={{ paddingLeft: 4 + depth * 14 }}>
-          <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'} disabled={!kids.length && !ds.length}>
+          <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'} disabled={!kids.length && !ps.length}>
             <Icon name="down2" size={14} />
           </button>
           <Link to={`/folder/${f.id}`}><Icon name="folder" /><span className="t">{f.name}</span><span className="n">{count(f.id)}</span></Link>
@@ -110,26 +128,20 @@ function FolderTree() {
         <Collapse open={open}>
           <>
             {kids.map((k) => <Node key={k.id} f={k} depth={depth + 1} />)}
-            {ds.map((d) => (
-              <Link key={d.id} to={`/deck/${d.id}`} className={`tdeck ${loc.pathname.startsWith(`/deck/${d.id}`) ? 'active' : ''}`} style={{ paddingLeft: 30 + depth * 14 }}>
-                <span className="t">{d.title}</span>
-              </Link>
-            ))}
+            <PageList list={ps} pad={30 + depth * 14} />
           </>
         </Collapse>
       </div>
     )
   }
-  const loose = decks.filter((d) => !d.folderId)
+  const loose = pages.filter((p) => !p.folderId)
   return (
     <>
       <div className="sec">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
       <div className="tree">
-        {folders.length === 0 && loose.length === 0 && <div className="empty">Imported decks show up here, grouped by course.</div>}
+        {folders.length === 0 && loose.length === 0 && <div className="empty">Imported decks and notes show up here, grouped by course.</div>}
         {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
-        {loose.map((d) => (
-          <Link key={d.id} to={`/deck/${d.id}`} className={`tdeck ${loc.pathname.startsWith(`/deck/${d.id}`) ? 'active' : ''}`} style={{ paddingLeft: 12 }}><span className="t">{d.title}</span></Link>
-        ))}
+        {loose.map((p) => <PageLink key={p.id} p={p} pad={12} />)}
         {archivedCount > 0 && (
           <Link to="/archive" className={`tdeck archive-link ${loc.pathname === '/archive' ? 'active' : ''}`} style={{ paddingLeft: 10 }}>
             <Icon name="archive" /><span className="t">Archive</span><span className="n">{archivedCount}</span>

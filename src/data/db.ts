@@ -19,6 +19,8 @@ export type DeckRow = {
   lastStudiedAt?: number
   archived?: boolean
   archivedAt?: number
+  /** How the class labels this part of the course: "Chapter 4", "Week 5". Groups pages in a folder. */
+  unit?: string
 }
 export type ItemRow = Item & { deckId: string; position: number }
 export type StudyMode = 'learn' | 'flashcards' | 'test'
@@ -36,6 +38,10 @@ export type NoteRow = {
   createdAt: number
   updatedAt: number
   lastOpenedAt?: number
+  /** Indexes into `blocks` of the sections read (index 0 for a page with no sections). */
+  read?: number[]
+  archived?: boolean
+  archivedAt?: number
 }
 export type Link = { noteId: string; deckId: string; createdAt: number }
 export type DeckRecord = { deckId: string; bestStreak: number; sessions: number; secondsStudied: number; answered: number; correct: number }

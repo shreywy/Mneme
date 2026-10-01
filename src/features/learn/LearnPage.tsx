@@ -15,7 +15,7 @@ import { useSettings } from '../../settings/store'
 import { buzz, sfx } from '../../sound/sfx'
 import { Icon } from '../../ui/Icons'
 import { toast } from '../../ui/toasts'
-import { isTyping } from '../../app/ui'
+import { isTyping, studyBack } from '../../app/ui'
 import { QuestionView } from '../study/QuestionView'
 import { burst, MILESTONES, pulse, smoke } from '../study/effects'
 import { MatchRound, type MatchResult } from './MatchRound'
@@ -31,7 +31,7 @@ export function LearnPage() {
   const nav = useNavigate()
   const filter = (sp.get('f') as Filter) || 'all'
   const topic = sp.get('topic')
-  const back = `/deck/${deckId}${sp.toString() ? '?' + sp.toString() : ''}`
+  const back = studyBack(sp, deckId)
   const { sound, learnShuffle, learnPanel, learnMatch, set: setSettings } = useSettings()
 
   const [data, setData] = useState<Loaded | null | 'missing'>(null)

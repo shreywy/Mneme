@@ -128,3 +128,15 @@ export function parseNotesText(input: string): NotesParseResult {
   }
   return { ok: true, notes, ...(deck ? { deck } : {}), warnings }
 }
+
+export type AnyParse =
+  | { kind: 'deck'; result: import('../deck-format/types').ParseResult }
+  | { kind: 'notes'; result: NotesParseResult }
+
+/** Read any Mneme file: notes (maybe with a deck inside) or a deck. Anything unreadable goes down the deck path for its messages. */
+export function parseAnyText(input: string): AnyParse {
+  let raw: unknown
+  try { raw = extractJson(input) } catch { raw = undefined }
+  if (isObj(raw) && raw.format === 'mneme.notes') return { kind: 'notes', result: parseNotesText(input) }
+  return { kind: 'deck', result: parseDeckText(input) }
+}

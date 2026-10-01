@@ -12,7 +12,7 @@ import { Demo } from '../../content/Demo'
 import { Icon } from '../../ui/Icons'
 import { Seg, Toggle } from '../../ui/controls'
 import { QuestionView } from '../study/QuestionView'
-import { isTyping } from '../../app/ui'
+import { isTyping, studyBack } from '../../app/ui'
 
 type Phase = 'setup' | 'run' | 'done'
 
@@ -23,7 +23,7 @@ export function TestPage() {
   const filter = (sp.get('f') as Filter) || 'all'
   const topic = sp.get('topic')
   const qs = sp.toString() ? '?' + sp.toString() : ''
-  const back = `/deck/${deckId}${qs}`
+  const back = studyBack(sp, deckId)
   const [deck, setDeck] = useState<DeckRow | null>(null)
   const [all, setAll] = useState<Item[]>([])
   const [pool, setPool] = useState<Item[]>([])

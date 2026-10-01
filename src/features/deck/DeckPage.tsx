@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Folder } from '../../data/db'
 import * as repo from '../../data/repo'
+import * as notesRepo from '../../data/notes'
+import { LinkPicker } from '../notes/LinkPicker'
 import { countMastery, filterItems, plural, relTime, type Filter } from '../../data/stats'
 import type { Item } from '../../deck-format/types'
 import { answerText, promptText } from '../../engine/exercises'
@@ -28,6 +30,7 @@ export function DeckPage() {
   const [tab, setTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [linking, setLinking] = useState(false)
   const [leaving, setLeaving] = useState(false)
   /** Fade the page out, then go: used after delete and archive so the page doesn't just vanish. */
   const leaveTo = (to: string) => { setLeaving(true); setTimeout(() => nav(to), 200) }
@@ -36,16 +39,16 @@ export function DeckPage() {
   const data = useLiveQuery(async () => {
     const deck = await repo.getDeck(deckId)
     if (!deck) return { deck: undefined }
-    const [items, states, record, missed, folders] = await Promise.all([
-      repo.getItems(deckId), repo.getCardStates(deckId), repo.getDeckRecord(deckId), repo.missedMost(deckId, 5), db.folders.orderBy('position').toArray(),
+    const [items, states, record, missed, folders, notes] = await Promise.all([
+      repo.getItems(deckId), repo.getCardStates(deckId), repo.getDeckRecord(deckId), repo.missedMost(deckId, 5), db.folders.orderBy('position').toArray(), notesRepo.notesForDeck(deckId),
     ])
-    return { deck, items, states, record, missed, folders }
+    return { deck, items, states, record, missed, folders, notes }
   }, [deckId])
 
   const shown = useMemo(() => (data?.items ? filterItems(data.items, filter, topic) : []), [data?.items, filter, topic])
   if (!data) return null
   if (!data.deck) return <div className="page"><h1 className="title">Deck not found</h1><p className="empty-note" style={{ marginTop: 12 }}><Link to="/">Back to the library</Link></p></div>
-  const { deck, items, states, record, missed, folders } = data
+  const { deck, items, states, record, missed, folders, notes } = data
   const crumbs = folderPath(folders, deck.folderId)
   const m = countMastery(shown, states)
   const pct = shown.length ? Math.round(((m.familiar + m.mastered) / shown.length) * 100) : 0
@@ -122,6 +125,19 @@ export function DeckPage() {
                   return it ? <div className="it" key={x.key}><span><Markdown inline>{promptText(it)}</Markdown></span><span className="x">{plural(x.misses, 'miss', 'misses')}</span></div> : null
                 })}
             </div>
+            <div className="panel list">
+              <h3>Notes for this deck <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => setLinking(true)}><Icon name="plus" />Link</button></h3>
+              {notes.length === 0 ? <p className="empty-note">No notes linked. Link a notes page to open it from here, and to study this deck from the notes.</p>
+                : notes.map((n) => {
+                  const r = notesRepo.readingProgress(n)
+                  return (
+                    <div className="it" key={n.id}>
+                      <Link to={`/notes/${n.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)' }}><Icon name="notes" size={14} />{n.title}</Link>
+                      <span className="x">{r.read} of {r.total} read</span>
+                    </div>
+                  )
+                })}
+            </div>
             <div className="panel">
               <h3>Records</h3>
               <div className="legend" style={{ marginTop: 0 }}>
@@ -134,6 +150,11 @@ export function DeckPage() {
               <h3>Manage</h3>
               <div className="field" style={{ marginBottom: 14 }}><span>Folder</span>
                 <FolderSelect folders={folders} value={deck.folderId} onChange={(id) => repo.moveDeck(deckId, id)} />
+              </div>
+              <div className="field" style={{ marginBottom: 14 }}><span>Unit</span>
+                <input className="input" key={deck.unit ?? ''} defaultValue={deck.unit ?? ''} placeholder="e.g. Chapter 4"
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v !== (deck.unit ?? '')) void repo.setDeckUnit(deckId, v) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn ghost danger sm" onClick={async () => {
@@ -152,6 +173,7 @@ export function DeckPage() {
           }} />
         )}
       </div>
+      {linking && <LinkPicker kind="notes" deckId={deckId} onClose={() => setLinking(false)} />}
       {editing && (
         <CardEditor item={editing === 'new' ? null : editing} topics={deck.topics.length ? deck.topics : [{ id: 'general', name: 'General' }]}
           onClose={() => setEditing(null)}

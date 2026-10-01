@@ -71,4 +71,6 @@
   --seg3: color-mix(in oklab, var(--accent) 65%, var(--surface));
   --seg4: var(--accent);
   --pencil-line: var(--bg);
+  /* reading progress on notes pages: a warm tone so it doesn't read as "learned" */
+  --read: color-mix(in oklab, #9A7B3F 75%, var(--surface));
 }

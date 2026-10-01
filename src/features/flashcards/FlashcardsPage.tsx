@@ -10,7 +10,7 @@ import { shuffle } from '../../engine/rng'
 import { Markdown } from '../../content/Markdown'
 import { Icon } from '../../ui/Icons'
 import { Seg } from '../../ui/controls'
-import { isTyping } from '../../app/ui'
+import { isTyping, studyBack } from '../../app/ui'
 import { sizeClass } from '../study/QuestionView'
 import { hideHint, useSettings } from '../../settings/store'
 import { Demo } from '../../content/Demo'
@@ -30,7 +30,7 @@ export function FlashcardsPage() {
   const nav = useNavigate()
   const filter = (sp.get('f') as Filter) || 'all'
   const topic = sp.get('topic')
-  const back = `/deck/${deckId}${sp.toString() ? '?' + sp.toString() : ''}`
+  const back = studyBack(sp, deckId)
   const [deck, setDeck] = useState<DeckRow | null>(null)
   const [items, setItems] = useState<Item[]>([])
   const [order, setOrder] = useState<Item[]>([])

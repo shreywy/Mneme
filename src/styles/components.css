@@ -376,3 +376,10 @@ a.drow:hover { background: var(--surface2); }
   .icon-grid button { width: auto; aspect-ratio: 1; }
   .acard .actions .btn { flex: 1; }
 }
+
+/* ---------- page kind labels (deck / notes) ---------- */
+.dcard .kind { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.drow b { display: inline-flex; align-items: center; gap: 8px; }
+.drow b svg.i { color: var(--muted); }
+.tunit { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 6px; padding-bottom: 2px; }
+.tdeck svg.i { color: var(--muted); margin-right: 6px; flex: none; }

@@ -190,7 +190,9 @@ In notes, a question doesn't need `topic` or `difficulty`.
 
 ## 5. Quality rules
 
-- **Teach, don't transcribe.** Explain each idea in plain words, then show it with a visual or an example.
+- **Teach, in order.** This page is a lesson, not a summary of the slides. Start with what a student needs first, and make each section build on the one before it. If the material jumps around, put it in the order that makes sense to learn it.
+- **Explain the why.** For every rule, formula or definition, say what it means in plain words, why it works or why it matters, and show it with a concrete example (real numbers, a real case). A student who missed the lecture should understand it from this page alone.
+- **Teach, don't transcribe.** Never copy slide bullets. Turn them into explanations.
 - **Pick the visual that fits.**
   - An equation that breaks down: `flow`, or `math` with an aligned derivation.
   - A process: `steps` or `cycle`.
@@ -199,11 +201,12 @@ In notes, a question doesn't need `topic` or `difficulty`.
   - Real numbers: `chart`.
   - Something that needs interaction or a custom picture: `demo`.
   - Don't force a visual where a short paragraph is clearer.
-- **Interactive checks:** add one or two per section, about 10 to 20 per page. Prefer `question`, `match` and `worked` over `reveal`.
+- **Interactive checks:** as many as the choices in section 1 ask for. Prefer `question`, `match` and `worked` over `reveal`.
+- **Maths only where the course has it.** If the material has formulas or calculations, include them (see the choices in section 1). If it doesn't, use none: no `math` blocks, no invented formulas, no numbers for the sake of it. The same goes for visuals: never force one.
 - **Callouts:**
   - Use `warning` for the mistakes students actually make.
   - Use `exam` only when the material says how something is tested.
-- **Length:** a page should take 15 to 30 minutes to work through. Cut repetition.
+- **Length:** as the choices in section 1 say. Cut repetition.
 - **Writing style** (students read every word):
   - Plain, direct and specific, like a sharp teaching assistant. Short sentences, real numbers.
   - No chains of em dashes.

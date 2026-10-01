@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Markdown } from '../../content/Markdown'
 import type { Block, CalloutTone } from '../../notes-format/types'
 import { buildExercise } from '../../engine/exercises'
@@ -10,6 +10,31 @@ import { Demo } from '../../content/Demo'
 import { Chart, Compare, Cycle, Decision, Diagram, Flow, Steps, Timeline, Tree } from './visuals'
 
 type B<T extends Block['type']> = Extract<Block, { type: T }>
+
+/**
+ * What the page around the blocks wants to know. The notes page provides it; previews (import) don't.
+ * - `reached(index)`: the end of top-level block `index` came into view (used for reading progress).
+ * - `answered(item key, correct, ms)`: a question on the page was answered.
+ */
+export type NotesHooks = { reached?: (index: number) => void; answered?: (key: string, correct: boolean, ms: number) => void }
+export const NotesHooksCtx = createContext<NotesHooks>({})
+/** The index of the top-level block being rendered, so a section knows which one it is. */
+export const BlockIndexCtx = createContext<number>(-1)
+
+/** Calls `reached` once when this point scrolls into view. Put at the end of something to know it was read through. */
+export function EndMarker() {
+  const { reached } = useContext(NotesHooksCtx)
+  const index = useContext(BlockIndexCtx)
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !reached || index < 0) return
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { reached(index); io.disconnect() } }, { rootMargin: '0px 0px -10% 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [reached, index])
+  return <span ref={ref} className="end-marker" aria-hidden="true" />
+}
 
 const TONE_LABEL: Record<CalloutTone, string> = { tip: 'Tip', warning: 'Watch out', exam: 'On the exam', definition: 'Definition', note: 'Note' }
 
@@ -75,7 +100,7 @@ function Section({ b, openAll }: { b: B<'section'>; openAll?: boolean | null }) 
       <button className="nsec-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span>{b.title}</span><svg className="i chev"><use href="#i-chev" /></svg>
       </button>
-      {open && <div className="nsec-body"><BlockList blocks={b.blocks} /></div>}
+      {open && <div className="nsec-body"><BlockList blocks={b.blocks} /><EndMarker /></div>}
     </section>
   )
 }
@@ -97,6 +122,8 @@ function Box({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function InlineQuestion({ b }: { b: B<'question'> }) {
+  const { answered } = useContext(NotesHooksCtx)
+  const shownAt = useRef(performance.now())
   const [seed, setSeed] = useState(0)
   const ex = useMemo(() => buildExercise(b.item, [b.item], 'recall'), [b.item, seed])
   const [resp, setResp] = useState<Response>()
@@ -107,6 +134,7 @@ function InlineQuestion({ b }: { b: B<'question'> }) {
     const g = gradeResponse(ex, r)
     setGrade(g)
     if (g.correct) sfx.correct(); else sfx.wrong()
+    if (seed === 0) answered?.(b.item.key, g.correct, performance.now() - shownAt.current) // only the first try counts
   }
   return (
     <Box label="Check yourself">

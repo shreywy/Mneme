@@ -71,3 +71,30 @@ describe('parseNotesText', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('parseAnyText', () => {
+  it('reads a deck file as a deck', async () => {
+    const { parseAnyText } = await import('./parse')
+    const r = parseAnyText(JSON.stringify({ format: 'mneme.deck', version: 1, deck: { title: 'D' }, topics: [{ id: 'a', name: 'A' }], terms: [{ id: 't', term: 'T', definition: 'D', topic: 'a' }] }))
+    expect(r.kind).toBe('deck')
+    expect(r.result.ok).toBe(true)
+  })
+  it('reads a notes file as notes, with its bundled deck', async () => {
+    const { parseAnyText } = await import('./parse')
+    const deck = { format: 'mneme.deck', version: 1, deck: { title: 'D' }, topics: [{ id: 'a', name: 'A' }], terms: [{ id: 't', term: 'T', definition: 'D', topic: 'a' }] }
+    const r = parseAnyText(wrap([{ type: 'paragraph', text: 'x' }], { deck }))
+    expect(r.kind).toBe('notes')
+    expect(r.result.ok && r.kind === 'notes' && !!r.result.deck).toBe(true)
+  })
+  it('finds the JSON inside a chat reply', async () => {
+    const { parseAnyText } = await import('./parse')
+    const r = parseAnyText('Here you go:\n```json\n' + wrap([{ type: 'paragraph', text: 'x' }]) + '\n```\nHope that helps')
+    expect(r.kind).toBe('notes')
+  })
+  it('treats unreadable text as a deck attempt, so the deck errors show', async () => {
+    const { parseAnyText } = await import('./parse')
+    const r = parseAnyText('not json')
+    expect(r.kind).toBe('deck')
+    expect(r.result.ok).toBe(false)
+  })
+})

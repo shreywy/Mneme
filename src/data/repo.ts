@@ -2,7 +2,7 @@ import type { Grade } from 'ts-fsrs'
 import type { Item, NormalizedDeck } from '../deck-format/types'
 import { mergeParts } from '../deck-format/parse'
 import { applyAnswer, type CardState } from '../engine/memory'
-import { db, type DeckRecord, type DeckRow, type Folder, type ItemRow, type StudyMode } from './db'
+import { db, type DeckRecord, type DeckRow, type Folder, type ItemRow, type StudyMode, type NoteRow } from './db'
 
 // Guest-mode repository backed by IndexedDB. The Supabase repository (M1) will implement the same functions.
 
@@ -66,10 +66,10 @@ export async function setArchived(kind: 'deck' | 'folder', id: string, archived:
 }
 
 /** Archived decks and folders, newest first. */
-export async function listArchive(): Promise<{ folders: Folder[]; decks: DeckRow[] }> {
-  const [folders, decks] = await Promise.all([db.folders.toArray(), db.decks.toArray()])
+export async function listArchive(): Promise<{ folders: Folder[]; decks: DeckRow[]; notes: NoteRow[] }> {
+  const [folders, decks, notes] = await Promise.all([db.folders.toArray(), db.decks.toArray(), db.notes.toArray()])
   const by = (a: { archivedAt?: number }, b: { archivedAt?: number }) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0)
-  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter((d) => d.archived).sort(by) }
+  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter((d) => d.archived).sort(by), notes: notes.filter((n) => n.archived).sort(by) }
 }
 
 /** Folders hidden because they, or a parent, are archived. */
@@ -246,5 +246,9 @@ export async function updateDeckInfo(deckId: string, p: { title?: string; course
   await db.decks.update(deckId, patch)
 }
 
+export async function setDeckUnit(deckId: string, unit: string) {
+  const d = await db.decks.get(deckId)
+  if (d) { const { unit: _old, ...rest } = d; await db.decks.put(unit ? { ...rest, unit } : rest) }
+}
 export async function moveDeck(deckId: string, folderId: string | null) { await db.decks.update(deckId, { folderId }) }
 export async function renameDeck(deckId: string, title: string) { await db.decks.update(deckId, { title: title.trim() || 'Untitled deck' }) }

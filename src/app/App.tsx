@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { IconSprite } from '../ui/Icons'
 import { Toasts } from '../ui/toasts'
 import { Shell } from './Shell'
@@ -21,7 +21,8 @@ export function App() {
           <Route index element={<LibraryPage />} />
           <Route path="folder/:folderId" element={<LibraryPage />} />
           <Route path="deck/:deckId" element={<DeckPage />} />
-          <Route path="notes" element={<NotesPage />} />
+          <Route path="notes/:noteId" element={<NotesPage />} />
+          <Route path="notes" element={<Navigate to="/" replace />} />
           <Route path="archive" element={<ArchivePage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="*" element={<LibraryPage />} />

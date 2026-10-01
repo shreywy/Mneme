@@ -30,3 +30,15 @@ export const isTyping = (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
 }
+
+/**
+ * Where a study screen goes back to: the notes page it was opened from (`?from=/notes/<id>`), else the deck.
+ * Only notes-page paths are accepted, so a crafted link can't send people somewhere else.
+ */
+export function studyBack(sp: URLSearchParams, deckId: string): string {
+  const from = sp.get('from')
+  if (from && /^\/notes\/[A-Za-z0-9-]+$/.test(from)) return from
+  const rest = new URLSearchParams(sp); rest.delete('from')
+  const qs = rest.toString()
+  return `/deck/${deckId}${qs ? '?' + qs : ''}`
+}
