@@ -40,6 +40,17 @@
   color-scheme: dark;
 }
 
+/* Other dark palettes. Only the surfaces and text change; good/bad colours carry over from dark. */
+:root[data-theme='dark'][data-palette='black'] {
+  --bg: #000000; --surface: #0E0E0E; --surface2: #1A1A1A; --ink: #EDEDED; --muted: #8F8F8F; --line: #262626; --accent-ink: #000000;
+}
+:root[data-theme='dark'][data-palette='grey'] {
+  --bg: #1C1C1E; --surface: #242426; --surface2: #2E2E31; --ink: #E8E8EA; --muted: #9A9AA0; --line: #3A3A3D; --accent-ink: #1C1C1E;
+}
+:root[data-theme='dark'][data-palette='discord'] {
+  --bg: #313338; --surface: #383A40; --surface2: #41434A; --ink: #DBDEE1; --muted: #9AA0A9; --line: #4A4D55; --accent-ink: #313338;
+}
+
 :root {
   --seg1: var(--line);
   --seg2: color-mix(in oklab, var(--accent) 35%, var(--surface));

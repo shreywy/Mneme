@@ -13,7 +13,7 @@ export const accountsEnabled = !!supabase
 const OWNER_KEY = 'mneme.sync.owner'
 const SETTINGS_TS = 'mneme.settings.syncedAt'
 // Settings that follow the account. Sidebar layout and open folders stay per device.
-const SYNCED_SETTINGS = ['theme', 'accent', 'sound', 'correctSound', 'reduceMotion', 'learnShuffle', 'learnPanel', 'learnMatch', 'hiddenHints', 'libraryView', 'librarySort'] as const
+const SYNCED_SETTINGS = ['theme', 'accent', 'darkPalette', 'customBg', 'sound', 'correctSound', 'reduceMotion', 'learnShuffle', 'learnPanel', 'learnMatch', 'hiddenHints', 'libraryView', 'librarySort'] as const
 
 let currentId: string | null = null
 let channel: RealtimeChannel | null = null

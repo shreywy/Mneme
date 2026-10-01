@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ACCENTS, useSettings, type CorrectSound } from '../../settings/store'
+import { DARK_PALETTES, ACCENTS, useSettings, type CorrectSound } from '../../settings/store'
 import { sfx } from '../../sound/sfx'
 import { Seg, Sheet, Toggle } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
@@ -35,8 +35,21 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   return (
     <Sheet onClose={onClose} label="Settings">
       <h2>Settings</h2>
-      <div className="srow"><div className="l"><b>Theme</b><span>Paper light or paper dark</span></div>
-        <Seg value={s.theme} onChange={(theme) => s.set({ theme })} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} />
+      <div className="srow"><div className="l"><b>Theme</b><span>{s.customBg ? 'Your custom background decides light or dark' : 'Light, dark, or follow your device'}</span></div>
+        <Seg value={s.theme} onChange={(theme) => s.set({ theme, customBg: null })} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} />
+      </div>
+      <div className="srow"><div className="l"><b>Dark style</b><span>{DARK_PALETTES.find((p) => p.id === s.darkPalette)?.name}</span></div>
+        <div className="sw">
+          {DARK_PALETTES.map((p) => <button key={p.id} title={p.name} aria-label={p.name} className={!s.customBg && s.darkPalette === p.id ? 'on' : ''} style={{ '--c': p.bg } as React.CSSProperties} onClick={() => s.set({ darkPalette: p.id, customBg: null, theme: s.theme === 'light' ? 'dark' : s.theme })} />)}
+        </div>
+      </div>
+      <div className="srow"><div className="l"><b>Custom background</b><span>Pick any colour. Text and borders adjust to stay readable.</span></div>
+        <div className="custombg">
+          {s.customBg && <button className="btn ghost sm" onClick={() => s.set({ customBg: null })}>Reset</button>}
+          <label className={`sw-pick ${s.customBg ? 'on' : ''}`} style={{ '--c': s.customBg ?? 'conic-gradient(#E58B74, #D8B062, #A7BE8A, #86B59C, #9DB0BF, #B9A3D6, #E58B74)' } as React.CSSProperties} title="Choose a background colour">
+            <input type="color" value={s.customBg ?? '#2A2D3A'} onChange={(e) => s.set({ customBg: e.target.value })} aria-label="Custom background colour" />
+          </label>
+        </div>
       </div>
       <div className="srow"><div className="l"><b>Accent</b><span>Buttons, progress and highlights</span></div>
         <div className="sw">

@@ -3,6 +3,7 @@
 This is the single to-do list. Anything agreed in conversation and not built yet goes here. Tick items off as they ship. The full design is in [the spec](superpowers/specs/2026-09-30-mneme-design.md).
 
 ## Done
+- [x] Themes: Black, Grey and Blurple grey dark styles next to Paper, and a custom background colour that sets light or dark text from its brightness (synced with the account)
 - [x] Hosting on Cloudflare Pages at https://mnemee.pages.dev, auto-deploying from `main`
 - [x] Supabase project: migrations committed, owner-only RLS on every table, RLS tests that try to read, change and forge another user's rows (`npm run test:db`)
 - [x] Sign-in by emailed link or code, account dialog, sync status in the sidebar
@@ -31,7 +32,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 6. **Preview site, GitHub polish, v1 release**
 7. **Offline desktop app** (much later)
 
-Shrey wants drafts of the bigger designs (text notes especially) before they're built.
+Shrey wants drafts of the bigger designs (text notes especially) before they're built. Small single-feature asks (themes, tweaks) don't wait for their step: build them straight away.
 
 ## Next up
 - [ ] **Notes as a page type, not a tab:** importing gives you a *page*, which is either a deck or notes. Remove the Notes tab from the sidebar; notes pages live in folders next to decks. Then: notes page (renderer is built), notes import, notes options in the prompt builder, deck↔notes linking on both pages, course units in the sidebar
@@ -71,6 +72,7 @@ Shrey wants drafts of the bigger designs (text notes especially) before they're 
 - [ ] Report button and moderation
 
 ## Site and docs
+- [ ] Empty-library splash with pictures instead of reading: the prompt going into an AI chat with course PDFs and slides attached, the deck file coming back, then studying it (much later)
 - [ ] Landing page for signed-out visitors
 - [ ] Docs: getting started, making a deck, deck format, study modes, how scheduling works (with an interactive forgetting-curve chart), privacy and security, shortcuts
 - [ ] Changelog (patch notes) page, plus a "What's new" dot
@@ -78,9 +80,6 @@ Shrey wants drafts of the bigger designs (text notes especially) before they're 
 - [ ] Full README: screenshots, GIF, architecture and ER diagrams, feature list
 - [ ] Deploy to Cloudflare Pages from `main`
 
-## Themes
-- [ ] More dark palettes: true black, grey, and a Discord-style blue-grey
-- [ ] Custom theme: a colour picker for the background, with text and line colours worked out from its brightness so contrast stays readable
 
 ## Text notes (the user's own pages; draft the design with Shrey first)
 - [ ] Pageless editor in the style of Google Docs but sleeker: headings, lists, tables, diagrams, code blocks with syntax highlighting for many languages, highlighting, and annotations (comments attached to selected text)
