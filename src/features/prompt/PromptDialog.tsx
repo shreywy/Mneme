@@ -97,6 +97,7 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
           : <label className="field"><span>Deck title</span><input className="input" placeholder="e.g. Midterm review" value={f.title} onChange={(e) => up({ title: e.target.value })} /></label>}
         {notes && <label className="field full"><span>Title</span><input className="input" placeholder="Leave blank to use the unit's own title" value={f.title} onChange={(e) => up({ title: e.target.value })} /></label>}
         <label className="field full"><span>Focus</span><input className="input" placeholder="e.g. chapters 1 to 3, skip the history of GAAP" value={f.focus} onChange={(e) => up({ focus: e.target.value })} /></label>
+        {notes && <p className="field full muted small" style={{ margin: '-4px 0 0' }}>Covering several chapters? The AI sends one file per chapter (say "next" to get each). Import them together and they become one page with a divider per chapter.</p>}
         {notes && (
           <div className="field full notes-opts">
             <div className="nopt"><span>Length</span><Seg value={f.nLength} onChange={(v) => up({ nLength: v })} options={[{ value: 'short', label: 'Short' }, { value: 'standard', label: 'Standard' }, { value: 'thorough', label: 'Thorough' }]} /></div>

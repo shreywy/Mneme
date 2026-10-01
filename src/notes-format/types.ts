@@ -5,6 +5,8 @@ export type CalloutTone = 'tip' | 'warning' | 'exam' | 'definition' | 'note'
 
 export type Block =
   | { type: 'quickref'; title?: string; blocks: Block[] }
+  /** A chapter divider: notes that cover several chapters come in parts, each starting with one. */
+  | { type: 'part'; title: string; index?: number }
   | { type: 'section'; title: string; open: boolean; blocks: Block[] }
   | { type: 'heading'; text: string }
   | { type: 'paragraph'; text: string }
@@ -37,6 +39,8 @@ export type NormalizedNotes = {
   summary?: string
   topics: string[]
   blocks: Block[]
+  /** Set when the notes came in several files (one per chapter): which file this is. */
+  part?: { index: number; of: number }
 }
 
 export type NotesParseResult =

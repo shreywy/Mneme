@@ -173,3 +173,31 @@ describe('plain text of a page', () => {
     expect(t).not.toMatch(/\bsection\b|\bcallout\b|\bexam\b/)
   })
 })
+
+describe('notes in parts (one file per chapter)', () => {
+  const part = (index: number, of: number, text: string): NormalizedNotes => ({
+    title: 'Chapters 1 to 3', course: 'ACC100', topics: [], part: { index, of },
+    blocks: [{ type: 'part', title: `Chapter ${index}` }, { type: 'section', title: `S${index}`, open: true, blocks: [{ type: 'paragraph', text }] }],
+  })
+  const titles = (n: { blocks: NormalizedNotes['blocks'] }) => n.blocks.map((b) => (b.type === 'part' ? `#${b.title}` : b.type === 'section' ? b.title : b.type))
+
+  it('later parts are added to the same page, in order', async () => {
+    const { noteId } = await notes.importNotes(part(1, 3, 'one'))
+    await notes.importNotes(part(3, 3, 'three'))
+    const again = await notes.importNotes(part(2, 3, 'two'))
+    expect(again.noteId).toBe(noteId)
+    expect(titles((await notes.getNote(noteId))!)).toEqual(['#Chapter 1', 'S1', '#Chapter 2', 'S2', '#Chapter 3', 'S3'])
+  })
+
+  it('re-importing a part replaces only that part, and keeps reading ticks on the right sections', async () => {
+    const { noteId } = await notes.importNotes(part(1, 2, 'one'))
+    await notes.importNotes(part(2, 2, 'two'))
+    await notes.markRead(noteId, 3) // S2
+    await notes.importNotes(part(1, 2, 'one, fixed'))
+    const n = (await notes.getNote(noteId))!
+    expect(titles(n)).toEqual(['#Chapter 1', 'S1', '#Chapter 2', 'S2'])
+    const s1 = n.blocks[1]
+    expect(s1.type === 'section' && s1.blocks[0].type === 'paragraph' && s1.blocks[0].text).toBe('one, fixed')
+    expect(n.read).toEqual([3])
+  })
+})

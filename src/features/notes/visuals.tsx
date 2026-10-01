@@ -104,7 +104,13 @@ export function Timeline({ b }: { b: B<'timeline'> }) {
 const fmt = (v: number, unit?: string) => `${unit === '$' ? '$' : ''}${v.toLocaleString()}${unit && unit !== '$' ? ` ${unit}` : ''}`
 
 export function Chart({ b }: { b: B<'chart'> }) {
-  const W = 560, H = 240, pad = { l: 44, r: 12, t: 16, b: 34 }
+  const W = 560
+  const n0 = Math.max(1, b.labels.length)
+  // Labels wrap to fit their column (about 6.3px per character at this size), up to two lines.
+  const perLine = Math.max(4, Math.floor((W - 56) / n0 / 6.3))
+  const labelLines = b.labels.map((l) => wrap(l, perLine))
+  const twoLine = labelLines.some((ls) => ls.length > 1)
+  const H = twoLine ? 254 : 240, pad = { l: 44, r: 12, t: 16, b: twoLine ? 48 : 34 }
   const all = b.series.flatMap((s) => s.values)
   const max = Math.max(0, ...all), min = Math.min(0, ...all)
   const y = (v: number) => pad.t + (H - pad.t - pad.b) * (1 - (v - min) / (max - min || 1))
@@ -140,7 +146,12 @@ export function Chart({ b }: { b: B<'chart'> }) {
           <g key={i}><line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeDasharray={t === 0 ? '' : '3 3'} />
             <text x={pad.l - 6} y={y(t) + 4} textAnchor="end" className="axis">{Math.round(t).toLocaleString()}</text></g>
         ))}
-        {b.labels.map((l, i) => <text key={i} x={pad.l + bandW * (i + 0.5)} y={H - 12} textAnchor="middle" className="axis">{l}</text>)}
+        {labelLines.map((ls, i) => (
+          <text key={i} x={pad.l + bandW * (i + 0.5)} y={H - (ls.length > 1 ? 26 : 12)} textAnchor="middle" className="axis">
+            <title>{b.labels[i]}</title>
+            {ls.map((ln, k) => <tspan key={k} x={pad.l + bandW * (i + 0.5)} dy={k ? 13 : 0}>{ln}</tspan>)}
+          </text>
+        ))}
         {b.kind === 'bar'
           ? b.series.map((s, si) => s.values.map((v, i) => {
             const gw = bandW * 0.7, bw = gw / b.series.length

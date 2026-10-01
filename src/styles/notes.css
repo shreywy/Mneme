@@ -245,3 +245,72 @@ figcaption, .hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
   .findbar { left: 8px; right: 8px; top: calc(8px + env(safe-area-inset-top)); }
   .findbar .input { flex: 1; width: auto; }
 }
+
+/* ---------- consistency fixes ---------- */
+/* Tables size the same way everywhere: two-column tables (term / meaning) share one first-column width,
+   so stacked tables line up; wider tables split evenly. */
+.nb-table table, .decision table { table-layout: fixed; }
+.nb-table table:has(tr > :nth-child(2):last-child) tr > :first-child { width: 34%; }
+.nb-table td, .nb-table th { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .nb-table table:has(tr > :nth-child(2):last-child) tr > :first-child { width: 40%; } }
+
+/* Lists: bullets sit inside the text column (they used to hang off the left edge in some blocks),
+   and inline Markdown never adds its own paragraph spacing. */
+.notes-body ul, .notes-body ol { padding-left: 1.35em; margin-left: 0; }
+.notes-body .nb-list { margin: 10px 0; }
+.notes-body li { padding-left: .15em; }
+.notes-body li::marker { color: var(--muted); }
+.notes-body .md-inline p { display: inline; margin: 0; }
+.quickref .nb-list { margin: 6px 0; }
+.steps, .timeline, .ntree, .ntree ul, .legend-list, .kt-chips { padding-left: 0; }
+.timeline { padding-left: 18px; }
+.ntree ul { padding-left: 14px; }
+
+/* Chapter dividers (notes that came in parts) */
+.nb-part { font-family: var(--serif); font-weight: 500; font-size: 28px; letter-spacing: -.01em; margin: 34px 0 6px; padding-top: 18px; border-top: 2px solid var(--ink); }
+.nblock:first-of-type .nb-part, .notes-head + .nblock .nb-part { margin-top: 8px; }
+.toc-part { display: flex; align-items: center; gap: 8px; margin: 12px 10px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.toc-part::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.toc-part:first-of-type { margin-top: 2px; }
+
+/* contents rail: rows with a tick you can toggle */
+.toc-row { padding: 0; }
+.toc-row .tick { margin: 7px 0 0 8px; cursor: pointer; }
+.toc-row .tick.pin { cursor: default; border-color: transparent; color: var(--muted); }
+.toc-row .tick:not(.pin):hover { border-color: var(--read); }
+.toc-row .t { flex: 1; min-width: 0; text-align: left; padding: 6px 10px 6px 0; color: inherit; font: inherit; line-height: 1.35; }
+.notes-page.no-toc { grid-template-columns: minmax(0, 760px); }
+.notes-page.no-toc .toc { display: none; }
+.toc-toggle.on { background: var(--surface2); }
+.menu button.danger { color: var(--bad); }
+.menu button { display: flex; align-items: center; gap: 10px; }
+.menu button svg.i { color: var(--muted); }
+.menu button.danger svg.i { color: var(--bad); }
+
+/* printing a notes page: just the page, every section open */
+@media print {
+  .side, .top, .toc, .toc-mobile, .linked, .notes-body .manage, .mark-pin, .findbar, .hot, .toasts, .nb-actions, .ctxmenu, .floating { display: none !important; }
+  .app, .notes-page { display: block !important; }
+  .main { overflow: visible !important; }
+  body { background: #fff; }
+  .notes-body { font-size: 11.5pt; }
+  .nsec, .nb-box, .quickref, figure { break-inside: avoid; }
+  .nsec-head .chev { display: none; }
+}
+
+/* Tables with three or more columns: thin lines between columns, and a wider first column (usually the label). */
+.nb-table table:has(tr > :nth-child(3)) th + th, .nb-table table:has(tr > :nth-child(3)) td + td { border-left: 1px solid var(--line); }
+.nb-table table:has(tr > :nth-child(3)) tr > :first-child { width: 30%; }
+.nb-table table:has(tr > :nth-child(3)) { border: 1px solid var(--line); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.nb-table table:has(tr > :nth-child(3)) tr:last-child td { border-bottom: 0; }
+.nb-table table:has(tr > :nth-child(3)) thead th { background: var(--surface2); }
+
+/* annotation shown on hover: plain text for a short note, a small card for a long one */
+.floating.notehint { pointer-events: none; padding: 8px 11px; max-width: min(320px, calc(100vw - 16px)); font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; }
+.floating.notehint.short { background: var(--ink); color: var(--bg); border-color: transparent; border-radius: 8px; padding: 5px 9px; font-size: 13px; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); }
+.selbar-btn.hl svg.i { color: #B98A12; }
+.selbar-btn.hl.green svg.i { color: #4E9A3A; } .selbar-btn.hl.blue svg.i { color: #3F7FBF; } .selbar-btn.hl.pink svg.i { color: #C25A86; }
+.cr-label.btn-plain { padding: 4px 6px; border-radius: 7px; cursor: pointer; }
+.cr-label.btn-plain:hover { background: var(--surface2); }
+/* The first chapter sits right under the page title: no divider line above it. */
+.notes-body > .nblock:first-of-type .nb-part { border-top: 0; padding-top: 0; margin-top: 18px; }

@@ -5,7 +5,7 @@ import { Collapse } from '../../ui/motion'
 import { Icon } from '../../ui/Icons'
 import { sfx } from '../../sound/sfx'
 import { Seg, Toggle } from '../../ui/controls'
-import { TopBar } from '../../app/Shell'
+import { BackButton, TopBar } from '../../app/Shell'
 import { toast } from '../../ui/toasts'
 import { db } from '../../data/db'
 import { ensurePersistentStorage, exportBackup, restoreBackup } from '../../data/backup'
@@ -41,7 +41,7 @@ export function SettingsPage() {
   const palette = dark ? s.darkPalette : s.lightPalette
   return (
     <>
-    <TopBar crumbs={<b>Settings</b>} />
+    <TopBar crumbs={<><BackButton /><b>Settings</b></>} />
     <div className="page settings-page">
       <h1 className="title">Settings</h1>
       <p className="muted" style={{ marginTop: 6 }}>Preferences for how Mneme looks and behaves. Your account, sync and the destructive actions are on the Account page.</p>

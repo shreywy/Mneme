@@ -1,5 +1,5 @@
 import type { NormalizedDeck } from '../deck-format/types'
-import type { NormalizedNotes } from '../notes-format/types'
+import type { Block, NormalizedNotes } from '../notes-format/types'
 import { db, type DeckRow, type NoteMark, type NoteRow } from './db'
 import { folderForCourse, hiddenFolderIds, importDeck } from './repo'
 
@@ -19,14 +19,18 @@ export async function importNotes(n: NormalizedNotes, deck?: NormalizedDeck, opt
   const existing = (await db.notes.toArray()).find((x) => x.title.toLowerCase() === n.title.toLowerCase() && x.folderId === folderId)
   const now = Date.now()
   const id = existing?.id ?? crypto.randomUUID()
+  // A file that is one part of several merges into the page; anything else replaces it.
+  const merged = n.part && existing ? mergePart(existing.blocks, existing.read ?? [], n.blocks, n.part.index) : null
+  const blocks = merged?.blocks ?? (n.part ? tagPart(n.blocks, n.part.index) : n.blocks)
+  const read = merged ? merged.read : existing?.read?.filter((i) => i < blocks.length)
   const row: NoteRow = {
     id, folderId, title: n.title,
     ...(n.course ? { course: n.course } : {}), ...(unit ? { unit } : {}), ...(n.summary ? { summary: n.summary } : {}),
-    topics: n.topics, blocks: n.blocks,
+    topics: [...new Set([...(merged ? existing?.topics ?? [] : []), ...n.topics])], blocks,
     position: existing?.position ?? (await db.notes.count()),
     createdAt: existing?.createdAt ?? now, updatedAt: now,
     ...(existing?.lastOpenedAt ? { lastOpenedAt: existing.lastOpenedAt } : {}),
-    ...(existing?.read ? { read: existing.read.filter((i) => i < n.blocks.length) } : {}),
+    ...(read?.length ? { read } : {}),
   }
   await db.notes.put(row)
   let deckId: string | undefined
@@ -140,4 +144,52 @@ export function plainText(blocks: unknown): string {
   }
   walk(blocks)
   return out.join(' ')
+}
+
+// ---------- notes in parts ----------
+
+/** Make sure a part's blocks open with its divider, numbered so parts can be put in order. */
+function tagPart(blocks: Block[], index: number): Block[] {
+  const [first, ...rest] = blocks
+  if (first?.type === 'part') return [{ ...first, index }, ...rest]
+  return [{ type: 'part', title: `Part ${index}`, index }, ...blocks]
+}
+
+/**
+ * Put one part into a page made of parts: replace that part if it's there, otherwise add it, keeping parts
+ * in order. Blocks before any divider count as part 1. Reading ticks move with the sections they belong to.
+ */
+export function mergePart(existing: Block[], read: number[], incoming: Block[], index: number): { blocks: Block[]; read: number[] } {
+  type Group = { index: number; blocks: { b: Block; old: number }[] }
+  const groups: Group[] = []
+  existing.forEach((b, old) => {
+    if (b.type === 'part' || !groups.length) groups.push({ index: b.type === 'part' ? b.index ?? groups.length + 1 : 1, blocks: [] })
+    groups[groups.length - 1].blocks.push({ b, old })
+  })
+  const fresh: Group = { index, blocks: tagPart(incoming, index).map((b) => ({ b, old: -1 })) }
+  const kept = groups.filter((g) => g.index !== index)
+  const all = [...kept, fresh].sort((a, b) => a.index - b.index)
+  const blocks: Block[] = []
+  const nextRead: number[] = []
+  for (const g of all) for (const { b, old } of g.blocks) {
+    if (old >= 0 && read.includes(old)) nextRead.push(blocks.length)
+    blocks.push(b)
+  }
+  return { blocks, read: nextRead }
+}
+
+/** Tick or untick a section by hand. */
+export async function setRead(noteId: string, index: number, read: boolean) {
+  const n = await db.notes.get(noteId)
+  if (!n) return
+  const cur = new Set(n.read ?? [])
+  if (read) cur.add(index); else cur.delete(index)
+  await db.notes.put({ ...n, read: [...cur].sort((x, y) => x - y) })
+}
+
+/** Remove every highlight and annotation on a page (bookmarks too when asked). Goes through sync as deletions. */
+export async function clearMarks(noteId: string, kinds: NoteMark['kind'][] = ['highlight', 'note']) {
+  const ids = (await db.marks.where('noteId').equals(noteId).toArray()).filter((m) => kinds.includes(m.kind)).map((m) => m.id)
+  await db.marks.bulkDelete(ids)
+  return ids.length
 }

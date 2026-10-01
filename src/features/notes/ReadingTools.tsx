@@ -14,6 +14,8 @@ import { describeSpan, locate, offsetsOf, rangeAt, textOf, type TextAnchor } fro
 export const COLORS: MarkColor[] = ['yellow', 'green', 'blue', 'pink']
 const COLOR_NAME: Record<MarkColor, string> = { yellow: 'Yellow', green: 'Green', blue: 'Blue', pink: 'Pink' }
 const canHighlight = typeof CSS !== 'undefined' && 'highlights' in CSS
+const LAST = 'mneme.lastHighlight'
+const lastColor = (): MarkColor => { try { const c = localStorage.getItem(LAST) as MarkColor; return COLORS.includes(c) ? c : 'yellow' } catch { return 'yellow' } }
 
 type Sel = { block: number; anchor: TextAnchor; rect: DOMRect }
 type Pop =
@@ -53,6 +55,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
   const [sel, setSel] = useState<Sel | null>(null)
   const [pop, setPop] = useState<Pop | null>(null)
   const [tick, setTick] = useState(0) // bumps when the DOM under the page changes (sections open and close)
+  const [hover, setHover] = useState<{ id: string; rect: DOMRect } | null>(null)
 
   // Recompute when the page's DOM changes.
   useEffect(() => {
@@ -118,12 +121,25 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
       const m = hitMark(e.clientX, e.clientY)
       if (m) setPop({ kind: 'mark', id: m.id, rect: ranges.get(m.id)!.getBoundingClientRect() })
     }
+    // Hovering an annotation shows it; leaving hides it (a click pins it, above).
+    let raf = 0
+    const onMove = (e: MouseEvent) => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const m = hitMark(e.clientX, e.clientY)
+        setHover((h) => (m?.kind === 'note' ? (h?.id === m.id ? h : { id: m.id, rect: ranges.get(m.id)!.getBoundingClientRect() }) : null))
+      })
+    }
+    const onLeave = () => { cancelAnimationFrame(raf); setHover(null) }
     el.addEventListener('click', onClick)
-    return () => el.removeEventListener('click', onClick)
+    el.addEventListener('mousemove', onMove)
+    el.addEventListener('mouseleave', onLeave)
+    return () => { el.removeEventListener('click', onClick); el.removeEventListener('mousemove', onMove); el.removeEventListener('mouseleave', onLeave); cancelAnimationFrame(raf) }
   }, [articleRef, hitMark, ranges])
 
   const clearSelection = () => { window.getSelection()?.removeAllRanges(); setSel(null) }
-  const highlight = async (s: Sel, color: MarkColor) => {
+  const highlight = async (s: Sel, color: MarkColor = lastColor()) => {
+    try { localStorage.setItem(LAST, color) } catch { /* private mode */ }
     await notesRepo.addMark({ noteId, kind: 'highlight', block: s.block, anchor: s.anchor, color })
     clearSelection()
   }
@@ -141,7 +157,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
     const s = readSelection(article)
     const items: MenuItem[] = []
     if (s) {
-      items.push({ key: 'colors', custom: (close) => <ColorRow onPick={(c) => { close(); void highlight(s, c) }} label="Highlight" /> })
+      items.push({ key: 'colors', custom: (close) => <ColorRow onPick={(c) => { close(); void highlight(s, c) }} onLabel={() => { close(); void highlight(s) }} label="Highlight" /> })
       items.push({ label: 'Add a note', icon: 'comment', onSelect: () => compose(s) })
       items.push({ label: 'Bookmark this', icon: 'bookmark', onSelect: () => bookmark(s) })
       items.push({ label: 'Explain with Gemini', icon: 'spark', disabled: true, hint: 'Coming with AI: add a Gemini key in Settings', onSelect: () => {} })
@@ -178,6 +194,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
 
       {sel && !pop && (
         <Floating rect={sel.rect} className="selbar" above>
+          <button className={`selbar-btn hl ${lastColor()}`} onClick={() => highlight(sel)} title="Highlight (your last colour)"><Icon name="highlight" size={15} /><span>Highlight</span></button>
           <ColorRow onPick={(c) => highlight(sel, c)} />
           <span className="selbar-sep" />
           <button className="selbar-btn" onClick={() => compose(sel)} title="Add a note"><Icon name="comment" size={15} /><span>Note</span></button>
@@ -192,6 +209,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
           {popMark.kind === 'bookmark' && <div className="markpop-text muted">{popMark.anchor ? `“${popMark.anchor.quote.slice(0, 120)}”` : 'Bookmarked spot'}</div>}
           <div className="markpop-actions">
             {popMark.kind === 'highlight' && <ColorRow current={popMark.color} onPick={(c) => { void notesRepo.updateMark(popMark.id, { color: c }); setPop(null) }} />}
+            {popMark.kind === 'highlight' && popMark.anchor && <button className="btn sm" onClick={() => setPop({ kind: 'compose', rect: pop.rect, draft: { block: popMark.block, anchor: popMark.anchor!, rect: pop.rect }, text: '' })}><Icon name="comment" />Add a note</button>}
             {popMark.kind === 'note' && <button className="btn sm" onClick={() => setPop({ kind: 'compose', rect: pop.rect, draft: { markId: popMark.id }, text: popMark.text ?? '' })}><Icon name="edit" />Edit</button>}
             <button className="btn sm ghost danger" onClick={() => { void notesRepo.deleteMark(popMark.id); setPop(null) }}><Icon name="trash" />{popMark.kind === 'highlight' ? 'Remove' : 'Delete'}</button>
           </div>
@@ -208,16 +226,25 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
         </Floating>
       )}
 
+      {hover && !pop && (() => {
+        const m = marks.find((x) => x.id === hover.id)
+        if (!m?.text) return null
+        const short = m.text.length <= 80 && !m.text.includes('\n')
+        return <Floating rect={hover.rect} className={short ? 'notehint short' : 'notehint'}>{m.text}</Floating>
+      })()}
+
       {finding && <FindBar articleRef={articleRef} onClose={() => setFinding(false)} layoutKey={tick} />}
       <KeyTermTip articleRef={articleRef} terms={terms} />
     </>
   )
 }
 
-function ColorRow({ onPick, current, label }: { onPick: (c: MarkColor) => void; current?: MarkColor; label?: string }) {
+function ColorRow({ onPick, current, label, onLabel }: { onPick: (c: MarkColor) => void; current?: MarkColor; label?: string; onLabel?: () => void }) {
   return (
     <div className="colorrow" role="group" aria-label={label ?? 'Highlight colour'}>
-      {label && <span className="cr-label"><Icon name="highlight" size={15} />{label}</span>}
+      {label && (onLabel
+        ? <button className="cr-label btn-plain" onClick={onLabel} title="Use your last colour"><Icon name="highlight" size={15} />{label}</button>
+        : <span className="cr-label"><Icon name="highlight" size={15} />{label}</span>)}
       {COLORS.map((c) => (
         <button key={c} className={`swatch ${c} ${current === c ? 'on' : ''}`} aria-label={`${label ?? 'Highlight'} ${COLOR_NAME[c]}`} title={COLOR_NAME[c]} onClick={() => onPick(c)} />
       ))}

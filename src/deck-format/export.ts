@@ -17,7 +17,7 @@ function simple(q: SimpleQuestion, id: string): Json {
   }
 }
 
-function question(q: QuestionItem): Json {
+export function question(q: QuestionItem): Json {
   if (q.qtype !== 'scenario') return { ...simple(q, q.key), topic: q.topic }
   return {
     id: q.key, type: 'scenario', topic: q.topic, difficulty: q.difficulty, prompt: q.prompt, explanation: q.explanation,

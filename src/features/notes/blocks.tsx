@@ -16,7 +16,12 @@ type B<T extends Block['type']> = Extract<Block, { type: T }>
  * - `reached(index)`: the end of top-level block `index` came into view (used for reading progress).
  * - `answered(item key, correct, ms)`: a question on the page was answered.
  */
-export type NotesHooks = { reached?: (index: number) => void; answered?: (key: string, correct: boolean, ms: number) => void }
+export type NotesHooks = {
+  reached?: (index: number) => void
+  answered?: (key: string, correct: boolean, ms: number) => void
+  /** Ask the section at top-level `index` to open (`n` changes on every request). */
+  openSignal?: { index: number; n: number }
+}
 export const NotesHooksCtx = createContext<NotesHooks>({})
 /** The index of the top-level block being rendered, so a section knows which one it is. */
 export const BlockIndexCtx = createContext<number>(-1)
@@ -51,6 +56,7 @@ export function BlockView({ b, openAll }: { b: Block; openAll?: boolean | null }
       </section>
     )
     case 'section': return <Section b={b} openAll={openAll} />
+    case 'part': return <h2 className="nb-part">{b.title}</h2>
     case 'heading': return <h4 className="nb-h">{b.text}</h4>
     case 'paragraph': return <Markdown className="nb-p">{b.text}</Markdown>
     case 'list': {
@@ -93,6 +99,9 @@ export function BlockView({ b, openAll }: { b: Block; openAll?: boolean | null }
 
 function Section({ b, openAll }: { b: B<'section'>; openAll?: boolean | null }) {
   const [open, setOpen] = useState(b.open)
+  const { openSignal } = useContext(NotesHooksCtx)
+  const index = useContext(BlockIndexCtx)
+  useEffect(() => { if (openSignal && openSignal.index === index) setOpen(true) }, [openSignal, index])
   const [last, setLast] = useState(openAll)
   if (openAll !== last) { setLast(openAll); if (openAll !== null && openAll !== undefined) setOpen(openAll) }
   return (
@@ -125,7 +134,9 @@ function InlineQuestion({ b }: { b: B<'question'> }) {
   const { answered } = useContext(NotesHooksCtx)
   const shownAt = useRef(performance.now())
   const [seed, setSeed] = useState(0)
-  const ex = useMemo(() => buildExercise(b.item, [b.item], 'recall'), [b.item, seed])
+  // Keyed on the question's id, not the object: the page re-reads its data often (reading progress, sync),
+  // and a new object here used to reshuffle the choices every few seconds.
+  const ex = useMemo(() => buildExercise(b.item, [b.item], 'recall'), [b.item.key, seed]) // eslint-disable-line react-hooks/exhaustive-deps
   const [resp, setResp] = useState<Response>()
   const [grade, setGrade] = useState<Grade>()
   const onRespond = (r: Response, final: boolean) => {
@@ -148,7 +159,8 @@ function InlineQuestion({ b }: { b: B<'question'> }) {
 }
 
 function Match({ b }: { b: B<'match'> }) {
-  const options = useMemo(() => shuffle(b.pairs.map((p) => p.right)), [b])
+  const rights = JSON.stringify(b.pairs.map((p) => p.right))
+  const options = useMemo(() => shuffle(JSON.parse(rights) as string[]), [rights])
   const [picks, setPicks] = useState<string[]>(Array(b.pairs.length).fill(''))
   const [checked, setChecked] = useState(false)
   const [reveal, setReveal] = useState(false)

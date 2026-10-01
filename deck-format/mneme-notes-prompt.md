@@ -10,6 +10,8 @@ You are turning course material into **interactive study notes** for **Mneme**, 
 
 **Mneme draws everything.** You describe content and visuals as structured data. Never output HTML, CSS, JavaScript, images or links. Mneme ignores them.
 
+> **How to send it (read this first).** Your reply must be a downloadable `.json` file (a file, canvas, artifact or document if you can make one). If you can't make files, put the JSON in **one** ```` ```json ```` code block. Never reply with the JSON as plain text, and never split one file across several code blocks.
+
 ---
 
 ## 1. Settings (already filled in by the user in Mneme; blank means use the default)
@@ -37,7 +39,12 @@ EXTRA NOTES:
    - The JSON must be valid: double quotes, no trailing commas, no comments.
 3. **Skip the practice questions in the source.** Don't reproduce end-of-chapter exercises as notes. Test ideas with the interactive blocks instead (section 4).
 4. Base everything on the attached material. If you add standard knowledge the material doesn't state, keep it short and say so in the text.
-5. If the notes are too long for one response, stop at a section boundary, say "continue" at the very end **outside** the JSON, and continue in the next reply with the remaining `blocks` only. The user will paste the parts together. Avoid this if you can by being concise.
+5. **More than one chapter, week or lecture? Send one file per chapter.** If the material (or the FOCUS) covers several chapters, don't squeeze them into one file: you would skip things. Instead:
+   - Each chapter is its own complete file with the same `notes.title` (for example "Chapters 1 to 3") and a `"part": { "index": 1, "of": 3 }` field inside `notes`.
+   - Each file's `blocks` start with a `part` block naming its chapter: `{ "type": "part", "title": "Chapter 1: The accounting equation" }`, then that chapter's own `quickref` and sections.
+   - Send **only part 1** in your first reply, then end the reply, outside the file, with exactly: `Say "next" for part 2 of 3.` Send each next part when the user says "next".
+   - Mneme joins the parts into one page with a divider per chapter; the user imports all the files together.
+6. If even one chapter is too long for one reply, cut it at a section boundary and use the same `part` numbering to continue.
 
 ---
 
@@ -85,6 +92,11 @@ Every block is an object with a `"type"`. Text fields accept Markdown: `**bold**
 **`quickref`**: pinned summary at the top. Its `blocks` may contain any block except `section` and `quickref`.
 ```json
 { "type": "quickref", "title": "Quick reference", "blocks": [ { "type": "table", "columns": ["Element", "Test"], "rows": [["Asset", "Owned, future benefit, past event"]] } ] }
+```
+
+**`part`**: a chapter divider, only at the top level and only when the notes come in parts (output rule 5). The first block of each part.
+```json
+{ "type": "part", "title": "Chapter 2: Recording transactions" }
 ```
 
 **`section`**: collapsible. `open` sets whether it starts expanded (default false). Don't nest sections.
@@ -149,7 +161,7 @@ A part that is only `=`, `+`, `−`, `×`, `÷` or `→` is drawn as an operator
 
 ### Interactive (checked right on the page)
 
-**`question`**: one question in the same format as a Mneme deck question. The types are `multiple_choice`, `multiple_select`, `true_false`, `short_answer`, `numeric`, `cloze` and `ordering`. Give it an `explanation`.
+**`question`**: one question in the same format as a Mneme deck question. The types are `multiple_choice`, `multiple_select`, `true_false`, `short_answer`, `numeric`, `cloze` and `ordering`. Give it an `id` and an `explanation`. **With a companion deck, put the same question, with the same `id`, in the deck too:** answering it on the page then counts toward the deck.
 ```json
 { "type": "question", "question": { "id": "n-q-dividends", "type": "true_false", "prompt": "Dividends are an expense.", "answer": false, "explanation": "Dividends are a distribution of profit to owners, not a cost of earning revenue." } }
 ```
@@ -193,6 +205,8 @@ In notes, a question doesn't need `topic` or `difficulty`.
 - **Teach, in order.** This page is a lesson, not a summary of the slides. Start with what a student needs first, and make each section build on the one before it. If the material jumps around, put it in the order that makes sense to learn it.
 - **Explain the why.** For every rule, formula or definition, say what it means in plain words, why it works or why it matters, and show it with a concrete example (real numbers, a real case). A student who missed the lecture should understand it from this page alone.
 - **Teach, don't transcribe.** Never copy slide bullets. Turn them into explanations.
+- **Explanation first, questions second.** Most of every section is teaching: paragraphs, examples, visuals, worked examples. Interactive checks come at the end of a section and are short. A section should never have more checks than paragraphs of explanation.
+- **Write every formula as maths.** Any equation or formula, even a simple one like ⟦A = L + E⟧ or ⟦\\text{Profit} = \\text{Revenue} - \\text{Expenses}⟧ (backslashes doubled, as in all JSON), goes in maths (`⟦…⟧` inline, or a `math` block), not plain text. Plain text is for words.
 - **Pick the visual that fits.**
   - An equation that breaks down: `flow`, or `math` with an aligned derivation.
   - A process: `steps` or `cycle`.
@@ -214,6 +228,8 @@ In notes, a question doesn't need `topic` or `difficulty`.
   - No hype, no emoji.
 
 **Self-check before you output**
+- It goes out as a file or one ```` ```json ```` code block, never as plain text.
+- Several chapters? This reply is one part, it starts with a `part` block, and `notes.part` says which.
 - The JSON is valid.
 - The first block is a `quickref`.
 - No `section` sits inside another `section`.
@@ -305,3 +321,7 @@ A short page on a general topic, showing most block types. Real pages are longer
   }
 }
 ```
+
+---
+
+**Reminder:** send the JSON as a downloadable `.json` file, or else in one ```` ```json ```` code block. Not as plain text.

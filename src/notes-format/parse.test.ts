@@ -98,3 +98,18 @@ describe('parseAnyText', () => {
     expect(r.result.ok).toBe(false)
   })
 })
+
+describe('splitObjects', () => {
+  it('finds each top-level JSON object in pasted text, ignoring braces inside strings', async () => {
+    const { splitObjects } = await import('./parse')
+    const a = '{"format":"mneme.notes","notes":{"title":"Has a } brace"}}'
+    const b = '{"format":"mneme.notes","notes":{"title":"Two"}}'
+    const text = `Part 1:\n\`\`\`json\n${a}\n\`\`\`\nSay next.\n\nPart 2:\n\`\`\`json\n${b}\n\`\`\``
+    expect(splitObjects(text)).toEqual([a, b])
+  })
+  it('returns the whole text when there is only one object or none', async () => {
+    const { splitObjects } = await import('./parse')
+    expect(splitObjects('{"a":1}')).toEqual(['{"a":1}'])
+    expect(splitObjects('no json here')).toEqual(['no json here'])
+  })
+})

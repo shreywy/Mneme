@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { parseAnyText, type AnyParse } from '../../notes-format/parse'
+import { parseAnyText, splitObjects, type AnyParse } from '../../notes-format/parse'
 import type { ParseResult } from '../../deck-format/types'
 import type { Block, NotesParseResult } from '../../notes-format/types'
 import { db } from '../../data/db'
@@ -46,8 +46,9 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const folders = useLiveQuery(() => db.folders.toArray(), []) ?? []
 
   const accept = (out: Parsed[]) => {
-    // Deck parts sort by index so part 1 lands first; notes keep their order.
-    out.sort((a, b) => (a.any.kind === 'deck' && b.any.kind === 'deck' && a.any.result.ok && b.any.result.ok ? (a.any.result.deck.part?.index ?? 0) - (b.any.result.deck.part?.index ?? 0) : 0))
+    // Parts sort by index so part 1 lands first (decks and notes alike).
+    const partIndex = (p: Parsed) => (p.any.result.ok ? (p.any.kind === 'deck' ? p.any.result.deck.part?.index : p.any.result.notes.part?.index) ?? 0 : 0)
+    out.sort((a, b) => partIndex(a) - partIndex(b))
     setParsed(out)
     const o: Record<number, NotesOpts> = {}
     out.forEach((p, i) => { if (p.any.kind === 'notes' && p.any.result.ok) o[i] = { folder: 'auto', unit: p.any.result.notes.unit ?? '', link: true } })
@@ -57,7 +58,8 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     const out: Parsed[] = []
     for (const f of Array.from(files)) {
       if (f.size > MAX_BYTES) { out.push({ name: f.name, any: { kind: 'deck', result: { ok: false, errors: ['This file is over 5 MB, which is larger than any Mneme file should be.'] } } }); continue }
-      out.push({ name: f.name, any: parseAnyText(await f.text()) })
+      const chunks = splitObjects(await f.text())
+      chunks.forEach((c, k) => out.push({ name: chunks.length > 1 ? `${f.name} (${k + 1})` : f.name, any: parseAnyText(c) }))
     }
     accept(out)
   }
@@ -101,9 +103,9 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <div style={{ marginTop: 18 }}>
-          <textarea className="textarea" placeholder="Paste the whole reply from the AI here" value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 180 }} />
+          <textarea className="textarea" placeholder="Paste the whole reply from the AI here. Several parts? Paste them all, one after another." value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 180 }} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button className="btn sm" disabled={!text.trim()} onClick={() => accept([{ name: 'Pasted text', any: parseAnyText(text) }])}>Check</button>
+            <button className="btn sm" disabled={!text.trim()} onClick={() => { const chunks = splitObjects(text); accept(chunks.map((c, k) => ({ name: chunks.length > 1 ? `Pasted part ${k + 1}` : 'Pasted text', any: parseAnyText(c) }))) }}>Check</button>
           </div>
         </div>
       )}
@@ -162,11 +164,11 @@ function NotesPreview({ r, o, folders, onChange }: { r: NotesOk; o?: NotesOpts; 
   const courseFolder = r.notes.course ? folders.find((f) => f.name.toLowerCase() === r.notes.course!.toLowerCase())?.name ?? `${r.notes.course} (new folder)` : null
   return (
     <div className="preview">
-      <div className="muted small" style={{ fontWeight: 500 }}>{r.deck ? 'Notes and a deck, in one file' : 'Notes'}{r.notes.course ? ` · ${r.notes.course}` : ''}</div>
+      <div className="muted small" style={{ fontWeight: 500 }}>{r.deck ? 'Notes and a deck, in one file' : 'Notes'}{r.notes.course ? ` · ${r.notes.course}` : ''}{r.notes.part ? ` · part ${r.notes.part.index} of ${r.notes.part.of}` : ''}</div>
       <div className="imp-pages">
         <div className="imp-page">
           <Icon name="notes" />
-          <div className="t"><b>{r.notes.title}</b><span className="muted small">{[c.sections && plural(c.sections, 'section'), c.visuals && plural(c.visuals, 'diagram'), c.questions && plural(c.questions, 'question')].filter(Boolean).join(' · ') || 'One page'}</span></div>
+          <div className="t"><b>{r.notes.title}{r.notes.blocks[0]?.type === 'part' ? `: ${r.notes.blocks[0].title}` : ''}</b><span className="muted small">{[c.sections && plural(c.sections, 'section'), c.visuals && plural(c.visuals, 'diagram'), c.questions && plural(c.questions, 'question')].filter(Boolean).join(' · ') || 'One page'}</span></div>
         </div>
         {r.deck && (
           <div className="imp-page">

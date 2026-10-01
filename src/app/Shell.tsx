@@ -15,13 +15,14 @@ import { Avatar } from '../ui/Avatar'
 import { useContextItems } from '../ui/ContextMenu'
 import { confirmAction } from '../ui/confirm'
 import { toast } from '../ui/toasts'
-import { deleteNote, setNoteArchived } from '../data/notes'
-import { deleteDeck, setArchived } from '../data/repo'
+import { deleteNote, setNoteArchived, updateNote } from '../data/notes'
+import { deleteDeck, moveDeck, setArchived, setDeckUnit } from '../data/repo'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
   const { focus, setFocus, peek, setPeek, open, drawer, setDrawer } = useUI()
   const loc = useLocation()
+  useEffect(() => { if (!/^\/(settings|account)(\/|$)/.test(loc.pathname)) useUI.setState({ lastPage: loc.pathname + loc.search }) }, [loc.pathname, loc.search])
   useEffect(() => { setDrawer(false) }, [loc.pathname, setDrawer])
   const rail = sidebar === 'rail'
   const peekT = useRef<number>(0)
@@ -84,6 +85,8 @@ export function Shell() {
   )
 }
 
+const DRAG_TYPE = 'application/x-mneme-page'
+
 function FolderTree() {
   const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), archived: (await listArchive()) }), [])
   const loc = useLocation()
@@ -103,17 +106,43 @@ function FolderTree() {
   const toggle = (id: string) => set({ openFolders: openFolders.includes(id) ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
   const count = (id: string) => { const ids = descendants(folders, id); return pages.filter((p) => p.folderId && ids.has(p.folderId)).length }
+  /** Drop target: move the dragged page to a folder, and into a unit when the target is a unit heading. */
+  const drop = (to: { folderId: string | null; unit?: string | null }) => ({
+    onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; (e.currentTarget as HTMLElement).classList.add('drop-over') } },
+    onDragLeave: (e: React.DragEvent) => (e.currentTarget as HTMLElement).classList.remove('drop-over'),
+    onDrop: async (e: React.DragEvent) => {
+      (e.currentTarget as HTMLElement).classList.remove('drop-over')
+      const raw = e.dataTransfer.getData(DRAG_TYPE)
+      if (!raw) return
+      e.preventDefault()
+      const { kind, id } = JSON.parse(raw) as { kind: 'deck' | 'note'; id: string }
+      const page = pages.find((x) => x.kind === kind && x.id === id)
+      if (!page) return
+      const moved = page.folderId !== to.folderId
+      const unitChange = to.unit !== undefined && (to.unit ?? '') !== (page.unit ?? '')
+      if (!moved && !unitChange) return
+      if (kind === 'deck') {
+        if (moved) await moveDeck(id, to.folderId)
+        if (unitChange) await setDeckUnit(id, to.unit ?? '')
+      } else {
+        await updateNote(id, { ...(moved ? { folderId: to.folderId } : {}), ...(unitChange ? { unit: to.unit ?? undefined } : {}) })
+      }
+      const where = to.folderId ? folders.find((f) => f.id === to.folderId)?.name ?? 'folder' : 'no folder'
+      toast(`Moved "${page.title}"`, unitChange ? (to.unit ? `${where} · ${to.unit}` : `${where} · no unit`) : where)
+    },
+  })
   const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
-    <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}>
+    <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
+      draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}>
       <Icon name={p.kind === 'note' ? 'notes' : 'cards'} size={13} /><span className="t">{p.title}</span>
     </Link>
   )
-  const PageList = ({ list, pad }: { list: Page[]; pad: number }) => {
+  const PageList = ({ list, pad, folderId }: { list: Page[]; pad: number; folderId: string | null }) => {
     const groups = groupByUnit(list)
     const labelled = groups.some((g) => g.unit)
     return <>{groups.map((g) => (
       <div key={g.unit ?? '-'}>
-        {labelled && <div className="tunit" style={{ paddingLeft: pad + 2 }}>{g.unit ?? 'No unit'}</div>}
+        {labelled && <div className="tunit" style={{ paddingLeft: pad + 2 }} {...drop({ folderId, unit: g.unit ?? null })}>{g.unit ?? 'No unit'}</div>}
         {g.pages.map((p) => <PageLink key={p.id} p={p} pad={pad} />)}
       </div>
     ))}</>
@@ -129,12 +158,12 @@ function FolderTree() {
           <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'} disabled={!kids.length && !ps.length}>
             <Icon name="down2" size={14} />
           </button>
-          <Link to={`/folder/${f.id}`}><Icon name="folder" /><span className="t">{f.name}</span><span className="n">{count(f.id)}</span></Link>
+          <Link to={`/folder/${f.id}`} {...drop({ folderId: f.id })}><Icon name="folder" /><span className="t">{f.name}</span><span className="n">{count(f.id)}</span></Link>
         </div>
         <Collapse open={open}>
           <>
             {kids.map((k) => <Node key={k.id} f={k} depth={depth + 1} />)}
-            <PageList list={ps} pad={30 + depth * 14} />
+            <PageList list={ps} pad={30 + depth * 14} folderId={f.id} />
           </>
         </Collapse>
       </div>
@@ -143,7 +172,7 @@ function FolderTree() {
   const loose = pages.filter((p) => !p.folderId)
   return (
     <>
-      <div className="sec">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
+      <div className="sec" {...drop({ folderId: null })} title="Drop a page here to take it out of its folder">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
       <div className="tree">
         {folders.length === 0 && loose.length === 0 && <div className="empty">Imported decks and notes show up here, grouped by course.</div>}
         {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
@@ -225,4 +254,11 @@ export function PageMenu() {
     ]
   })
   return null
+}
+
+/** "Back" for pages you visit and leave (Settings, Account): returns to where you were. */
+export function BackButton() {
+  const nav = useNavigate()
+  const lastPage = useUI((s) => s.lastPage)
+  return <button className="btn sm ghost back-btn" onClick={() => nav(lastPage || '/')}><Icon name="chev" />Back</button>
 }

@@ -62,6 +62,13 @@ function parseBlocks(list: unknown, warnings: string[], ctx: 'top' | 'section' |
       else out.push({ type, title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'Section', open: raw.open === true, blocks: inner })
       return
     }
+    if (type === 'part') {
+      if (ctx !== 'top') { warnings.push(`${where}: a part divider only works at the top level, so it was skipped.`); return }
+      const t = typeof raw.title === 'string' ? raw.title.trim() : ''
+      if (!t) { warnings.push(`${where}: a part needs a title.`); return }
+      out.push({ type: 'part', title: t })
+      return
+    }
     if (type === 'question') {
       const q = isObj(raw.question) ? raw.question : raw
       const id = typeof q.id === 'string' ? q.id : `n-q-${path.replace(/\W+/g, '-')}-${i}`
@@ -125,6 +132,7 @@ export function parseNotesText(input: string): NotesParseResult {
     ...(typeof n.summary === 'string' ? { summary: n.summary } : {}),
     topics: Array.isArray(n.topics) ? n.topics.filter((t): t is string => typeof t === 'string') : [],
     blocks,
+    ...partOf(n.part),
   }
   return { ok: true, notes, ...(deck ? { deck } : {}), warnings }
 }
@@ -139,4 +147,24 @@ export function parseAnyText(input: string): AnyParse {
   try { raw = extractJson(input) } catch { raw = undefined }
   if (isObj(raw) && raw.format === 'mneme.notes') return { kind: 'notes', result: parseNotesText(input) }
   return { kind: 'deck', result: parseDeckText(input) }
+}
+
+function partOf(p: unknown): { part?: { index: number; of: number } } {
+  if (!isObj(p)) return {}
+  const index = Number(p.index), of = Number(p.of)
+  return Number.isInteger(index) && Number.isInteger(of) && index >= 1 && of >= index && of <= 50 ? { part: { index, of } } : {}
+}
+
+/** Split pasted text holding several JSON objects (e.g. parts 1, 2 and 3 of a reply) into one string per object. */
+export function splitObjects(text: string): string[] {
+  const out: string[] = []
+  let depth = 0, start = -1, inStr = false, esc = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue }
+    if (c === '"') { if (depth > 0) inStr = true; continue }
+    if (c === '{') { if (depth === 0) start = i; depth++ }
+    else if (c === '}' && depth > 0) { depth--; if (depth === 0 && start >= 0) { out.push(text.slice(start, i + 1)); start = -1 } }
+  }
+  return out.length > 1 ? out : [out[0] ?? text]
 }

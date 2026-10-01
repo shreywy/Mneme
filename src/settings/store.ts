@@ -44,6 +44,8 @@ type Settings = {
   correctSound: CorrectSound
   reduceMotion: boolean
   sidebar: 'full' | 'rail'
+  /** Notes pages: show the contents rail. */
+  notesContents: boolean
   learnShuffle: boolean
   learnPanel: boolean
   learnMatch: boolean
@@ -67,6 +69,7 @@ export const useSettings = create<Settings>()(
       correctSound: 'chime',
       reduceMotion: false,
       sidebar: 'full',
+      notesContents: true,
       learnShuffle: true,
       learnPanel: false,
       learnMatch: true,

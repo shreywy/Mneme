@@ -33,8 +33,8 @@ const VISUALS = {
 }
 const QUESTIONS = {
   none: 'None: no `question`, `match`, `reveal` or `worked` blocks.',
-  few: 'A few: about one per section, 5 to 10 on the page.',
-  many: 'Many: two or three per section, 15 to 25 on the page.',
+  few: 'A few: at most one short check at the end of a section, 4 to 8 on the page. Explanation comes first.',
+  many: 'More: one or two checks per section, 10 to 16 on the page, still after the explanation.',
 }
 const MATHS = {
   plain: 'If the material has maths, give each formula with a one-line example. Keep working short.',

@@ -11,6 +11,8 @@ type UI = {
   close: () => void
   setFocus: (v: boolean) => void
   setPeek: (v: boolean) => void
+  /** The last page visited outside Settings and Account, for their Back button. */
+  lastPage: string
 }
 
 export const useUI = create<UI>((set) => ({
@@ -23,6 +25,7 @@ export const useUI = create<UI>((set) => ({
   close: () => set({ dialog: null }),
   setFocus: (focus) => set({ focus }),
   setPeek: (peek) => set({ peek }),
+  lastPage: '/',
 }))
 
 /** True when a key event came from a text field, so global shortcuts should ignore it. */

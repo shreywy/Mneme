@@ -403,3 +403,10 @@ a.drow:hover { background: var(--surface2); }
 .settings-page .sset:first-of-type { margin-top: 22px; }
 @media (max-width: 760px) { .sset-head { padding: 12px; } .sset-body { padding: 0 12px 4px; } .sset-head .sum { display: none; } }
 .foot .iconbtn.on { background: var(--surface2); color: var(--ink); }
+.crumb .back-btn { margin: 0 10px 0 -8px; height: 30px; padding: 0 10px 0 6px; gap: 4px; color: var(--ink); }
+
+/* sidebar drag and drop */
+.tdeck[draggable="true"] { cursor: grab; }
+.tdeck[draggable="true"]:active { cursor: grabbing; }
+.drop-over { background: color-mix(in oklab, var(--accent) 16%, transparent) !important; outline: 1.5px dashed var(--accent); outline-offset: -1.5px; border-radius: 7px; }
+.tunit { border-radius: 6px; transition: background-color .12s; }

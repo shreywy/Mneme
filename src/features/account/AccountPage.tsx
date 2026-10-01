@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { TopBar } from '../../app/Shell'
+import { BackButton, TopBar } from '../../app/Shell'
 import { relTime } from '../../data/stats'
 import { exportBackup } from '../../data/backup'
 import { downloadJson } from '../../deck-format/export'
@@ -23,7 +23,7 @@ export function AccountPage() {
   const { user, ready } = useAccount()
   return (
     <>
-      <TopBar crumbs={<b>Account</b>} />
+      <TopBar crumbs={<><BackButton /><b>Account</b></>} />
       <div className="page account-page">
         {!accountsEnabled ? <p className="muted">Accounts aren't set up in this build. Everything stays in this browser.</p>
           : !ready ? null

@@ -14,6 +14,9 @@ import { FolderSelect } from '../library/FolderSelect'
 import { BlockIndexCtx, BlockView, EndMarker, NotesHooksCtx, type NotesHooks } from './blocks'
 import { LinkPicker } from './LinkPicker'
 import { ReadingTools } from './ReadingTools'
+import { notesToFile } from '../../notes-format/export'
+import { downloadJson } from '../../deck-format/export'
+import { useSettings } from '../../settings/store'
 import { KeyTermsCtx, type KeyTerm } from '../../content/keyterms'
 import type { Block } from '../../notes-format/types'
 
@@ -63,13 +66,18 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const [openSignal, setOpenSignal] = useState<{ index: number; n: number }>()
+  const [printing, setPrinting] = useState(false)
+  const showContents = useSettings((s) => s.notesContents)
+  const setSettings = useSettings((s) => s.set)
   const hooks = useMemo<NotesHooks>(() => ({
+    openSignal,
     reached: (i) => { if (hasSections ? note.blocks[i]?.type === 'section' : i === 0) void notesRepo.markRead(note.id, i) },
     answered: async (key, correct, ms) => {
       const deckId = await notesRepo.deckForQuestion(note.id, key)
       if (deckId) await repo.recordAnswer({ deckId, key, correct, ms, mode: 'learn', rating: correct ? Rating.Good : Rating.Again })
     },
-  }), [note.id, note.blocks, hasSections])
+  }), [note.id, note.blocks, hasSections, openSignal])
 
   // Which section is on screen, for the contents rail and the phone dropdown.
   const articleRef = useRef<HTMLElement>(null)
@@ -83,7 +91,18 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
     els.forEach((el) => io.observe(el))
     return () => io.disconnect()
   }, [note.blocks])
-  const jump = (i: number) => document.getElementById(`b-${i}`)?.scrollIntoView({ behavior: document.documentElement.dataset.motion === 'reduced' ? 'auto' : 'smooth', block: 'start' })
+  // Open a folded section before scrolling to it, so the page (and "where am I") settle on the right place.
+  const jump = (i: number) => {
+    setOpenSignal({ index: i, n: Date.now() })
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(`b-${i}`)?.scrollIntoView({ behavior: document.documentElement.dataset.motion === 'reduced' ? 'auto' : 'smooth', block: 'start' })))
+  }
+  const print = () => {
+    setPrinting(true)
+    const done = () => { setPrinting(false); window.removeEventListener('afterprint', done) }
+    window.addEventListener('afterprint', done)
+    setTimeout(() => window.print(), 150) // let every section open first
+  }
+  const exportFile = () => downloadJson(`${note.title.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'notes'}.mneme.json`, notesToFile(note))
 
   const path: Folder[] = []
   for (let f = folders.find((x) => x.id === note.folderId); f; f = folders.find((x) => x.id === f!.parentId)) path.unshift(f)
@@ -93,17 +112,32 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
   return (
     <>
       <TopBar crumbs={<>{path.length ? path.map((f) => <span key={f.id}><Link to={`/folder/${f.id}`}>{f.name}</Link> / </span>) : <><Link to="/">Library</Link> / </>}<b>{note.title}</b></>}>
+        <button className={`btn sm ghost toc-toggle ${showContents ? 'on' : ''}`} onClick={() => setSettings({ notesContents: !showContents })} aria-pressed={showContents} title={showContents ? 'Hide the contents' : 'Show the contents'}><Icon name="list" /><span className="hide-sm">Contents</span></button>
+        <PageMenu onExport={exportFile} onPrint={print} onUnread={() => notesRepo.updateNote(note.id, { read: [] })}
+          onReset={async () => {
+            if (!await confirmAction({ title: 'Remove all highlights and notes?', body: 'Every highlight and annotation on this page is deleted, on all your devices. Bookmarks stay.', confirm: 'Remove them', danger: true })) return
+            const n = await notesRepo.clearMarks(note.id)
+            toast(n ? `Removed ${plural(n, 'highlight or note', 'highlights and notes')}` : 'Nothing to remove')
+          }} />
         {decks.length > 0 && <StudyButton noteId={note.id} decks={decks} />}
       </TopBar>
-      <div className="page notes-page">
+      <div className={`page notes-page ${showContents ? '' : 'no-toc'} ${printing ? 'printing' : ''}`}>
         <nav className="toc" aria-label="Contents">
           <div className="toc-h">Contents{hasSections ? ` · ${progress.read} of ${progress.total} read` : ''}</div>
-          {sections.map((s) => (
-            <button key={s.i} className={`toc-row ${activeSection === s.i ? 'on' : ''}`} onClick={() => jump(s.i)}>
-              <span className={`tick ${read.has(s.i) || note.blocks[s.i].type === 'quickref' ? 'done' : ''}`} aria-label={read.has(s.i) ? 'Read' : undefined}>{(read.has(s.i)) && <Icon name="check" size={11} />}</span>
-              <span className="t">{s.title}</span>
-            </button>
-          ))}
+          {note.blocks.map((blk, i) => {
+            if (blk.type === 'part') return <div key={i} className="toc-part">{blk.title}</div>
+            if (blk.type !== 'section' && blk.type !== 'quickref') return null
+            const isRead = read.has(i)
+            return (
+              <div key={i} className={`toc-row ${activeSection === i ? 'on' : ''}`}>
+                {blk.type === 'section'
+                  ? <button className={`tick ${isRead ? 'done' : ''}`} aria-pressed={isRead} aria-label={isRead ? `Mark "${blk.title}" unread` : `Mark "${blk.title}" read`} title={isRead ? 'Read. Click to mark unread' : 'Mark as read'}
+                      onClick={() => notesRepo.setRead(note.id, i, !isRead)}>{isRead && <Icon name="check" size={11} />}</button>
+                  : <span className="tick pin" aria-hidden="true"><Icon name="pin" size={11} /></span>}
+                <button className="t" onClick={() => jump(i)}>{blk.type === 'section' ? blk.title : blk.title ?? 'Quick reference'}</button>
+              </div>
+            )
+          })}
           {!sections.length && <div className="muted small">One page, no sections.</div>}
           {bookmarks.length > 0 && (
             <>
@@ -148,8 +182,8 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
           <NotesHooksCtx.Provider value={hooks}>
             <KeyTermsCtx.Provider value={terms}>
               {note.blocks.map((b, i) => (
-                <div key={i} id={`b-${i}`} data-block={i} className={`nblock nb-${b.type}`}>
-                  <BlockIndexCtx.Provider value={i}><BlockView b={b} openAll={finding ? true : null} /></BlockIndexCtx.Provider>
+                <div key={i} id={`b-${i}`} data-block={i} className={`nblock nbw-${b.type}`}>
+                  <BlockIndexCtx.Provider value={i}><BlockView b={b} openAll={finding || printing ? true : null} /></BlockIndexCtx.Provider>
                 </div>
               ))}
             </KeyTermsCtx.Provider>
@@ -227,5 +261,34 @@ function Manage({ note, folders }: { note: NoteRow; folders: Folder[] }) {
         }}><Icon name="trash" />Delete</button>
       </div>
     </section>
+  )
+}
+
+function PageMenu({ onExport, onPrint, onUnread, onReset }: { onExport: () => void; onPrint: () => void; onUnread: () => void; onReset: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', away)
+    window.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('pointerdown', away); window.removeEventListener('keydown', esc) }
+  }, [open])
+  const item = (label: string, icon: string, fn: () => void, danger = false) => (
+    <button role="menuitem" className={danger ? 'danger' : ''} onClick={() => { setOpen(false); fn() }}><Icon name={icon} size={15} />{label}</button>
+  )
+  return (
+    <div className="menu-wrap" ref={ref}>
+      <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="more" /></button>
+      {open && (
+        <div className="menu" role="menu">
+          {item('Export notes file', 'down', onExport)}
+          {item('Print or save as PDF', 'copy', onPrint)}
+          {item('Mark all sections unread', 'reset', onUnread)}
+          {item('Remove highlights and notes…', 'trash', onReset, true)}
+        </div>
+      )}
+    </div>
   )
 }
