@@ -29,7 +29,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Order of work (agreed 2026-10-01)
 1. ~~**Account page and menu**~~ done 2026-10-01
-2. **End-to-end pass** of sign-in, sync and the account page on mnemee.pages.dev, phone and PC, fixing whatever breaks
+2. **End-to-end pass**: guest mode done 2026-10-01 ([results](testing/e2e-2026-10-01.md)); signed-in part (sign-in, sync, account page) still to do with Shrey signed in
 3. **Notes** (imported, LLM-generated notes pages)
 4. **Text notes** (the user's own writing pages)
 5. **AI** (Gemini, bring your own key)

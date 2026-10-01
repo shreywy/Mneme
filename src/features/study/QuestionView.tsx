@@ -217,8 +217,13 @@ function TextAnswer({ mode, response, revealed, grade, onRespond, answer, numeri
           onChange={(e) => { setVal(e.target.value); if (mode === 'test') onRespond({ kind: 'text', value: e.target.value }, false) }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !revealed) { e.preventDefault(); e.stopPropagation(); if (val.trim()) submit(val) } }} />
         {unit && unit !== '$' && <span className="unit">{unit}</span>}
-        {mode === 'learn' && !revealed && <button className="btn ghost" onClick={() => submit('')} title="Show the answer">Don't know</button>}
       </div>
+      {mode === 'learn' && !revealed && (
+        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+          <button className="btn" disabled={!val.trim()} onClick={() => submit(val)}>Check<span className="kbd">Enter</span></button>
+          <button className="btn ghost" onClick={() => submit('')} title="Show the answer">Don't know</button>
+        </div>
+      )}
       {revealed && (
         <div className="feedback">
           {grade?.correct

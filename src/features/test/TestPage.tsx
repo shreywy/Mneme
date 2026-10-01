@@ -38,6 +38,9 @@ export function TestPage() {
   const [deadline, setDeadline] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [confirmSubmit, setConfirmSubmit] = useState(false)
+  // Only offer sizes smaller than the deck; if the default doesn't fit, take every card.
+  const sizes = ['10', '20'].filter((n) => +n < pool.length)
+  useEffect(() => { if (pool.length && (count === '10' || count === '20') && !sizes.includes(count)) setCount('all') }, [pool.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const [reviewAll, setReviewAll] = useState(false)
 
   useEffect(() => {
@@ -118,7 +121,7 @@ export function TestPage() {
             <p className="empty-note">One question per screen. Nothing is graded until you submit, and the test doesn't change your Learn progress.</p>
             <div className="srow"><div className="l"><b>Questions</b><span>{count === 'custom' ? `Up to ${pool.length}` : ''}</span></div>
               <div className="srow-ctl">
-                <Seg value={count} onChange={setCount} options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: 'all', label: `All ${pool.length}` }, { value: 'custom', label: 'Custom' }]} />
+                <Seg value={count} onChange={setCount} options={[...sizes.map((n) => ({ value: n, label: n })), { value: 'all', label: `All ${pool.length}` }, { value: 'custom', label: 'Custom' }]} />
                 {count === 'custom' && <input className="input num" inputMode="numeric" aria-label="Number of questions" value={custom} onChange={(e) => setCustom(e.target.value.replace(/\D/g, ''))} />}
               </div>
             </div>
