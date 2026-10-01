@@ -15,8 +15,9 @@ import { Avatar } from '../ui/Avatar'
 import { useContextItems } from '../ui/ContextMenu'
 import { confirmAction } from '../ui/confirm'
 import { toast } from '../ui/toasts'
-import { deleteNote, setNoteArchived, updateNote } from '../data/notes'
-import { deleteDeck, moveDeck, setArchived, setDeckUnit } from '../data/repo'
+import { deleteNote, setNoteArchived } from '../data/notes'
+import { deleteDeck, setArchived } from '../data/repo'
+import { placePage } from '../data/arrange'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -106,34 +107,67 @@ function FolderTree() {
   const toggle = (id: string) => set({ openFolders: openFolders.includes(id) ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
   const count = (id: string) => { const ids = descendants(folders, id); return pages.filter((p) => p.folderId && ids.has(p.folderId)).length }
-  /** Drop target: move the dragged page to a folder, and into a unit when the target is a unit heading. */
+  /** The pages of one group (a folder and a unit), in the order shown. */
+  const groupOf = (folderId: string | null, unit: string | null) =>
+    (groupByUnit(pages.filter((x) => x.folderId === folderId)).find((g) => (g.unit ?? null)?.toLowerCase() === unit?.toLowerCase())?.pages ?? [])
+  const dragged = (e: React.DragEvent) => {
+    const raw = e.dataTransfer.getData(DRAG_TYPE)
+    if (!raw) return null
+    const { kind, id } = JSON.parse(raw) as { kind: 'deck' | 'note'; id: string }
+    return pages.find((x) => x.kind === kind && x.id === id) ?? null
+  }
+  const settle = async (page: Page, folderId: string | null, unit: string | null, list: Page[]) => {
+    const before = `${page.folderId}|${page.unit ?? ''}`
+    await placePage(page, { folderId, unit }, list.map((x) => ({ kind: x.kind, id: x.id })))
+    if (before !== `${folderId}|${unit ?? ''}`) {
+      const where = folderId ? folders.find((f) => f.id === folderId)?.name ?? 'folder' : 'no folder'
+      toast(`Moved "${page.title}"`, unit ? `${where} · ${unit}` : where)
+    }
+  }
+  const allowDrop = (e: React.DragEvent) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return true } return false }
+  const clear = (el: HTMLElement) => el.classList.remove('drop-over', 'drop-before', 'drop-after')
+
+  /** Folder rows, unit headings and the Folders header: the page goes to the end of that group. */
   const drop = (to: { folderId: string | null; unit?: string | null }) => ({
-    onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; (e.currentTarget as HTMLElement).classList.add('drop-over') } },
-    onDragLeave: (e: React.DragEvent) => (e.currentTarget as HTMLElement).classList.remove('drop-over'),
+    onDragOver: (e: React.DragEvent) => { if (allowDrop(e)) (e.currentTarget as HTMLElement).classList.add('drop-over') },
+    onDragLeave: (e: React.DragEvent) => clear(e.currentTarget as HTMLElement),
     onDrop: async (e: React.DragEvent) => {
-      (e.currentTarget as HTMLElement).classList.remove('drop-over')
-      const raw = e.dataTransfer.getData(DRAG_TYPE)
-      if (!raw) return
-      e.preventDefault()
-      const { kind, id } = JSON.parse(raw) as { kind: 'deck' | 'note'; id: string }
-      const page = pages.find((x) => x.kind === kind && x.id === id)
+      clear(e.currentTarget as HTMLElement)
+      const page = dragged(e)
       if (!page) return
-      const moved = page.folderId !== to.folderId
-      const unitChange = to.unit !== undefined && (to.unit ?? '') !== (page.unit ?? '')
-      if (!moved && !unitChange) return
-      if (kind === 'deck') {
-        if (moved) await moveDeck(id, to.folderId)
-        if (unitChange) await setDeckUnit(id, to.unit ?? '')
-      } else {
-        await updateNote(id, { ...(moved ? { folderId: to.folderId } : {}), ...(unitChange ? { unit: to.unit ?? undefined } : {}) })
-      }
-      const where = to.folderId ? folders.find((f) => f.id === to.folderId)?.name ?? 'folder' : 'no folder'
-      toast(`Moved "${page.title}"`, unitChange ? (to.unit ? `${where} · ${to.unit}` : `${where} · no unit`) : where)
+      e.preventDefault()
+      const unit = to.unit !== undefined ? to.unit : page.unit ?? null // folders keep the page's unit
+      const list = groupOf(to.folderId, unit).filter((x) => !(x.kind === page.kind && x.id === page.id))
+      await settle(page, to.folderId, unit, [...list, page])
+    },
+  })
+  /** A page in the list: drop above or below it, joining its group. */
+  const dropOnPage = (target: Page) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!allowDrop(e)) return
+      const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect()
+      const after = e.clientY > r.top + r.height / 2
+      el.classList.toggle('drop-after', after); el.classList.toggle('drop-before', !after)
+    },
+    onDragLeave: (e: React.DragEvent) => clear(e.currentTarget as HTMLElement),
+    onDrop: async (e: React.DragEvent) => {
+      const el = e.currentTarget as HTMLElement
+      const after = el.classList.contains('drop-after')
+      clear(el)
+      const page = dragged(e)
+      if (!page || (page.kind === target.kind && page.id === target.id)) return
+      e.preventDefault()
+      const unit = target.unit ?? null
+      const list = groupOf(target.folderId, unit).filter((x) => !(x.kind === page.kind && x.id === page.id))
+      const at = list.findIndex((x) => x.kind === target.kind && x.id === target.id) + (after ? 1 : 0)
+      list.splice(at, 0, page)
+      await settle(page, target.folderId, unit, list)
     },
   })
   const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
     <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
-      draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}>
+      draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}
+      {...dropOnPage(p)}>
       <Icon name={p.kind === 'note' ? 'notes' : 'cards'} size={13} /><span className="t">{p.title}</span>
     </Link>
   )

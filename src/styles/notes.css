@@ -368,3 +368,14 @@ figcaption, .hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
   .cheat-scale { height: auto !important; overflow: visible; }
   .sheet-paper { transform: none !important; width: auto !important; min-height: 0 !important; padding: 0 !important; box-shadow: none; }
 }
+
+.dropmenu { z-index: 75; }
+.dropmenu-anchor { display: inline-flex; }
+
+/* Contents rail: hiding slides it into the page and fades it, showing brings it back. */
+.notes-page { transition: grid-template-columns .32s var(--ease), gap .32s var(--ease); }
+.notes-page .toc { transition: opacity .22s var(--ease), transform .32s var(--ease), visibility 0s linear 0s; }
+.notes-page.no-toc { grid-template-columns: 0 minmax(0, 760px); gap: 0; }
+.notes-page.no-toc .toc { display: flex; opacity: 0; transform: translateX(40px); visibility: hidden; pointer-events: none; overflow: hidden;
+  transition: opacity .2s var(--ease), transform .3s var(--ease), visibility 0s linear .3s; }
+@media (max-width: 960px) { .notes-page.no-toc { grid-template-columns: minmax(0, 1fr); } .notes-page.no-toc .toc { display: none; } }

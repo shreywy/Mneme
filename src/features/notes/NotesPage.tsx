@@ -14,6 +14,7 @@ import { FolderSelect } from '../library/FolderSelect'
 import { BlockIndexCtx, BlockView, EndMarker, NotesHooksCtx, type NotesHooks } from './blocks'
 import { LinkPicker } from './LinkPicker'
 import { ReadingTools } from './ReadingTools'
+import { DropMenu } from '../../ui/DropMenu'
 import { notesToFile } from '../../notes-format/export'
 import { downloadJson } from '../../deck-format/export'
 import { useSettings } from '../../settings/store'
@@ -203,18 +204,13 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
 
 /** One linked deck: a straight button. Several: a small menu. Learn returns here when you leave. */
 function StudyButton({ noteId, decks }: { noteId: string; decks: DeckRow[] }) {
-  const [open, setOpen] = useState(false)
+  const nav = useNavigate()
   const from = `from=${encodeURIComponent(`/notes/${noteId}`)}`
   if (decks.length === 1) return <Link className="btn sm primary" to={`/deck/${decks[0].id}/learn?${from}`}><Icon name="cards" />Study the deck</Link>
   return (
-    <div className="menu-wrap">
-      <button className="btn sm primary" onClick={() => setOpen(!open)} aria-expanded={open}><Icon name="cards" />Study a deck<Icon name="down2" size={12} /></button>
-      {open && (
-        <div className="menu" role="menu" onMouseLeave={() => setOpen(false)}>
-          {decks.map((d) => <Link key={d.id} role="menuitem" to={`/deck/${d.id}/learn?${from}`}>{d.title}</Link>)}
-        </div>
-      )}
-    </div>
+    <DropMenu label="Study a deck" button={({ open, toggle }) => <button className="btn sm primary" onClick={toggle} aria-expanded={open}><Icon name="cards" />Study a deck<Icon name="down2" size={12} /></button>}>
+      {(close) => decks.map((d) => <button key={d.id} role="menuitem" onClick={() => { close(); nav(`/deck/${d.id}/learn?${from}`) }}><Icon name="cards" size={15} />{d.title}</button>)}
+    </DropMenu>
   )
 }
 
@@ -266,31 +262,20 @@ function Manage({ note, folders }: { note: NoteRow; folders: Folder[] }) {
 }
 
 function PageMenu({ onCheat, onExport, onPrint, onUnread, onReset }: { onCheat: () => void; onExport: () => void; onPrint: () => void; onUnread: () => void; onReset: () => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const away = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('pointerdown', away)
-    window.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('pointerdown', away); window.removeEventListener('keydown', esc) }
-  }, [open])
-  const item = (label: string, icon: string, fn: () => void, danger = false) => (
-    <button role="menuitem" className={danger ? 'danger' : ''} onClick={() => { setOpen(false); fn() }}><Icon name={icon} size={15} />{label}</button>
-  )
   return (
-    <div className="menu-wrap" ref={ref}>
-      <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="more" /></button>
-      {open && (
-        <div className="menu" role="menu">
+    <DropMenu label="More for this page" button={({ open, toggle }) => <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={toggle}><Icon name="more" /></button>}>
+      {(close) => {
+        const item = (label: string, icon: string, fn: () => void, danger = false) => (
+          <button role="menuitem" className={danger ? 'danger' : ''} onClick={() => { close(); fn() }}><Icon name={icon} size={15} />{label}</button>
+        )
+        return <>
           {item('Make a cheat sheet', 'list', onCheat)}
           {item('Export notes file', 'down', onExport)}
           {item('Print or save as PDF', 'copy', onPrint)}
           {item('Mark all sections unread', 'reset', onUnread)}
           {item('Remove highlights and notes…', 'trash', onReset, true)}
-        </div>
-      )}
-    </div>
+        </>
+      }}
+    </DropMenu>
   )
 }

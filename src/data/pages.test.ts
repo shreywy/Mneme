@@ -11,17 +11,27 @@ describe('pages', () => {
     expect(ps.map((p) => `${p.kind}:${pageUrl(p)}`)).toEqual(['deck:/deck/d', 'note:/notes/n'])
   })
 
-  it('groups by unit in natural order; notes before decks inside a unit; no unit last', () => {
+  it('groups by unit in natural order, alphabetical inside a unit, no unit last', () => {
     const ps = pagesOf(
       [deck('d10', 'Ch 10 deck', 'Chapter 10'), deck('mid', 'Midterm review'), deck('d2', 'Ch 2 deck', 'Chapter 2')],
       [note('n2', 'Ch 2 notes', 'Chapter 2'), note('n10', 'Ch 10 notes', 'chapter 10')],
     )
     const groups = groupByUnit(ps)
     expect(groups.map((g) => [g.unit ?? null, g.pages.map((p) => p.id)])).toEqual([
-      ['Chapter 2', ['n2', 'd2']],
-      ['Chapter 10', ['n10', 'd10']],
+      ['Chapter 2', ['d2', 'n2']],
+      ['Chapter 10', ['d10', 'n10']],
       [null, ['mid']],
     ])
+  })
+
+  it('a notes page and a deck with the same title: notes first', () => {
+    const groups = groupByUnit(pagesOf([deck('d', 'Week 3')], [note('n', 'Week 3')]))
+    expect(groups[0].pages.map((p) => p.id)).toEqual(['n', 'd'])
+  })
+
+  it('a hand-made order wins over the alphabet', () => {
+    const groups = groupByUnit(pagesOf([{ ...deck('a', 'Apple'), rank: 1 }, { ...deck('b', 'Banana'), rank: 0 }, deck('c', 'Cherry')], []))
+    expect(groups[0].pages.map((p) => p.id)).toEqual(['b', 'a', 'c'])
   })
 
   it('a folder with no units is one unlabelled group', () => {

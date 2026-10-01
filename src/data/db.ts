@@ -21,6 +21,8 @@ export type DeckRow = {
   archivedAt?: number
   /** How the class labels this part of the course: "Chapter 4", "Week 5". Groups pages in a folder. */
   unit?: string
+  /** Place in its unit when the user has ordered it by hand (otherwise alphabetical). */
+  rank?: number
 }
 export type ItemRow = Item & { deckId: string; position: number }
 export type StudyMode = 'learn' | 'flashcards' | 'test'
@@ -42,6 +44,8 @@ export type NoteRow = {
   read?: number[]
   archived?: boolean
   archivedAt?: number
+  /** Place in its unit when the user has ordered it by hand (otherwise alphabetical). */
+  rank?: number
 }
 export type Link = { noteId: string; deckId: string; createdAt: number }
 export type MarkColor = 'yellow' | 'green' | 'blue' | 'pink'
