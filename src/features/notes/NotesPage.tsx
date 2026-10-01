@@ -52,6 +52,24 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
   const hasSections = note.blocks.some((b) => b.type === 'section')
   const [current, setCurrent] = useState<number | null>(null)
   const [finding, setFinding] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
+  const [tocQuery, setTocQuery] = useState('')
+
+  // Notes made of parts (one per chapter) show one chapter at a time, each with its own contents.
+  const chapters = useMemo(() => {
+    const starts = note.blocks.flatMap((b, i) => (b.type === 'part' ? [i] : []))
+    return starts.map((start, k) => {
+      const b = note.blocks[start] as Extract<Block, { type: 'part' }>
+      return { start: k === 0 ? 0 : start, end: starts[k + 1] ?? note.blocks.length, title: b.title, summary: b.summary }
+    })
+  }, [note.blocks])
+  const CH_KEY = `mneme.notes.chapter.${note.id}`
+  const [ch, setChState] = useState<number>(() => { try { const v = Number(localStorage.getItem(CH_KEY)); return Number.isInteger(v) && v >= -1 ? v : 0 } catch { return 0 } })
+  const chapter = chapters.length ? (ch === -1 ? -1 : Math.min(ch, chapters.length - 1)) : -1
+  const setCh = (v: number) => { setChState(v); try { localStorage.setItem(CH_KEY, String(v)) } catch { /* private mode */ } ; window.scrollTo({ top: 0 }) }
+  const chapterOf = (i: number) => Math.max(0, chapters.findIndex((c) => i >= c.start && i < c.end))
+  const shown = (i: number) => chapter === -1 || (i >= chapters[chapter].start && i < chapters[chapter].end)
+  const [pendingJump, setPendingJump] = useState<number | null>(null)
   const marks = useLiveQuery(() => notesRepo.marksFor(note.id), [note.id]) ?? []
   const deckTerms = useLiveQuery(async () => {
     const ids = decks.map((d) => d.id)
@@ -92,12 +110,14 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
     }, { rootMargin: '-80px 0px -60% 0px' })
     els.forEach((el) => io.observe(el))
     return () => io.disconnect()
-  }, [note.blocks])
+  }, [note.blocks, chapter])
   // Open a folded section before scrolling to it, so the page (and "where am I") settle on the right place.
   const jump = (i: number) => {
+    if (!shown(i)) { setChState(chapterOf(i)); try { localStorage.setItem(CH_KEY, String(chapterOf(i))) } catch { /* private mode */ } setPendingJump(i); return }
     setOpenSignal({ index: i, n: Date.now() })
     requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(`b-${i}`)?.scrollIntoView({ behavior: document.documentElement.dataset.motion === 'reduced' ? 'auto' : 'smooth', block: 'start' })))
   }
+  useEffect(() => { if (pendingJump !== null && shown(pendingJump)) { const i = pendingJump; setPendingJump(null); jump(i) } }) // eslint-disable-line react-hooks/exhaustive-deps
   const print = () => {
     setPrinting(true)
     const done = () => { setPrinting(false); window.removeEventListener('afterprint', done) }
@@ -109,7 +129,23 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
   const path: Folder[] = []
   for (let f = folders.find((x) => x.id === note.folderId); f; f = folders.find((x) => x.id === f!.parentId)) path.unshift(f)
   const read = new Set(note.read ?? [])
-  const activeSection = current !== null ? [...sections].reverse().find((s) => s.i <= current)?.i ?? null : null
+  const chapterProgress = (c: { start: number; end: number }) => {
+    const secs = note.blocks.slice(c.start, c.end).flatMap((b, k) => (b.type === 'section' ? [c.start + k] : []))
+    return { read: secs.filter((i) => read.has(i)).length, total: secs.length }
+  }
+  // Search every chapter's sections (titles and text) from the contents rail.
+  const tocNeedle = tocQuery.trim().toLowerCase()
+  const tocHits = tocNeedle.length < 2 ? [] : note.blocks.flatMap((b, i) => {
+    if (b.type !== 'section' && b.type !== 'quickref') return []
+    const title = b.type === 'section' ? b.title : b.title ?? 'Quick reference'
+    const text = notesRepo.plainText(b.blocks)
+    const at = text.toLowerCase().indexOf(tocNeedle)
+    if (!title.toLowerCase().includes(tocNeedle) && at < 0) return []
+    const snippet = at < 0 ? '' : `${at > 30 ? '…' : ''}${text.slice(Math.max(0, at - 30), at + tocNeedle.length + 50)}…`
+    return [{ i, title, snippet, chapter: chapters.length ? chapters[chapterOf(i)].title : '' }]
+  })
+  // The section on screen; above the first section (a chapter heading), that's the first section.
+  const activeSection = current !== null ? [...sections].reverse().find((s) => s.i <= current && shown(s.i))?.i ?? sections.find((s) => shown(s.i))?.i ?? null : null
 
   return (
     <>
@@ -125,22 +161,49 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
       </TopBar>
       <div className={`page notes-page ${showContents ? '' : 'no-toc'} ${printing ? 'printing' : ''}`}>
         <nav className="toc" aria-label="Contents">
-          <div className="toc-h">Contents{hasSections ? ` · ${progress.read} of ${progress.total} read` : ''}</div>
+          <div className="toc-search searchbar"><Icon name="search" /><input className="input" value={tocQuery} onChange={(e) => setTocQuery(e.target.value)} placeholder={chapters.length ? 'Search all chapters' : 'Search this page'} aria-label="Search this page" /></div>
+          {tocNeedle.length >= 2 ? (
+            <div className="toc-results">
+              {tocHits.length === 0 && <div className="muted small" style={{ padding: '4px 10px' }}>Nothing matches.</div>}
+              {tocHits.map((h) => (
+                <button key={h.i} className="toc-hit" onClick={() => { setFindQuery(tocQuery.trim()); setFinding(true); jump(h.i) }}>
+                  {h.chapter && <span className="muted small">{h.chapter}</span>}
+                  <b>{h.title}</b>
+                  {h.snippet && <span className="snip">{h.snippet}</span>}
+                </button>
+              ))}
+            </div>
+          ) : <>
+          {chapters.length > 0 && (
+            <div className="toc-chapters">
+              {chapters.map((c, k) => { const pr = chapterProgress(c); return (
+                <button key={k} className={`toc-ch ${chapter === k ? 'on' : ''}`} onClick={() => setCh(k)}>
+                  <span className="t">{c.title}</span><span className="n">{pr.read}/{pr.total}</span>
+                </button>
+              ) })}
+              <button className={`toc-ch all ${chapter === -1 ? 'on' : ''}`} onClick={() => setCh(-1)}><span className="t">All chapters</span><span className="n">{progress.read}/{progress.total}</span></button>
+            </div>
+          )}
+          <div className="toc-h">{chapter >= 0 ? chapters[chapter].title : 'Contents'}{hasSections ? ` · ${(chapter >= 0 ? chapterProgress(chapters[chapter]) : progress).read} of ${(chapter >= 0 ? chapterProgress(chapters[chapter]) : progress).total} read` : ''}</div>
           {note.blocks.map((blk, i) => {
-            if (blk.type === 'part') return <div key={i} className="toc-part">{blk.title}</div>
+            if (!shown(i)) return null
+            if (blk.type === 'part') return chapter === -1 ? <div key={i} className="toc-part">{blk.title}</div> : null
             if (blk.type !== 'section' && blk.type !== 'quickref') return null
             const isRead = read.has(i)
+            const here = activeSection === i
             return (
-              <div key={i} className={`toc-row ${activeSection === i ? 'on' : ''}`}>
+              <div key={i} className={`toc-row ${here ? 'on' : ''}`} aria-current={here ? 'location' : undefined}>
                 {blk.type === 'section'
                   ? <button className={`tick ${isRead ? 'done' : ''}`} aria-pressed={isRead} aria-label={isRead ? `Mark "${blk.title}" unread` : `Mark "${blk.title}" read`} title={isRead ? 'Read. Click to mark unread' : 'Mark as read'}
                       onClick={() => notesRepo.setRead(note.id, i, !isRead)}>{isRead && <Icon name="check" size={11} />}</button>
                   : <span className="tick pin" aria-hidden="true"><Icon name="pin" size={11} /></span>}
                 <button className="t" onClick={() => jump(i)}>{blk.type === 'section' ? blk.title : blk.title ?? 'Quick reference'}</button>
+                {here && <span className="eye" title="On screen now"><Icon name="eye" size={13} /></span>}
               </div>
             )
           })}
-          {!sections.length && <div className="muted small">One page, no sections.</div>}
+          </>}
+          {!sections.length && !tocNeedle && <div className="muted small">One page, no sections.</div>}
           {bookmarks.length > 0 && (
             <>
               <div className="toc-h" style={{ marginTop: 16 }}>Bookmarks</div>
@@ -166,16 +229,36 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
               {hasSections && <><i>/</i><span>{progress.read} read</span></>}
               {note.course && <><i>/</i><span>{note.course}</span></>}
             </div>
-            {note.summary && <p className="notes-summary">{note.summary}</p>}
+            {chapters.length > 0 ? (
+              <>
+                <div className="ch-tabs" role="tablist" aria-label="Chapters">
+                  {chapters.map((c, k) => { const pr = chapterProgress(c); return (
+                    <button key={k} role="tab" aria-selected={chapter === k} className={`ch-tab ${chapter === k ? 'on' : ''}`} onClick={() => setCh(k)}>
+                      {c.title}<span className="n">{pr.read}/{pr.total}</span>
+                    </button>
+                  ) })}
+                  <button role="tab" aria-selected={chapter === -1} className={`ch-tab ${chapter === -1 ? 'on' : ''}`} onClick={() => setCh(-1)}>All</button>
+                </div>
+                {chapter >= 0
+                  ? chapters[chapter].summary && <p className="notes-summary">{chapters[chapter].summary}</p>
+                  : <ul className="ch-overview">{chapters.map((c, k) => <li key={k}><button className="linkbtn" onClick={() => setCh(k)}>{c.title}</button>{c.summary && <span className="muted"> {c.summary}</span>}</li>)}</ul>}
+              </>
+            ) : note.summary && <p className="notes-summary">{note.summary}</p>}
             {hasSections && <div className="readbar" aria-label={`${progress.read} of ${progress.total} sections read`}><i style={{ width: `${(progress.read / progress.total) * 100}%` }} /></div>}
           </header>
 
           {sections.length > 1 && (
             <label className="toc-mobile">
-              <span className="muted small">{activeSection !== null ? `${sections.findIndex((s) => s.i === activeSection) + 1} of ${sections.length}` : 'Jump to'}</span>
+              {chapters.length > 0 && (
+                <select className="select ch-select" value={chapter} onChange={(e) => setCh(Number(e.target.value))} aria-label="Chapter">
+                  {chapters.map((c, k) => <option key={k} value={k}>{c.title}</option>)}
+                  <option value={-1}>All chapters</option>
+                </select>
+              )}
+              {!chapters.length && <span className="muted small">{activeSection !== null ? `${sections.findIndex((s) => s.i === activeSection) + 1} of ${sections.length}` : 'Jump to'}</span>}
               <select className="select" value={activeSection ?? ''} onChange={(e) => jump(Number(e.target.value))} aria-label="Jump to a section">
                 {activeSection === null && <option value="">Contents</option>}
-                {sections.map((s) => <option key={s.i} value={s.i}>{s.title}{read.has(s.i) ? '  ✓' : ''}</option>)}
+                {sections.filter((s) => shown(s.i)).map((s) => <option key={s.i} value={s.i}>{s.title}{read.has(s.i) ? '  ✓' : ''}</option>)}
                 {bookmarks.length > 0 && <optgroup label="Bookmarks">{bookmarks.map((m) => <option key={m.id} value={m.block}>{m.text || m.anchor?.quote.slice(0, 40) || 'Bookmark'}</option>)}</optgroup>}
               </select>
             </label>
@@ -183,7 +266,7 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
 
           <NotesHooksCtx.Provider value={hooks}>
             <KeyTermsCtx.Provider value={terms}>
-              {note.blocks.map((b, i) => (
+              {note.blocks.map((b, i) => shown(i) && (
                 <div key={i} id={`b-${i}`} data-block={i} className={`nblock nbw-${b.type}`}>
                   <BlockIndexCtx.Provider value={i}><BlockView b={b} openAll={finding || printing ? true : null} /></BlockIndexCtx.Provider>
                 </div>
@@ -191,7 +274,13 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
             </KeyTermsCtx.Provider>
             {!hasSections && <BlockIndexCtx.Provider value={0}><EndMarker /></BlockIndexCtx.Provider>}
           </NotesHooksCtx.Provider>
-          <ReadingTools noteId={note.id} articleRef={articleRef} marks={marks} terms={terms} finding={finding} setFinding={setFinding} layoutKey={note.blocks} />
+          {chapter >= 0 && (
+            <nav className="ch-nav" aria-label="Chapters">
+              {chapter > 0 ? <button className="btn" onClick={() => setCh(chapter - 1)}><Icon name="chev" />{chapters[chapter - 1].title}</button> : <span />}
+              {chapter < chapters.length - 1 && <button className="btn primary" onClick={() => setCh(chapter + 1)}>Next: {chapters[chapter + 1].title}<Icon name="chev" className="flip-x" /></button>}
+            </nav>
+          )}
+          <ReadingTools noteId={note.id} articleRef={articleRef} marks={marks} terms={terms} finding={finding} setFinding={(v) => { setFinding(v); if (!v) setFindQuery('') }} findQuery={findQuery} layoutKey={`${chapter}`} />
 
           <LinkedDecks noteId={note.id} decks={decks} onLink={() => setPicker(true)} />
           <Manage note={note} folders={folders} />

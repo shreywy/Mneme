@@ -7,7 +7,7 @@ function block(b: Block): Json {
   switch (b.type) {
     case 'section': return { type: 'section', title: b.title, open: b.open, blocks: b.blocks.map(block) }
     case 'quickref': return { type: 'quickref', ...(b.title ? { title: b.title } : {}), blocks: b.blocks.map(block) }
-    case 'part': return { type: 'part', title: b.title }
+    case 'part': return { type: 'part', title: b.title, ...(b.summary ? { summary: b.summary } : {}) }
     case 'question': return { type: 'question', question: question(b.item) }
     case 'demo': return { type: 'demo', ...b.demo }
     default: return { ...b }

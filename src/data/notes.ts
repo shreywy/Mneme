@@ -20,12 +20,15 @@ export async function importNotes(n: NormalizedNotes, deck?: NormalizedDeck, opt
   const now = Date.now()
   const id = existing?.id ?? crypto.randomUUID()
   // A file that is one part of several merges into the page; anything else replaces it.
-  const merged = n.part && existing ? mergePart(existing.blocks, existing.read ?? [], n.blocks, n.part.index) : null
-  const blocks = merged?.blocks ?? (n.part ? tagPart(n.blocks, n.part.index) : n.blocks)
+  // A part's summary describes its chapter, so it lives on that chapter's divider, not on the page.
+  const incoming = n.part && n.summary ? withPartSummary(n.blocks, n.summary) : n.blocks
+  const merged = n.part && existing ? mergePart(existing.blocks, existing.read ?? [], incoming, n.part.index) : null
+  const blocks = merged?.blocks ?? (n.part ? tagPart(incoming, n.part.index) : incoming)
+  const summary = n.part ? existing?.summary : n.summary
   const read = merged ? merged.read : existing?.read?.filter((i) => i < blocks.length)
   const row: NoteRow = {
     id, folderId, title: n.title,
-    ...(n.course ? { course: n.course } : {}), ...(unit ? { unit } : {}), ...(n.summary ? { summary: n.summary } : {}),
+    ...(n.course ? { course: n.course } : {}), ...(unit ? { unit } : {}), ...(summary ? { summary } : {}),
     topics: [...new Set([...(merged ? existing?.topics ?? [] : []), ...n.topics])], blocks,
     position: existing?.position ?? (await db.notes.count()),
     createdAt: existing?.createdAt ?? now, updatedAt: now,
@@ -147,6 +150,11 @@ export function plainText(blocks: unknown): string {
 }
 
 // ---------- notes in parts ----------
+
+function withPartSummary(blocks: Block[], summary: string): Block[] {
+  const [first, ...rest] = blocks
+  return first?.type === 'part' ? [{ ...first, summary }, ...rest] : [{ type: 'part', title: 'Part', summary }, ...blocks]
+}
 
 /** Make sure a part's blocks open with its divider, numbered so parts can be put in order. */
 function tagPart(blocks: Block[], index: number): Block[] {

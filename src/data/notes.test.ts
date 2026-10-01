@@ -201,3 +201,15 @@ describe('notes in parts (one file per chapter)', () => {
     expect(n.read).toEqual([3])
   })
 })
+
+describe('chapter summaries in parts', () => {
+  it('each part keeps its own summary on its divider; the page summary is not overwritten', async () => {
+    const p = (index: number, summary: string): NormalizedNotes => ({ title: 'Review', topics: [], summary, part: { index, of: 2 }, blocks: [{ type: 'part', title: `Chapter ${index}` }, { type: 'paragraph', text: 'x' }] })
+    const { noteId } = await notes.importNotes(p(1, 'About chapter one'))
+    await notes.importNotes(p(2, 'About chapter two'))
+    const n = (await notes.getNote(noteId))!
+    const parts = n.blocks.filter((b) => b.type === 'part')
+    expect(parts.map((b) => b.type === 'part' && b.summary)).toEqual(['About chapter one', 'About chapter two'])
+    expect(n.summary).toBeUndefined()
+  })
+})

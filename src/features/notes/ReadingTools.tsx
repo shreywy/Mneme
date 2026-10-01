@@ -40,13 +40,15 @@ function readSelection(article: HTMLElement): Sel | null {
 
 const inRect = (r: DOMRect, x: number, y: number) => x >= r.left - 1 && x <= r.right + 1 && y >= r.top - 1 && y <= r.bottom + 1
 
-export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFinding, layoutKey }: {
+export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFinding, findQuery = '', layoutKey }: {
   noteId: string
   articleRef: RefObject<HTMLElement | null>
   marks: NoteMark[]
   terms: KeyTerm[]
   finding: boolean
   setFinding: (v: boolean) => void
+  /** Start the find bar with this text (from a contents search). */
+  findQuery?: string
   /** Changes when the page's content changes, so ranges get recomputed. */
   layoutKey: unknown
 }) {
@@ -143,6 +145,26 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
     await notesRepo.addMark({ noteId, kind: 'highlight', block: s.block, anchor: s.anchor, color })
     clearSelection()
   }
+  /** Highlights in the selection's block whose text overlaps the selection. */
+  const overlapping = (s: Sel) => {
+    const article = articleRef.current
+    const root = article?.querySelector<HTMLElement>(`[data-block="${s.block}"]`)
+    if (!root) return []
+    const text = textOf(root)
+    const a = s.anchor.offset, z = s.anchor.offset + s.anchor.quote.length
+    return marks.filter((m) => {
+      if (m.kind !== 'highlight' || m.block !== s.block || !m.anchor) return false
+      const loc = locate(text, m.anchor)
+      return !!loc && loc.start < z && loc.end > a
+    })
+  }
+  const overlapsHighlight = (s: Sel) => overlapping(s).length > 0
+  const erase = async (s: Sel) => {
+    const hit = overlapping(s)
+    for (const m of hit) await notesRepo.deleteMark(m.id)
+    clearSelection()
+    if (hit.length) toast(hit.length === 1 ? 'Highlight removed' : `${hit.length} highlights removed`)
+  }
   const bookmark = async (s: Sel | { block: number }) => {
     await notesRepo.addMark({ noteId, kind: 'bookmark', block: s.block, ...('anchor' in s ? { anchor: s.anchor } : {}) })
     clearSelection()
@@ -157,7 +179,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
     const s = readSelection(article)
     const items: MenuItem[] = []
     if (s) {
-      items.push({ key: 'colors', custom: (close) => <ColorRow onPick={(c) => { close(); void highlight(s, c) }} onLabel={() => { close(); void highlight(s) }} label="Highlight" /> })
+      items.push({ key: 'colors', custom: (close) => <ColorRow onPick={(c) => { close(); void highlight(s, c) }} onErase={() => { close(); void erase(s) }} canErase={overlapsHighlight(s)} label="Highlight" /> })
       items.push({ label: 'Add a note', icon: 'comment', onSelect: () => compose(s) })
       items.push({ label: 'Bookmark this', icon: 'bookmark', onSelect: () => bookmark(s) })
       items.push({ label: 'Explain with Gemini', icon: 'spark', disabled: true, hint: 'Coming with AI: add a Gemini key in Settings', onSelect: () => {} })
@@ -194,8 +216,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
 
       {sel && !pop && (
         <Floating rect={sel.rect} className="selbar" above>
-          <button className={`selbar-btn hl ${lastColor()}`} onClick={() => highlight(sel)} title="Highlight (your last colour)"><Icon name="highlight" size={15} /><span>Highlight</span></button>
-          <ColorRow onPick={(c) => highlight(sel, c)} />
+          <ColorRow onPick={(c) => highlight(sel, c)} onErase={() => erase(sel)} canErase={overlapsHighlight(sel)} />
           <span className="selbar-sep" />
           <button className="selbar-btn" onClick={() => compose(sel)} title="Add a note"><Icon name="comment" size={15} /><span>Note</span></button>
           <button className="selbar-btn" onClick={() => bookmark(sel)} title="Bookmark"><Icon name="bookmark" size={15} /></button>
@@ -233,21 +254,24 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
         return <Floating rect={hover.rect} className={short ? 'notehint short' : 'notehint'}>{m.text}</Floating>
       })()}
 
-      {finding && <FindBar articleRef={articleRef} onClose={() => setFinding(false)} layoutKey={tick} />}
+      {finding && <FindBar key={findQuery} initial={findQuery} articleRef={articleRef} onClose={() => setFinding(false)} layoutKey={tick} />}
       <KeyTermTip articleRef={articleRef} terms={terms} />
     </>
   )
 }
 
-function ColorRow({ onPick, current, label, onLabel }: { onPick: (c: MarkColor) => void; current?: MarkColor; label?: string; onLabel?: () => void }) {
+function ColorRow({ onPick, current, label, onErase, canErase = true }: { onPick: (c: MarkColor) => void; current?: MarkColor; label?: string; onErase?: () => void; canErase?: boolean }) {
   return (
     <div className="colorrow" role="group" aria-label={label ?? 'Highlight colour'}>
-      {label && (onLabel
-        ? <button className="cr-label btn-plain" onClick={onLabel} title="Use your last colour"><Icon name="highlight" size={15} />{label}</button>
-        : <span className="cr-label"><Icon name="highlight" size={15} />{label}</span>)}
+      {label && <span className="cr-label"><Icon name="highlight" size={15} />{label}</span>}
       {COLORS.map((c) => (
         <button key={c} className={`swatch ${c} ${current === c ? 'on' : ''}`} aria-label={`${label ?? 'Highlight'} ${COLOR_NAME[c]}`} title={COLOR_NAME[c]} onClick={() => onPick(c)} />
       ))}
+      {onErase && (
+        <button className="swatch erase" aria-label="Remove highlighting in the selection" title={canErase ? 'Remove highlighting' : 'Nothing highlighted here'} disabled={!canErase} onClick={onErase}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M6 18L18 6" /></svg>
+        </button>
+      )}
     </div>
   )
 }
@@ -298,8 +322,8 @@ function Floating({ rect, children, className, above, onClose }: { rect: DOMRect
 
 // ---------- find on the page ----------
 
-function FindBar({ articleRef, onClose, layoutKey }: { articleRef: RefObject<HTMLElement | null>; onClose: () => void; layoutKey: unknown }) {
-  const [q, setQ] = useState('')
+function FindBar({ articleRef, onClose, layoutKey, initial = '' }: { articleRef: RefObject<HTMLElement | null>; onClose: () => void; layoutKey: unknown; initial?: string }) {
+  const [q, setQ] = useState(initial)
   const [i, setI] = useState(0)
   const [hits, setHits] = useState<Range[]>([])
   useLayoutEffect(() => {

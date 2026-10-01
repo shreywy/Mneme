@@ -86,7 +86,7 @@ function parseBlocks(list: unknown, warnings: string[], ctx: 'top' | 'section' |
       if (ctx !== 'top') { warnings.push(`${where}: a part divider only works at the top level, so it was skipped.`); return }
       const t = typeof raw.title === 'string' ? raw.title.trim() : ''
       if (!t) { warnings.push(`${where}: a part needs a title.`); return }
-      out.push({ type: 'part', title: t })
+      out.push({ type: 'part', title: t, ...(typeof raw.summary === 'string' && raw.summary.trim() ? { summary: raw.summary.trim() } : {}) })
       return
     }
     if (type === 'question') {

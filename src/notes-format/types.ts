@@ -13,7 +13,7 @@ export type CalloutTone = 'tip' | 'warning' | 'exam' | 'definition' | 'note'
 export type Block =
   | { type: 'quickref'; title?: string; blocks: Block[] }
   /** A chapter divider: notes that cover several chapters come in parts, each starting with one. */
-  | { type: 'part'; title: string; index?: number }
+  | { type: 'part'; title: string; index?: number; summary?: string }
   | { type: 'section'; title: string; open: boolean; blocks: Block[] }
   | { type: 'heading'; text: string }
   | { type: 'paragraph'; text: string }
