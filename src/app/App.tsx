@@ -9,6 +9,7 @@ import { FlashcardsPage } from '../features/flashcards/FlashcardsPage'
 import { TestPage } from '../features/test/TestPage'
 import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
+import { ConfirmHost } from '../ui/confirm'
 
 export function App() {
   return (
@@ -27,6 +28,7 @@ export function App() {
         <Route path="deck/:deckId/test" element={<TestPage />} />
       </Routes>
       <Dialogs />
+      <ConfirmHost />
       <Toasts />
     </BrowserRouter>
   )
