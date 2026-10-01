@@ -186,10 +186,81 @@ Type-specific fields:
 <!-- /type -->
 
 ### Formatting inside text fields
-- These fields allow Markdown: `prompt`, `definition`, `explanation`, `example`, choice `text` and `why`.
-- You may use **bold**, *italic*, `code`, lists and tables (for example, a journal entry as a table).
-- Write math with LaTeX between **double** dollar signs: `$$\frac{a}{b}$$`, inline or on its own line. A single `$` is always read as a currency sign, so write money normally (`$12,000`).
-- Don't use HTML, images or links; Mneme strips them.
+Mneme renders Markdown and LaTeX, so format for reading, not as one long line.
+
+**Where formatting works:** `prompt`, `definition`, `explanation`, `example`, the scenario case, choice `text` and `why`.
+
+**Markdown**
+- Use `\n` for a line break and `\n\n` for a new paragraph inside a JSON string.
+- Use **bold** for the key word, lists for steps or conditions, and tables for anything with rows and columns (journal entries, comparisons, data). A table goes on its own lines:
+  `"| Account | Debit | Credit |\n|---|---|---|\n| Cash | 500 | |\n| Revenue | | 500 |"`
+- Don't use HTML, images or links in these fields. Mneme removes them. For visuals, use `demo` (below).
+
+**Math with LaTeX**
+- Put LaTeX between **double** dollar signs: `$$\\frac{a}{b}$$`. It can sit inside a sentence or on its own line. A single `$` always means money, so write `$12,000` as normal.
+- **Escape every backslash in JSON**: write `\\frac`, `\\text`, `\\times`, `\\begin{aligned}`. (Mneme repairs most single-backslash mistakes, but don't rely on it.)
+- Inside LaTeX, write thousands as `12{,}000` so the comma doesn't add a space.
+- Put words inside math in `\\text{}`: `$$\\text{Profit} = \\text{Revenue} - \\text{Expenses}$$`.
+
+**Calculations in explanations** (this matters most for math-heavy courses)
+1. If a formula is used, state it first, on its own line, with each symbol named.
+2. Then show the working one step per line, using `aligned` with `&=` so the equals signs line up.
+3. Finish with the answer in a short sentence.
+
+Example `explanation` value (as it appears inside the JSON string):
+```
+"Formula: $$\\text{Ending equity} = \\text{Opening equity} + \\text{Contributions} + \\text{Revenue} - \\text{Expenses} - \\text{Dividends}$$\n\n$$\\begin{aligned} \\text{Ending equity} &= 98{,}250 + 20{,}000 + 324{,}600 - 296{,}750 - 7{,}000 \\\\ &= 139{,}100 \\\\ \\text{Assets} &= \\text{Liabilities} + \\text{Equity} \\\\ &= 209{,}200 + 139{,}100 \\\\ &= 348{,}300 \\end{aligned}$$\n\nSo assets are **$348,300**."
+```
+- Terms can use LaTeX too. For example, a ratio's `definition` can end with its formula.
+- Multi-line `prompt`s are fine when a question needs data. Put the numbers in a list or table instead of one long sentence.
+
+### Visual demos (optional, for ideas that need a picture or interaction)
+Any term or question can carry a `demo`: a small, self-contained HTML page that Mneme runs in a sandbox.
+
+Use one when a static explanation isn't enough:
+- a physics simulation
+- an algorithm stepping through
+- a slider showing how a curve shifts
+- a labelled diagram
+- an animated process
+
+Leave it out otherwise. Most cards don't need one.
+
+```json
+"demo": {
+  "title": "Shift the demand curve",
+  "placement": "explanation",
+  "height": 320,
+  "html": "<style>body{font:14px system-ui;margin:12px}</style><input type=range id=s min=-50 max=50 value=0><svg id=g width=100% height=240></svg><script>/* draw and redraw on input */</script>"
+}
+```
+
+**Fields**
+- `html`: one HTML snippet with inline `<style>` and `<script>`. Keep it under 40 KB.
+- `placement`:
+  - `"explanation"` (the default) shows the demo after the student answers.
+  - `"question"` shows it with the question, when the student needs it to answer.
+- `height`: the starting height in pixels. The frame grows to fit its content.
+
+**Rules**
+- **No network.** External scripts, fonts, CDNs, images, `fetch` and iframes are all blocked. Draw with SVG, canvas or CSS. Inline `data:` images are fine.
+- **Use the theme colours,** so the demo matches light and dark mode. These CSS variables are provided: `var(--bg)`, `var(--surface)`, `var(--ink)`, `var(--muted)`, `var(--line)`, `var(--accent)`, `var(--good)`, `var(--bad)`, and the font `var(--font)`.
+- Keep it small and focused on one idea, with plain labels. It must work with mouse and touch.
+
+**Style (so the demo looks like part of Mneme, not an embedded web page)**
+- **Leave the background transparent.** Don't set a background on `html` or `body`, so the demo sits on Mneme's page. If you need a panel, use `var(--surface)` with a 1px `var(--line)` border and 8px corners.
+- **Type:**
+  - `font-family: var(--font)` for everything, and `var(--serif)` for a heading if you use one.
+  - 13–14px for labels, in `var(--muted)`.
+  - Sentence case, no all-caps, no emoji.
+- **Colour:** draw in `var(--ink)` and use `var(--accent)` only for the thing being demonstrated (the moving point, the highlighted bar). Use `var(--good)` and `var(--bad)` only for right and wrong. Don't use any other colours.
+- **Shapes:**
+  - Lines and strokes are 1–1.5px.
+  - Corners are 6–10px.
+  - No drop shadows, gradients, glows or 3D effects.
+- **Controls:** use plain native inputs (`<input type=range>`, `<button>`). They're already styled to match. Give each one a short label.
+- **Motion:** 150–300ms ease-out. Nothing loops forever unless the loop is the point (a wave, a cycle). Offer a pause button for anything that moves on its own.
+- **Static images:** if you only need a labelled picture, a demo with a single inline `<svg>` in this style is right.
 
 ---
 

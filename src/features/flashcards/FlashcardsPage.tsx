@@ -13,6 +13,8 @@ import { Seg } from '../../ui/controls'
 import { isTyping } from '../../app/ui'
 import { sizeClass } from '../study/QuestionView'
 import { hideHint, useSettings } from '../../settings/store'
+import { Demo } from '../../content/Demo'
+import { Sheet } from '../../ui/controls'
 import { sfx } from '../../sound/sfx'
 
 const RATINGS: { r: Grade; label: string; hint: string; cls?: string }[] = [
@@ -39,6 +41,7 @@ export function FlashcardsPage() {
   const [again, setAgain] = useState<Item[]>([])
   const [t0, setT0] = useState(performance.now())
   const [started] = useState(Date.now())
+  const [demoOpen, setDemoOpen] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -153,6 +156,12 @@ export function FlashcardsPage() {
                 </div>
               </div>
             </div>
+            {card.demo && (
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <button className="btn ghost sm" onClick={() => setDemoOpen(true)}><Icon name="spark" />Open the demo{card.demo.title ? `: ${card.demo.title}` : ''}</button>
+              </div>
+            )}
+            {demoOpen && card.demo && <Sheet onClose={() => setDemoOpen(false)} label="Demo" width={760}><h2 style={{ fontSize: 20, marginBottom: 12 }}>{card.demo.title ?? 'Demo'}</h2><Demo demo={card.demo} /></Sheet>}
             <div className={`rate ${flipped ? '' : 'hidden'}`} aria-hidden={!flipped}>
               {RATINGS.map((x, k) => <button key={x.label} className={x.cls} tabIndex={flipped ? 0 : -1} onClick={() => rate(x.r)}>{x.label}<small>{k + 1} · {x.hint}</small></button>)}
             </div>

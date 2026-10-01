@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Item, NormalizedDeck, ParseResult, QuestionItem, QuestionType, SimpleQuestion, Topic } from './types'
+import type { Demo, Item, NormalizedDeck, ParseResult, QuestionItem, QuestionType, SimpleQuestion, Topic } from './types'
 import { QUESTION_TYPES } from './types'
 
 // ---------- zod schemas (mirror deck-format/deck.schema.json) ----------
@@ -30,13 +30,57 @@ type Raw = Record<string, unknown>
 const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v)
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
 
-/** Find the JSON object inside LLM output: tolerates code fences and chatter before/after. */
+/**
+ * Inside JSON strings, turn backslashes that JSON doesn't allow (\epsilon, \underline) into escaped ones,
+ * so a LaTeX-heavy reply doesn't fail to parse. Valid escapes are left alone.
+ */
+function escapeStrayBackslashes(s: string): string {
+  let out = '', inString = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (!inString) { if (c === '"') inString = true; out += c; continue }
+    if (c === '"') { inString = false; out += c; continue }
+    if (c !== '\\') { out += c; continue }
+    const n = s[i + 1] ?? ''
+    if ('"\\/bfnrt'.includes(n) || (n === 'u' && /^[0-9a-fA-F]{4}$/.test(s.slice(i + 2, i + 6)))) { out += c + n; i++ }
+    else out += '\\\\'
+  }
+  return out
+}
+
+/**
+ * Single backslashes that happen to be valid JSON escapes (\f in \frac, \t in \text, \b in \beta, \n in \neq)
+ * arrive as control characters. Inside $$…$$ math, put the LaTeX command back.
+ */
+function repairMath(str: string): string {
+  if (!str.includes('$$')) return str
+  return str.replace(/\$\$([\s\S]*?)\$\$/g, (_, m: string) => '$$' + m
+    .replace(/\f/g, '\\f')
+    .replace(/\x08/g, '\\b')
+    .replace(/\t(?=[a-zA-Z])/g, '\\t')
+    .replace(/\r(?=[a-zA-Z])/g, '\\r')
+    .replace(/\n(?=(eq|e\b|ot|abla|u\b|ewline|eg|i\b|leq|geq|mid|exists|ormalsize))/g, '\\n') + '$$')
+}
+
+function deepRepair(v: unknown): unknown {
+  if (typeof v === 'string') return repairMath(v)
+  if (Array.isArray(v)) return v.map(deepRepair)
+  if (isObj(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deepRepair(x)]))
+  return v
+}
+
+/** Find the JSON object inside LLM output: tolerates code fences, chatter and LaTeX backslash mistakes. */
 export function extractJson(input: string): unknown {
-  const s = input.replace(/^﻿/, '')
-  try { return JSON.parse(s) } catch { /* fall through */ }
+  const s = input.replace(/^\uFEFF/, '')
+  const attempts = [s]
   const first = s.indexOf('{'), last = s.lastIndexOf('}')
-  if (first === -1 || last <= first) throw new Error('no JSON object')
-  return JSON.parse(s.slice(first, last + 1))
+  if (first !== -1 && last > first) attempts.push(s.slice(first, last + 1))
+  for (const a of attempts) {
+    for (const t of [a, escapeStrayBackslashes(a)]) {
+      try { return deepRepair(JSON.parse(t)) } catch { /* try the next form */ }
+    }
+  }
+  throw new Error('no JSON object')
 }
 
 const toBool = (v: unknown) => (v === 'true' ? true : v === 'false' ? false : v)
@@ -44,6 +88,23 @@ const toNum = (v: unknown) => (typeof v === 'string' && v.trim() !== '' && !isNa
 
 function describeIssue(e: z.ZodError): string {
   return e.issues.map((i) => `${i.path.length ? i.path.join('.') + ': ' : ''}${i.message}`).join('; ')
+}
+
+const MAX_DEMO = 60_000
+
+/** Read an optional demo; oversized or malformed ones are dropped with a warning. */
+export function parseDemo(v: unknown, id: string, warnings: string[]): Demo | undefined {
+  if (v === undefined || v === null) return undefined
+  const o = typeof v === 'string' ? { html: v } : isObj(v) ? v : null
+  if (!o || typeof o.html !== 'string' || !o.html.trim()) { warnings.push(`${id}: demo has no html, so it was dropped.`); return undefined }
+  if (o.html.length > MAX_DEMO) { warnings.push(`${id}: demo is over 60 KB, so it was dropped.`); return undefined }
+  const height = typeof o.height === 'number' && o.height > 0 ? Math.min(1200, Math.round(o.height)) : undefined
+  return {
+    ...(typeof o.title === 'string' && o.title.trim() ? { title: o.title.trim() } : {}),
+    html: o.html,
+    ...(height ? { height } : {}),
+    placement: o.placement === 'question' ? 'question' : 'explanation',
+  }
 }
 
 function normalizeSimple(q: Raw, id: string, topic: string, warnings: string[]): SimpleQuestion | null {
@@ -60,7 +121,8 @@ function normalizeSimple(q: Raw, id: string, topic: string, warnings: string[]):
   const r = questionSchema.safeParse(fixed)
   if (!r.success) { warnings.push(`Skipped ${id}: ${describeIssue(r.error)}`); return null }
   const d = r.data
-  const common = { kind: 'question' as const, key: id, topic: d.topic, prompt: d.prompt, explanation: d.explanation, difficulty: d.difficulty, ...(d.source ? { source: d.source } : {}) }
+  const demo = parseDemo(q.demo, id, warnings)
+  const common = { kind: 'question' as const, key: id, topic: d.topic, prompt: d.prompt, explanation: d.explanation, difficulty: d.difficulty, ...(d.source ? { source: d.source } : {}), ...(demo ? { demo } : {}) }
   switch (d.type) {
     case 'multiple_choice': return { ...common, qtype: 'multiple_choice', choices: d.choices }
     case 'multiple_select': return { ...common, qtype: 'multiple_select', choices: d.choices }
@@ -91,6 +153,7 @@ function normalizeQuestion(q: Raw, id: string, topic: string, warnings: string[]
     kind: 'question', key: id, qtype: 'scenario', topic, prompt, parts, difficulty: difficulty as 1 | 2 | 3,
     explanation: typeof q.explanation === 'string' ? q.explanation : '',
     ...(typeof q.source === 'string' && q.source.trim() ? { source: q.source.trim() } : {}),
+    ...((() => { const demo = parseDemo(q.demo, id, warnings); return demo ? { demo } : {} })()),
   }
 }
 
@@ -156,7 +219,8 @@ export function parseDeckText(input: string): ParseResult {
     const r = termSchema.safeParse({ ...t, id, topic: fixTopic(t.topic, id), aliases: Array.isArray(t.aliases) ? t.aliases : [] })
     if (!r.success) { warnings.push(`Skipped term ${id}: ${describeIssue(r.error)}`); return }
     const d = r.data
-    keep(id, { kind: 'term', key: id, topic: d.topic, term: d.term, definition: d.definition, aliases: d.aliases,
+    const demo = parseDemo(t.demo, id, warnings)
+    keep(id, { kind: 'term', key: id, topic: d.topic, term: d.term, definition: d.definition, aliases: d.aliases, ...(demo ? { demo } : {}),
       ...(d.example ? { example: d.example } : {}), ...(d.explanation ? { explanation: d.explanation } : {}), ...(d.source ? { source: d.source } : {}) })
   })
 

@@ -8,6 +8,7 @@ import type { Item } from '../../deck-format/types'
 import { answerText, promptText } from '../../engine/exercises'
 import { TYPE_LABELS } from '../../prompt/build'
 import { Markdown } from '../../content/Markdown'
+import { Demo } from '../../content/Demo'
 import { TopBar } from '../../app/Shell'
 import { Icon } from '../../ui/Icons'
 import { Seg, Tabs } from '../../ui/controls'
@@ -227,8 +228,19 @@ function ManageCards({ items, topics, onEdit, onDelete }: { items: Item[]; topic
           )}
           {it.kind === 'term' && it.aliases.length > 0 && <div className="mc-ans"><span>Also accepts</span>{it.aliases.join(', ')}</div>}
           {whyOf(it) && <div className="mc-why"><Markdown>{whyOf(it)}</Markdown></div>}
+          {it.demo && <DemoToggle demo={it.demo} />}
         </div>
       ))}
+    </div>
+  )
+}
+
+function DemoToggle({ demo }: { demo: NonNullable<Item['demo']> }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button className="btn ghost sm" onClick={() => setOpen(!open)}><Icon name="spark" />{open ? 'Hide demo' : `Demo${demo.title ? `: ${demo.title}` : ''}`}</button>
+      {open && <Demo demo={demo} />}
     </div>
   )
 }

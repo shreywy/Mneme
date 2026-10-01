@@ -2,6 +2,9 @@ export type Topic = { id: string; name: string; summary?: string }
 
 export type Choice = { text: string; correct: boolean; why?: string }
 
+/** A small self-contained HTML demo, run in a sandboxed frame. */
+export type Demo = { title?: string; html: string; height?: number; placement: 'question' | 'explanation' }
+
 type Base = {
   kind: 'question'
   key: string
@@ -10,6 +13,7 @@ type Base = {
   explanation: string
   difficulty: 1 | 2 | 3
   source?: string
+  demo?: Demo
 }
 
 export type MultipleChoice = Base & { qtype: 'multiple_choice'; choices: Choice[] }
@@ -37,6 +41,7 @@ export type TermItem = {
   example?: string
   explanation?: string
   source?: string
+  demo?: Demo
 }
 
 export type Item = TermItem | QuestionItem

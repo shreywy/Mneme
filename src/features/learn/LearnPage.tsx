@@ -10,6 +10,7 @@ import { gradeResponse, type Grade, type Response } from '../../engine/respond'
 import { LearnSession, studyOrder } from '../../engine/scheduler'
 import { shuffle } from '../../engine/rng'
 import { Markdown } from '../../content/Markdown'
+import { Demo } from '../../content/Demo'
 import { useSettings } from '../../settings/store'
 import { buzz, sfx } from '../../sound/sfx'
 import { Icon } from '../../ui/Icons'
@@ -337,14 +338,16 @@ function Why({ item }: { item: Item }) {
         <Markdown>{item.definition}</Markdown>
         {item.example && <div style={{ marginTop: 8 }}><Markdown>{`*Example:* ${item.example}`}</Markdown></div>}
         {item.explanation && <div style={{ marginTop: 8 }}><Markdown>{item.explanation}</Markdown></div>}
+        {item.demo?.placement === 'explanation' && <Demo demo={item.demo} />}
       </div>
     )
   }
-  if (!item.explanation) return null
+  if (!item.explanation && item.demo?.placement !== 'explanation') return null
   return (
     <div className="why">
       <div className="h">Why</div>
       <Markdown>{item.explanation}</Markdown>
+      {item.demo?.placement === 'explanation' && <Demo demo={item.demo} />}
       {item.source && <div className="src">Source: {item.source}</div>}
     </div>
   )

@@ -26,6 +26,7 @@ export type Block =
   | { type: 'match'; title?: string; pairs: { left: string; right: string }[] }
   | { type: 'reveal'; prompt: string; answer: string }
   | { type: 'worked'; prompt: string; steps: string[]; answer?: string }
+  | { type: 'demo'; demo: import('../deck-format/types').Demo }
 
 export type BlockType = Block['type']
 

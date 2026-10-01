@@ -3,6 +3,7 @@ import type { Exercise } from '../../engine/exercises'
 import type { Grade, Response } from '../../engine/respond'
 import { Markdown } from '../../content/Markdown'
 import { isTyping } from '../../app/ui'
+import { Demo } from '../../content/Demo'
 
 type Props = {
   ex: Exercise
@@ -31,6 +32,7 @@ export function QuestionView({ ex, mode, response, revealed, grade, onRespond, k
       <>
         <div className="q" style={{ marginBottom: 10 }}><span className="lead">Read the case, then answer each part</span></div>
         <div className="case"><Markdown>{ex.prompt}</Markdown></div>
+        {ex.item.demo?.placement === 'question' && <Demo demo={ex.item.demo} />}
         <ScenarioParts ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
       </>
     )
@@ -43,6 +45,7 @@ export function QuestionView({ ex, mode, response, revealed, grade, onRespond, k
           <Markdown>{promptStr}</Markdown>
         </div>
       )}
+      {ex.item.demo?.placement === 'question' && <Demo demo={ex.item.demo} />}
       {ex.kind === 'cloze' && <div className="q" style={{ marginBottom: 8 }}><span className="lead">{lead}</span></div>}
       <Body ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} keyboard={keyboard} />
     </>

@@ -6,6 +6,7 @@ import { gradeResponse, type Grade, type Response } from '../../engine/respond'
 import { shuffle } from '../../engine/rng'
 import { sfx } from '../../sound/sfx'
 import { QuestionView } from '../study/QuestionView'
+import { Demo } from '../../content/Demo'
 import { Chart, Compare, Cycle, Decision, Diagram, Flow, Steps, Timeline, Tree } from './visuals'
 
 type B<T extends Block['type']> = Extract<Block, { type: T }>
@@ -61,6 +62,7 @@ export function BlockView({ b, openAll }: { b: Block; openAll?: boolean | null }
     case 'match': return <Match b={b} />
     case 'reveal': return <Reveal b={b} />
     case 'worked': return <Worked b={b} />
+    case 'demo': return <Demo demo={b.demo} />
   }
 }
 

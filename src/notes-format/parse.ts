@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { extractJson, parseDeckText } from '../deck-format/parse'
+import { extractJson, parseDeckText, parseDemo } from '../deck-format/parse'
 import type { NormalizedDeck } from '../deck-format/types'
 import type { Block, NormalizedNotes, NotesParseResult, TreeNode } from './types'
 
@@ -75,6 +75,11 @@ function parseBlocks(list: unknown, warnings: string[], ctx: 'top' | 'section' |
         return
       }
       out.push({ type: 'question', item })
+      return
+    }
+    if (type === 'demo') {
+      const demo = parseDemo(raw, where, warnings)
+      if (demo) out.push({ type: 'demo', demo })
       return
     }
     if (type === 'tree') {

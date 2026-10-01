@@ -123,6 +123,59 @@ describe('parseDeckText', () => {
   })
 })
 
+describe('LaTeX escaping mistakes from LLMs', () => {
+  const withExplanation = (raw: string) =>
+    `{"format":"mneme.deck","version":1,"deck":{"title":"T"},"topics":[{"id":"a","name":"A"}],"terms":[],"questions":[{"id":"q","type":"true_false","topic":"a","difficulty":1,"prompt":"P","answer":true,"explanation":"${raw}"}]}`
+  const explanation = (raw: string) => {
+    const r = parseDeckText(withExplanation(raw))
+    if (!r.ok) throw new Error(r.errors.join())
+    const q = r.deck.items[0]
+    return q.kind === 'question' ? q.explanation : ''
+  }
+
+  it('repairs single backslashes that JSON reads as control characters (\\frac, \\text, \\neq, \\beta)', () => {
+    expect(explanation('$$\\frac{1}{2}$$')).toBe('$$\\frac{1}{2}$$')
+    expect(explanation('$$\\text{Profit}$$')).toBe('$$\\text{Profit}$$')
+    expect(explanation('$$a \\neq b$$')).toBe('$$a \\neq b$$')
+    expect(explanation('$$\\beta$$')).toBe('$$\\beta$$')
+  })
+
+  it('repairs backslashes JSON does not allow at all (\\epsilon, \\underline)', () => {
+    expect(explanation('$$\\epsilon + \\underline{x}$$')).toBe('$$\\epsilon + \\underline{x}$$')
+  })
+
+  it('leaves correctly escaped LaTeX and real line breaks alone', () => {
+    expect(explanation('$$\\\\frac{a}{b}$$')).toBe('$$\\frac{a}{b}$$')
+    expect(explanation('Line one\\nLine two')).toBe('Line one\nLine two')
+    expect(explanation('$$\\\\begin{aligned} a &= b \\\\\\\\ c &= d \\\\end{aligned}$$')).toBe('$$\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}$$')
+  })
+})
+
+describe('demos', () => {
+  it('keeps a demo on a question and a term, defaulting placement to explanation', () => {
+    const d = minimal()
+    ;(d.questions as Record<string, unknown>[])[0].demo = { title: 'Slide it', html: '<svg></svg>', height: 200 }
+    ;(d.terms as Record<string, unknown>[])[0].demo = { html: '<p>x</p>', placement: 'question' }
+    const r = parseDeckText(JSON.stringify(d))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const q = r.deck.items.find((i) => i.key === 'q-1')!
+    const t = r.deck.items.find((i) => i.key === 't-a')!
+    expect(q.demo).toEqual({ title: 'Slide it', html: '<svg></svg>', height: 200, placement: 'explanation' })
+    expect(t.demo?.placement).toBe('question')
+  })
+
+  it('drops an oversized demo with a warning but keeps the card', () => {
+    const d = minimal()
+    ;(d.questions as Record<string, unknown>[])[0].demo = { html: 'x'.repeat(70_000) }
+    const r = parseDeckText(JSON.stringify(d))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.deck.items.find((i) => i.key === 'q-1')?.demo).toBeUndefined()
+    expect(r.warnings.join(' ')).toMatch(/demo/i)
+  })
+})
+
 describe('scenario questions', () => {
   const scenario = (parts: unknown[]) => minimal({
     questions: [{

@@ -8,6 +8,7 @@ import { buildExercise, type Exercise } from '../../engine/exercises'
 import { gradeResponse, type Response } from '../../engine/respond'
 import { shuffle } from '../../engine/rng'
 import { Markdown } from '../../content/Markdown'
+import { Demo } from '../../content/Demo'
 import { Icon } from '../../ui/Icons'
 import { Seg, Toggle } from '../../ui/controls'
 import { QuestionView } from '../study/QuestionView'
@@ -180,6 +181,6 @@ export function TestPage() {
 
 function ReviewWhy({ item }: { item: Item }) {
   const text = item.kind === 'term' ? `**${item.term}**: ${item.definition}${item.explanation ? `\n\n${item.explanation}` : ''}` : item.explanation
-  if (!text) return null
-  return <div className="why"><div className="h">Why</div><Markdown>{text}</Markdown></div>
+  if (!text && !item.demo) return null
+  return <div className="why"><div className="h">Why</div>{text && <Markdown>{text}</Markdown>}{item.demo?.placement === 'explanation' && <Demo demo={item.demo} />}</div>
 }
