@@ -29,12 +29,13 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Order of work (agreed 2026-10-01)
 1. ~~**Account page and menu**~~ done 2026-10-01
-2. **End-to-end pass**: guest mode done 2026-10-01 ([results](testing/e2e-2026-10-01.md)); signed-in part (sign-in, sync, account page) still to do with Shrey signed in
+2. ~~**Guest end-to-end pass**~~ done 2026-10-01 ([results](testing/e2e-2026-10-01.md))
 3. **Notes** (imported, LLM-generated notes pages)
 4. **Text notes** (the user's own writing pages)
 5. **AI** (Gemini, bring your own key)
-6. **Preview site, GitHub polish, v1 release**
-7. **Offline desktop app** (much later)
+6. **Full end-to-end pass**: everything, signed in, phone and PC, including sync and the account page ([checklist](testing/e2e-2026-10-01.md#part-2-signed-in-to-do-needs-shrey-to-sign-in))
+7. **Preview site, GitHub polish, v1 release**
+8. **Offline desktop app** (much later)
 
 **Notes and Text notes each start with a preview (mock-ups) and a written design for Shrey to approve**, like a spec; only after approval do we build them and write their prompts. Small single-feature asks (themes, tweaks) don't wait for their step: build them straight away.
 
