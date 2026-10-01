@@ -415,3 +415,10 @@ a.drow:hover { background: var(--surface2); }
 .tdeck.drop-before::before, .tdeck.drop-after::after { content: ''; position: absolute; left: 8px; right: 6px; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
 .tdeck.drop-before::before { top: -1px; }
 .tdeck.drop-after::after { bottom: -1px; }
+
+/* share and page settings dialogs */
+.share-link { display: flex; gap: 8px; margin-top: 16px; }
+.share-link .input { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.page-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.page-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+@media (max-width: 760px) { .page-settings { grid-template-columns: 1fr; } .share-link { flex-direction: column; } }

@@ -18,9 +18,18 @@ import { confirmAction } from '../../ui/confirm'
 import { toast } from '../../ui/toasts'
 import { SlideToConfirm } from '../../ui/SlideToConfirm'
 import { friendly, SignIn, STATUS } from './SignIn'
+import { AFTER_SIGN_IN } from '../share/SharedPage'
 
 export function AccountPage() {
   const { user, ready } = useAccount()
+  const nav = useNavigate()
+  // Signed in from a shared link: go back to it.
+  useEffect(() => {
+    if (!user) return
+    let to: string | null = null
+    try { to = sessionStorage.getItem(AFTER_SIGN_IN); sessionStorage.removeItem(AFTER_SIGN_IN) } catch { /* private mode */ }
+    if (to && /^\/s\/[A-Za-z0-9_-]{20,40}$/.test(to)) nav(to)
+  }, [user, nav])
   return (
     <>
       <TopBar crumbs={<><BackButton /><b>Account</b></>} />

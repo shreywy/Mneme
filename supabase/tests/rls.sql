@@ -117,6 +117,45 @@ begin
   insert into public.profiles (username) values ('Aye');
 end $$;
 
+-- ---------- share links ----------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
+insert into public.shares (id, kind, source_id, title, payload) values ('share-b-0123456789abcdef', 'deck', 'deck-b', 'B shared', '{"x":1}');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+do $$
+declare n int; t text;
+begin
+  select count(*) into n from public.shares;
+  if n <> 0 then raise exception 'FAIL: A can list B''s shares'; end if;
+  update public.shares set title = 'pwned' where id = 'share-b-0123456789abcdef';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A changed B''s share'; end if;
+  delete from public.shares where id = 'share-b-0123456789abcdef';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A deleted B''s share'; end if;
+  select s.title into t from public.get_share('share-b-0123456789abcdef') s;
+  if t is distinct from 'B shared' then raise exception 'FAIL: A cannot open B''s share by its link'; end if;
+  select count(*) into n from public.get_share('no-such-share-0000000000');
+  if n <> 0 then raise exception 'FAIL: an unknown share id returned something'; end if;
+end $$;
+
+reset role;
+set local role anon;
+do $$
+declare t text;
+begin
+  select s.title into t from public.get_share('share-b-0123456789abcdef') s;
+  if t is distinct from 'B shared' then raise exception 'FAIL: a signed-out visitor cannot open a share link'; end if;
+  begin
+    perform 1 from public.shares;
+    raise exception 'FAIL: anon can query the shares table';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+set local role authenticated;
+
 -- ---------- account deletion needs a fresh emailed code ----------
 -- B's session without an OTP sign-in in the last 10 minutes: refused.
 select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',

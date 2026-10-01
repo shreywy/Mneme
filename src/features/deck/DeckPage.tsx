@@ -5,6 +5,9 @@ import { db, type Folder } from '../../data/db'
 import * as repo from '../../data/repo'
 import * as notesRepo from '../../data/notes'
 import { LinkPicker } from '../notes/LinkPicker'
+import { DropMenu } from '../../ui/DropMenu'
+import { ShareDialog } from '../page/ShareDialog'
+import { PageSettings } from '../page/PageSettings'
 import { countMastery, filterItems, plural, relTime, type Filter } from '../../data/stats'
 import type { Item } from '../../deck-format/types'
 import { answerText, promptText } from '../../engine/exercises'
@@ -18,7 +21,6 @@ import { confirmAction } from '../../ui/confirm'
 import { CardEditor, DeckInfoEditor } from './CardEditor'
 import { AnimatedNumber, Collapse } from '../../ui/motion'
 import { downloadJson, fileSlug, toDeckFile } from '../../deck-format/export'
-import { FolderSelect } from '../library/FolderSelect'
 
 type Tab = 'overview' | 'cards'
 
@@ -31,6 +33,7 @@ export function DeckPage() {
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
   const [linking, setLinking] = useState(false)
+  const [dialog, setDialog] = useState<null | 'share' | 'settings'>(null)
   const [leaving, setLeaving] = useState(false)
   /** Fade the page out, then go: used after delete and archive so the page doesn't just vanish. */
   const leaveTo = (to: string) => { setLeaving(true); setTimeout(() => nav(to), 200) }
@@ -65,9 +68,22 @@ export function DeckPage() {
   return (
     <>
       <TopBar crumbs={<><Link to="/">Library</Link>{crumbs.map((f) => <span key={f.id}> / <Link to={`/folder/${f.id}`}>{f.name}</Link></span>)} / <b>{deck.title}</b></>}>
-        <button className="btn ghost sm" onClick={() => setInfoOpen(true)}><Icon name="edit" />Edit info</button>
-        <button className="btn ghost sm" onClick={() => { downloadJson(`${fileSlug(deck.title)}.mneme.json`, toDeckFile(deck, items)); toast('Deck exported', 'Saved as a .mneme.json file you can re-import or share') }}><Icon name="down" />Export</button>
-        <button className="btn ghost sm" onClick={archive}><Icon name="archive" />Archive</button>
+        <DropMenu label="More for this deck" button={({ open, toggle }) => <button className="btn sm ghost" aria-label="More for this deck" aria-expanded={open} onClick={toggle}><Icon name="more" /></button>}>
+          {(close) => {
+            const item = (label: string, icon: string, fn: () => void, danger = false) => (
+              <button role="menuitem" className={danger ? 'danger' : ''} onClick={() => { close(); fn() }}><Icon name={icon} size={15} />{label}</button>
+            )
+            return <>
+              {item('Share…', 'link', () => setDialog('share'))}
+              {item('Make a cheat sheet', 'list', () => nav(`/cheatsheet?d=${deckId}`))}
+              {item('Export deck file', 'down', () => { downloadJson(`${fileSlug(deck.title)}.mneme.json`, toDeckFile(deck, items)); toast('Deck exported', 'Saved as a .mneme.json file you can re-import or share') })}
+              {item('Edit title and description', 'edit', () => setInfoOpen(true))}
+              <div className="ctx-sep" role="separator" />
+              {item('Page settings…', 'gear', () => setDialog('settings'))}
+              {item('Archive', 'archive', archive)}
+            </>
+          }}
+        </DropMenu>
       </TopBar>
       <div className={`page ${leaving ? 'page-leave' : ''}`} key={deckId}>
         <h1 className="title">{deck.title}</h1>
@@ -146,25 +162,6 @@ export function DeckPage() {
                 <div>Time studied<b>{fmtDuration(record.secondsStudied)}</b></div>
               </div>
             </div>
-            <div className="panel">
-              <h3>Manage</h3>
-              <div className="field" style={{ marginBottom: 14 }}><span>Folder</span>
-                <FolderSelect folders={folders} value={deck.folderId} onChange={(id) => repo.moveDeck(deckId, id)} />
-              </div>
-              <div className="field" style={{ marginBottom: 14 }}><span>Unit</span>
-                <input className="input" key={deck.unit ?? ''} defaultValue={deck.unit ?? ''} placeholder="e.g. Chapter 4"
-                  onBlur={(e) => { const v = e.target.value.trim(); if (v !== (deck.unit ?? '')) void repo.setDeckUnit(deckId, v) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn ghost danger sm" onClick={async () => {
-                  if (await confirmAction({ title: 'Reset progress for this deck?', body: 'Mneme forgets every answer you gave on these cards. The cards themselves stay.', confirm: 'Reset progress', danger: true })) { await repo.resetDeckProgress(deckId); toast('Progress reset') }
-                }}><Icon name="reset" />Reset progress</button>
-                <button className="btn ghost danger sm" onClick={async () => {
-                  if (await confirmAction({ title: `Delete "${deck.title}"?`, body: `This removes ${plural(items.length, 'card')} and all progress for good. Archiving keeps them instead.`, confirm: 'Delete deck', danger: true })) { leaveTo('/'); setTimeout(async () => { await repo.deleteDeck(deckId); toast('Deck deleted') }, 200) }
-                }}><Icon name="trash" />Delete deck</button>
-              </div>
-            </div>
           </div>
         )}
         {tab === 'cards' && (
@@ -174,6 +171,18 @@ export function DeckPage() {
         )}
       </div>
       {linking && <LinkPicker kind="notes" deckId={deckId} onClose={() => setLinking(false)} />}
+      {dialog === 'share' && <ShareDialog kind="deck" sourceId={deckId} title={deck.title} payload={() => toDeckFile(deck, items)} onClose={() => setDialog(null)} />}
+      {dialog === 'settings' && (
+        <PageSettings title={deck.title} folders={folders} folderId={deck.folderId} unit={deck.unit} onClose={() => setDialog(null)}
+          onFolder={(id) => repo.moveDeck(deckId, id)} onUnit={(u) => repo.setDeckUnit(deckId, u)}>
+          <button className="btn sm ghost danger" onClick={async () => {
+            if (await confirmAction({ title: 'Reset progress for this deck?', body: 'Mneme forgets every answer you gave on these cards. The cards themselves stay.', confirm: 'Reset progress', danger: true })) { await repo.resetDeckProgress(deckId); toast('Progress reset') }
+          }}><Icon name="reset" />Reset progress</button>
+          <button className="btn sm ghost danger" onClick={async () => {
+            if (await confirmAction({ title: `Delete "${deck.title}"?`, body: `This removes ${plural(items.length, 'card')} and all progress for good. Archiving keeps them instead.`, confirm: 'Delete deck', danger: true })) { setDialog(null); leaveTo('/'); setTimeout(async () => { await repo.deleteDeck(deckId); toast('Deck deleted') }, 200) }
+          }}><Icon name="trash" />Delete deck</button>
+        </PageSettings>
+      )}
       {editing && (
         <CardEditor item={editing === 'new' ? null : editing} topics={deck.topics.length ? deck.topics : [{ id: 'general', name: 'General' }]}
           onClose={() => setEditing(null)}

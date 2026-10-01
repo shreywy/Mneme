@@ -10,6 +10,7 @@ import { FlashcardsPage } from '../features/flashcards/FlashcardsPage'
 import { AccountPage } from '../features/account/AccountPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { CheatSheetPage } from '../features/cheatsheet/CheatSheetPage'
+import { SharedPage } from '../features/share/SharedPage'
 import { TestPage } from '../features/test/TestPage'
 import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
@@ -30,6 +31,7 @@ export function App() {
           <Route path="account" element={<AccountPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="cheatsheet" element={<CheatSheetPage />} />
+          <Route path="s/:shareId" element={<SharedPage />} />
           <Route path="*" element={<LibraryPage />} />
         </Route>
         <Route path="deck/:deckId/learn" element={<LearnPage />} />

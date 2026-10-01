@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Rating } from 'ts-fsrs'
@@ -10,11 +10,12 @@ import { allDeckMastery, plural } from '../../data/stats'
 import { Icon } from '../../ui/Icons'
 import { confirmAction } from '../../ui/confirm'
 import { toast } from '../../ui/toasts'
-import { FolderSelect } from '../library/FolderSelect'
 import { BlockIndexCtx, BlockView, EndMarker, NotesHooksCtx, type NotesHooks } from './blocks'
 import { LinkPicker } from './LinkPicker'
 import { ReadingTools } from './ReadingTools'
 import { DropMenu } from '../../ui/DropMenu'
+import { ShareDialog } from '../page/ShareDialog'
+import { PageSettings } from '../page/PageSettings'
 import { notesToFile } from '../../notes-format/export'
 import { downloadJson } from '../../deck-format/export'
 import { useSettings } from '../../settings/store'
@@ -47,6 +48,7 @@ export function NotesPage() {
 function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; folders: Folder[] }) {
   const nav = useNavigate()
   const [picker, setPicker] = useState(false)
+  const [dialog, setDialog] = useState<null | 'share' | 'settings'>(null)
   const progress = notesRepo.readingProgress(note)
   const sections = useMemo(() => note.blocks.flatMap((b, i) => (b.type === 'section' ? [{ i, title: b.title }] : b.type === 'quickref' ? [{ i, title: b.title ?? 'Quick reference' }] : [])), [note.blocks])
   const hasSections = note.blocks.some((b) => b.type === 'section')
@@ -151,7 +153,8 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
     <>
       <TopBar crumbs={<>{path.length ? path.map((f) => <span key={f.id}><Link to={`/folder/${f.id}`}>{f.name}</Link> / </span>) : <><Link to="/">Library</Link> / </>}<b>{note.title}</b></>}>
         <button className={`btn sm ghost toc-toggle ${showContents ? 'on' : ''}`} onClick={() => setSettings({ notesContents: !showContents })} aria-pressed={showContents} title={showContents ? 'Hide the contents' : 'Show the contents'}><Icon name="list" /><span className="hide-sm">Contents</span></button>
-        <PageMenu onCheat={() => nav(`/cheatsheet?n=${note.id}${decks.length ? `&d=${decks.map((d) => d.id).join(',')}` : ''}`)} onExport={exportFile} onPrint={print} onUnread={() => notesRepo.updateNote(note.id, { read: [] })}
+        <PageMenu onCheat={() => nav(`/cheatsheet?n=${note.id}${decks.length ? `&d=${decks.map((d) => d.id).join(',')}` : ''}`)} onExport={exportFile} onPrint={print}
+          onShare={() => setDialog('share')} onSettings={() => setDialog('settings')}
           onReset={async () => {
             if (!await confirmAction({ title: 'Remove all highlights and notes?', body: 'Every highlight and annotation on this page is deleted, on all your devices. Bookmarks stay.', confirm: 'Remove them', danger: true })) return
             const n = await notesRepo.clearMarks(note.id)
@@ -231,14 +234,6 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
             </div>
             {chapters.length > 0 ? (
               <>
-                <div className="ch-tabs" role="tablist" aria-label="Chapters">
-                  {chapters.map((c, k) => { const pr = chapterProgress(c); return (
-                    <button key={k} role="tab" aria-selected={chapter === k} className={`ch-tab ${chapter === k ? 'on' : ''}`} onClick={() => setCh(k)}>
-                      {c.title}<span className="n">{pr.read}/{pr.total}</span>
-                    </button>
-                  ) })}
-                  <button role="tab" aria-selected={chapter === -1} className={`ch-tab ${chapter === -1 ? 'on' : ''}`} onClick={() => setCh(-1)}>All</button>
-                </div>
                 {chapter >= 0
                   ? chapters[chapter].summary && <p className="notes-summary">{chapters[chapter].summary}</p>
                   : <ul className="ch-overview">{chapters.map((c, k) => <li key={k}><button className="linkbtn" onClick={() => setCh(k)}>{c.title}</button>{c.summary && <span className="muted"> {c.summary}</span>}</li>)}</ul>}
@@ -283,10 +278,22 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
           <ReadingTools noteId={note.id} articleRef={articleRef} marks={marks} terms={terms} finding={finding} setFinding={(v) => { setFinding(v); if (!v) setFindQuery('') }} findQuery={findQuery} layoutKey={`${chapter}`} />
 
           <LinkedDecks noteId={note.id} decks={decks} onLink={() => setPicker(true)} />
-          <Manage note={note} folders={folders} />
+
         </article>
       </div>
       {picker && <LinkPicker kind="decks" noteId={note.id} onClose={() => setPicker(false)} />}
+      {dialog === 'share' && <ShareDialog kind="note" sourceId={note.id} title={note.title} payload={() => notesToFile(note)} onClose={() => setDialog(null)} />}
+      {dialog === 'settings' && (
+        <PageSettings title={note.title} folders={folders} folderId={note.folderId} unit={note.unit} onClose={() => setDialog(null)}
+          onFolder={(folderId) => notesRepo.updateNote(note.id, { folderId })} onUnit={(unit) => notesRepo.updateNote(note.id, { unit: unit || undefined })}>
+          <button className="btn sm" onClick={() => notesRepo.updateNote(note.id, { read: [] })} disabled={!note.read?.length}><Icon name="reset" />Mark all sections unread</button>
+          <button className="btn sm" onClick={async () => { await notesRepo.setNoteArchived(note.id, true); toast('Notes archived', 'Find them under Archive in the sidebar'); nav('/') }}><Icon name="archive" />Archive</button>
+          <button className="btn sm ghost danger" onClick={async () => {
+            if (!await confirmAction({ title: `Delete "${note.title}"?`, body: 'The notes page, its highlights and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true })) return
+            await notesRepo.deleteNote(note.id); toast('Notes deleted'); nav('/')
+          }}><Icon name="trash" />Delete</button>
+        </PageSettings>
+      )}
     </>
   )
 }
@@ -327,30 +334,8 @@ function LinkedDecks({ noteId, decks, onLink }: { noteId: string; decks: DeckRow
   )
 }
 
-function Manage({ note, folders }: { note: NoteRow; folders: Folder[] }) {
-  const nav = useNavigate()
-  const [unit, setUnit] = useState(note.unit ?? '')
-  const saveUnit = useCallback(() => { if ((note.unit ?? '') !== unit.trim()) void notesRepo.updateNote(note.id, { unit: unit.trim() || undefined }) }, [note.id, note.unit, unit])
-  return (
-    <section className="manage">
-      <h2>Manage</h2>
-      <div className="manage-grid">
-        <label className="field"><span>Folder</span><FolderSelect folders={folders} value={note.folderId} onChange={(folderId) => notesRepo.updateNote(note.id, { folderId })} /></label>
-        <label className="field"><span>Unit</span><input className="input" value={unit} placeholder="e.g. Chapter 4" onChange={(e) => setUnit(e.target.value)} onBlur={saveUnit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} /></label>
-      </div>
-      <div className="srow-btns" style={{ marginTop: 14 }}>
-        <button className="btn sm" onClick={() => notesRepo.updateNote(note.id, { read: [] })} disabled={!note.read?.length}>Mark all unread</button>
-        <button className="btn sm" onClick={async () => { await notesRepo.setNoteArchived(note.id, true); toast('Notes archived', 'Find them under Archive in the sidebar'); nav('/') }}><Icon name="archive" />Archive</button>
-        <button className="btn sm ghost danger" onClick={async () => {
-          if (!await confirmAction({ title: `Delete "${note.title}"?`, body: 'The notes page and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true })) return
-          await notesRepo.deleteNote(note.id); toast('Notes deleted'); nav('/')
-        }}><Icon name="trash" />Delete</button>
-      </div>
-    </section>
-  )
-}
 
-function PageMenu({ onCheat, onExport, onPrint, onUnread, onReset }: { onCheat: () => void; onExport: () => void; onPrint: () => void; onUnread: () => void; onReset: () => void }) {
+function PageMenu({ onCheat, onShare, onExport, onPrint, onSettings, onReset }: { onCheat: () => void; onShare: () => void; onExport: () => void; onPrint: () => void; onSettings: () => void; onReset: () => void }) {
   return (
     <DropMenu label="More for this page" button={({ open, toggle }) => <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={toggle}><Icon name="more" /></button>}>
       {(close) => {
@@ -358,10 +343,12 @@ function PageMenu({ onCheat, onExport, onPrint, onUnread, onReset }: { onCheat: 
           <button role="menuitem" className={danger ? 'danger' : ''} onClick={() => { close(); fn() }}><Icon name={icon} size={15} />{label}</button>
         )
         return <>
+          {item('Share…', 'link', onShare)}
           {item('Make a cheat sheet', 'list', onCheat)}
           {item('Export notes file', 'down', onExport)}
           {item('Print or save as PDF', 'copy', onPrint)}
-          {item('Mark all sections unread', 'reset', onUnread)}
+          <div className="ctx-sep" role="separator" />
+          {item('Page settings…', 'gear', onSettings)}
           {item('Remove highlights and notes…', 'trash', onReset, true)}
         </>
       }}
