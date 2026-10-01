@@ -40,6 +40,20 @@
   color-scheme: dark;
 }
 
+/* Other light palettes. */
+:root[data-theme='light'][data-palette='sand'] {
+  --bg: #EDE3D1; --surface: #F8F2E6; --surface2: #E4D8C2; --ink: #2A2216; --muted: #74664F; --line: #D8CAB0; --accent-ink: #F8F2E6;
+}
+:root[data-theme='light'][data-palette='offwhite'] {
+  --bg: #F7F7F4; --surface: #FFFFFF; --surface2: #EEEEEA; --ink: #1A1A18; --muted: #66665F; --line: #E1E1DB; --accent-ink: #FFFFFF;
+}
+:root[data-theme='light'][data-palette='grey'] {
+  --bg: #ECEDEF; --surface: #F7F8F9; --surface2: #E2E4E7; --ink: #1B1D20; --muted: #646870; --line: #D4D7DC; --accent-ink: #F7F8F9;
+}
+:root[data-theme='light'][data-palette='white'] {
+  --bg: #FFFFFF; --surface: #FFFFFF; --surface2: #F3F3F3; --ink: #111111; --muted: #666666; --line: #E5E5E5; --accent-ink: #FFFFFF;
+}
+
 /* Other dark palettes. Only the surfaces and text change; good/bad colours carry over from dark. */
 :root[data-theme='dark'][data-palette='black'] {
   --bg: #000000; --surface: #0E0E0E; --surface2: #1A1A1A; --ink: #EDEDED; --muted: #8F8F8F; --line: #262626; --accent-ink: #000000;

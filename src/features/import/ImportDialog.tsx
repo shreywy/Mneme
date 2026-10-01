@@ -58,7 +58,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
           onDragOver={(e) => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
           onDrop={(e) => { e.preventDefault(); setOver(false); readFiles(e.dataTransfer.files) }}>
           <Icon name="upload" size={22} />
-          <div style={{ marginTop: 8 }}><b>Drop files here</b> or click to choose</div>
+          <div style={{ marginTop: 8 }}><b className="for-keys">Drop files here</b><span className="for-keys"> or click to choose</span><b className="for-touch">Tap to choose a file</b></div>
           <input ref={input} type="file" accept=".json,.txt,.md,application/json" multiple hidden onChange={(e) => e.target.files && readFiles(e.target.files)} />
         </div>
       ) : (

@@ -3,6 +3,8 @@
 This is the single to-do list. Anything agreed in conversation and not built yet goes here. Tick items off as they ship. The full design is in [the spec](superpowers/specs/2026-09-30-mneme-design.md).
 
 ## Done
+- [x] Theme polish: light styles (Paper, Sand, Off-white, Light grey, White) shown only in light mode and dark styles only in dark; in-site colour picker (system picker on phones); custom accent; themed thin scrollbars; Settings grouped into collapsible sections; settings sync no longer compares device and server clocks (fixed a custom background coming back)
+- [x] Mobile pass 1: sign-in pinned to the top so the keyboard can't cover it, bigger buttons, autofilled email works, simpler code screen; settings rows laid out one way; flashcards don't scroll the page, text always centred, options behind a cog, "Tap" wording on touch screens
 - [x] Themes: Black, Grey and Blurple grey dark styles next to Paper, and a custom background colour that sets light or dark text from its brightness (synced with the account)
 - [x] Hosting on Cloudflare Pages at https://mnemee.pages.dev, auto-deploying from `main`
 - [x] Supabase project: migrations committed, owner-only RLS on every table, RLS tests that try to read, change and forge another user's rows (`npm run test:db`)

@@ -40,25 +40,29 @@ function SignIn() {
   const [err, setErr] = useState('')
   const [wait, setWait] = useState(0)
   const codeRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const [sentTo, setSentTo] = useState('')
   const [providers, setProviders] = useState<OAuthProvider[]>([])
   useEffect(() => { oauthProviders().then((p) => setProviders((['github', 'google'] as const).filter((k) => p[k]))) }, [])
   useEffect(() => { if (!wait) return; const t = setTimeout(() => setWait(wait - 1), 1000); return () => clearTimeout(t) }, [wait])
   useEffect(() => { if (stage === 'code') codeRef.current?.focus() }, [stage])
 
   const send = async () => {
-    const e = email.trim()
+    // Read the field itself: password managers and mobile autofill can fill it without a change event.
+    const e = (emailRef.current?.value || sentTo || email).trim()
+    if (e !== email) setEmail(e)
     if (!/^\S+@\S+\.\S+$/.test(e)) { setErr('Enter a full email address.'); return }
     setBusy(true); setErr('')
     try {
       await sendSignInEmail(e)
       localStorage.setItem('mneme.lastEmail', e)
-      setStage('code'); setWait(60)
+      setSentTo(e); setStage('code'); setWait(60)
     } catch (x) { setErr(friendly(x)) } finally { setBusy(false) }
   }
-  const verify = async (value = code) => {
+  const verify = async (value = codeRef.current?.value.replace(/\D/g, '') || code) => {
     if (value.length < 6) return
     setBusy(true); setErr('')
-    try { await verifyCode(email.trim(), value); toast('Signed in', 'Your decks will sync to this account', 'check') }
+    try { await verifyCode(sentTo, value); toast('Signed in', 'Your decks will sync to this account', 'check') }
     catch (x) { setErr(friendly(x)); setCode('') } finally { setBusy(false) }
   }
 
@@ -78,7 +82,7 @@ function SignIn() {
           <form onSubmit={(e) => { e.preventDefault(); send() }}>
             <label className="field"><span>Email</span>
               <div className="inline-field">
-                <input className="input" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.ca" />
+                <input ref={emailRef} className="input" type="email" name="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.ca" />
                 <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Sending…' : 'Email me a code'}</button>
               </div>
             </label>
@@ -88,15 +92,15 @@ function SignIn() {
         </>
       ) : (
         <>
-          <p className="lede">We sent a 6-digit code to <b style={{ color: 'var(--ink)' }}>{email}</b>. It works for 10 minutes. Check spam if it isn't there in a minute.</p>
-          <form onSubmit={(e) => { e.preventDefault(); verify() }} style={{ marginTop: 18 }}>
-            <input ref={codeRef} className="input code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="000000" aria-label="Sign-in code"
-              value={code} onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); setCode(v); if (v.length === 6) verify(v) }} />
+          <p className="lede">We sent a 6-digit code to <b style={{ color: 'var(--ink)' }}>{sentTo}</b>. It works for 10 minutes. Check spam if it isn't there in a minute.</p>
+          <form className="codeform" onSubmit={(e) => { e.preventDefault(); verify() }}>
+            <input ref={codeRef} className="input code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" aria-label="Sign-in code"
+              value={code} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setCode(v); if (v.length === 6) verify(v) }} />
             {err && <p className="err">{err}</p>}
-            <div className="actions">
-              <button className="btn ghost" type="button" onClick={() => { setStage('email'); setCode(''); setErr('') }}>Use a different email</button>
-              <button className="btn" type="button" disabled={wait > 0 || busy} onClick={send}>{wait > 0 ? `Resend in ${wait}s` : 'Resend'}</button>
-              <button className="btn primary" type="submit" disabled={busy || code.length < 6}>{busy ? 'Checking…' : 'Sign in'}</button>
+            <button className="btn primary block" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Sign in'}</button>
+            <div className="code-links">
+              <button className="linkbtn" type="button" disabled={wait > 0 || busy} onClick={send}>{wait > 0 ? `Resend in ${wait}s` : 'Send a new code'}</button>
+              <button className="linkbtn" type="button" onClick={() => { setStage('email'); setCode(''); setErr('') }}>Use a different email</button>
             </div>
           </form>
         </>

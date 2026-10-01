@@ -81,7 +81,7 @@ export function Decision({ b }: { b: B<'decision'> }) {
           ))}
         </tbody>
       </table>
-      <div className="hint">Click a row to follow it through.</div>
+      <div className="hint">Pick a row to follow it through.</div>
     </div>
   )
 }

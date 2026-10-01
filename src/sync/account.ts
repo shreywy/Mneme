@@ -11,9 +11,13 @@ export const useAccount = create<Account>(() => ({ ready: !supabase, user: null,
 export const accountsEnabled = !!supabase
 
 const OWNER_KEY = 'mneme.sync.owner'
-const SETTINGS_TS = 'mneme.settings.syncedAt'
+// Settings sync never compares this device's clock with the server's (a clock a few seconds off used
+// to bring back old values). A local change marks settings dirty until it's pushed, and a pull only
+// applies the server's copy when its server timestamp differs from the last one seen here.
+const SETTINGS_DIRTY = 'mneme.settings.dirty'
+const SETTINGS_SEEN = 'mneme.settings.remoteAt'
 // Settings that follow the account. Sidebar layout and open folders stay per device.
-const SYNCED_SETTINGS = ['theme', 'accent', 'darkPalette', 'customBg', 'sound', 'correctSound', 'reduceMotion', 'learnShuffle', 'learnPanel', 'learnMatch', 'hiddenHints', 'libraryView', 'librarySort'] as const
+const SYNCED_SETTINGS = ['theme', 'accent', 'darkPalette', 'lightPalette', 'customBg', 'customAccent', 'sound', 'correctSound', 'reduceMotion', 'learnShuffle', 'learnPanel', 'learnMatch', 'hiddenHints', 'libraryView', 'librarySort'] as const
 
 let currentId: string | null = null
 let channel: RealtimeChannel | null = null
@@ -22,6 +26,7 @@ let pushTimer: ReturnType<typeof setTimeout> | null = null
 let pullTimer: ReturnType<typeof setTimeout> | null = null
 let settingsTimer: ReturnType<typeof setTimeout> | null = null
 let applyingSettings = false
+let settingsEdits = 0 // bumped on every local change, so a push only clears "dirty" if nothing changed meanwhile
 let running: Promise<void> | null = null
 
 const set = useAccount.setState
@@ -38,9 +43,10 @@ export async function initAccount() {
   useSettings.subscribe((s, prev) => {
     if (applyingSettings || !currentId) return
     if (SYNCED_SETTINGS.some((k) => JSON.stringify(s[k]) !== JSON.stringify(prev[k]))) {
-      localStorage.setItem(SETTINGS_TS, String(Date.now()))
+      localStorage.setItem(SETTINGS_DIRTY, '1')
+      settingsEdits++
       if (settingsTimer) clearTimeout(settingsTimer)
-      settingsTimer = setTimeout(() => { void pushSettings() }, 1200)
+      settingsTimer = setTimeout(() => { pushSettings().catch(() => { /* stays dirty; the next sync retries */ }) }, 1200)
     }
   })
 }
@@ -120,30 +126,36 @@ export async function syncNow(withPull = true): Promise<void> {
 
 async function pushSettings() {
   if (!supabase || !currentId) return
+  const edits = settingsEdits
   const s = useSettings.getState()
   const doc = Object.fromEntries(SYNCED_SETTINGS.map((k) => [k, s[k]]))
-  await supabase.from('user_settings').upsert({ id: 'settings', doc, deleted: false }, { onConflict: 'user_id,id' })
+  const { data, error } = await supabase.from('user_settings').upsert({ id: 'settings', doc, deleted: false }, { onConflict: 'user_id,id' }).select('updated_at').single()
+  if (error) throw error
+  localStorage.setItem(SETTINGS_SEEN, data.updated_at)
+  if (edits === settingsEdits) localStorage.removeItem(SETTINGS_DIRTY)
 }
 
 async function pullSettings() {
   if (!supabase || !currentId) return
-  const { data } = await supabase.from('user_settings').select('doc,updated_at').eq('id', 'settings').maybeSingle()
-  const localTs = Number(localStorage.getItem(SETTINGS_TS) ?? 0)
-  const remoteTs = data ? Date.parse(data.updated_at) : 0
-  if (data && remoteTs > localTs) {
-    applyingSettings = true
-    try { useSettings.getState().set(data.doc as Partial<ReturnType<typeof useSettings.getState>>) } finally { applyingSettings = false }
-    localStorage.setItem(SETTINGS_TS, String(remoteTs))
-  } else if (!data || localTs > remoteTs) {
-    await pushSettings()
-  }
+  // Unsent local changes win; they go up instead.
+  if (localStorage.getItem(SETTINGS_DIRTY)) { await pushSettings(); return }
+  const { data, error } = await supabase.from('user_settings').select('doc,updated_at').eq('id', 'settings').maybeSingle()
+  if (error) throw error
+  if (!data) { await pushSettings(); return }
+  if (data.updated_at === localStorage.getItem(SETTINGS_SEEN)) return // nothing new (often the echo of our own push)
+  if (localStorage.getItem(SETTINGS_DIRTY)) return // changed while we were fetching; the scheduled push sends it
+  applyingSettings = true
+  try { useSettings.getState().set(data.doc as Partial<ReturnType<typeof useSettings.getState>>) } finally { applyingSettings = false }
+  localStorage.setItem(SETTINGS_SEEN, data.updated_at)
 }
 
 /** Clear this device's copy. The account's data stays on the server. Hooks don't fire for clear(). */
 async function wipeLocal() {
   await db.transaction('rw', db.tables, async () => { for (const t of db.tables) await t.clear() })
   resetSyncState()
-  localStorage.removeItem(SETTINGS_TS)
+  localStorage.removeItem(SETTINGS_DIRTY)
+  localStorage.removeItem(SETTINGS_SEEN)
+  localStorage.removeItem('mneme.settings.syncedAt') // older key
 }
 
 export async function sendSignInEmail(email: string) {

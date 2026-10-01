@@ -230,7 +230,7 @@ export function LearnPage() {
         </div>
         <div className="lb-right">
         <button className={`iconbtn ${learnShuffle ? 'on' : ''}`} onClick={() => setSettings({ learnShuffle: !learnShuffle })}
-          title={learnShuffle ? 'Shuffled. Click to go in order.' : 'In order. Click to shuffle.'} aria-pressed={learnShuffle}><Icon name="shuffle" /></button>
+          title={learnShuffle ? 'Shuffled. Turn off to go in order.' : 'In order. Turn on to shuffle.'} aria-pressed={learnShuffle}><Icon name="shuffle" /></button>
         <button className="iconbtn" onClick={() => setSettings({ sound: !sound })} title={sound ? 'Mute  M' : 'Unmute  M'} aria-label={sound ? 'Mute' : 'Unmute'}>
           <Icon name={sound ? 'vol' : 'volx'} />
         </button>

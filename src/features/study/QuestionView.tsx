@@ -289,7 +289,7 @@ function OrderAnswer({ ex, mode, response, revealed, onRespond, keyboard }: { ex
           return (
             <button key={i} className={`slot ${cls}`} disabled={revealed || !v} onClick={() => update(seq.filter((s) => s !== v))}>
               <span className="n">{i + 1}</span>
-              <span style={{ flex: 1 }}>{revealed ? <>{correctItem}{seq[i] !== correctItem && seq[i] && <span className="optwhy">You put: {seq[i]}</span>}</> : v ?? 'Click an item below'}</span>
+              <span style={{ flex: 1 }}>{revealed ? <>{correctItem}{seq[i] !== correctItem && seq[i] && <span className="optwhy">You put: {seq[i]}</span>}</> : v ?? 'Pick an item below'}</span>
             </button>
           )
         })}

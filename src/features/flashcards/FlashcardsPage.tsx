@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { Rating, type Grade } from 'ts-fsrs'
 import type { DeckRow } from '../../data/db'
@@ -75,6 +75,19 @@ export function FlashcardsPage() {
     }, 170)
   }, [order.length, i])
   const hintHidden = useSettings((s) => s.hiddenHints.includes('fc-keys'))
+  const [optsOpen, setOptsOpen] = useState(false)
+  const optsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!optsOpen) return
+    const away = (e: PointerEvent) => { if (!optsRef.current?.contains(e.target as Node)) setOptsOpen(false) }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [optsOpen])
+  // Phones: the page itself never scrolls here, so a swipe on the card can't drag the page.
+  useEffect(() => {
+    document.documentElement.classList.add('lock-scroll')
+    return () => document.documentElement.classList.remove('lock-scroll')
+  }, [])
   // Finger-following swipes: drag sideways to move between cards, up or down to flip.
   const wrapRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; t: number; axis: '' | 'x' | 'y'; dx: number; dy: number } | null>(null)
@@ -153,6 +166,13 @@ export function FlashcardsPage() {
   if (!deck) return <div className="study" />
 
   const faces = card ? cardFaces(card, dir) : null
+  const toggleShuffle = () => { const s = !shuffled; setShuffled(s); setOrder(s ? shuffle(items) : items); go(0) }
+  const controls = (
+    <>
+      {hasTerms && <Seg value={dir} onChange={(v) => { setDir(v); setFlipped(false) }} options={[{ value: 'term', label: 'Term first' }, { value: 'def', label: 'Definition first' }]} />}
+      <button className={`btn sm ${shuffled ? '' : 'ghost'}`} onClick={toggleShuffle}><Icon name="shuffle" />Shuffle{shuffled ? ' on' : ''}</button>
+    </>
+  )
   return (
     <div className="study">
       <div className="lbar">
@@ -165,8 +185,11 @@ export function FlashcardsPage() {
           <span>{Math.min(i + 1, order.length)} / {order.length}</span>
         </div>
         <div className="lb-right">
-        {hasTerms && <Seg value={dir} onChange={(v) => { setDir(v); setFlipped(false) }} options={[{ value: 'term', label: 'Term first' }, { value: 'def', label: 'Definition first' }]} />}
-        <button className={`btn sm ${shuffled ? '' : 'ghost'}`} onClick={() => { const s = !shuffled; setShuffled(s); setOrder(s ? shuffle(items) : items); go(0) }}>Shuffle{shuffled ? ' on' : ''}</button>
+          <div className="lb-controls">{controls}</div>
+          <div className="lb-opts" ref={optsRef}>
+            <button className={`iconbtn ${optsOpen ? 'on' : ''}`} aria-label="Card options" aria-expanded={optsOpen} onClick={() => setOptsOpen((o) => !o)}><Icon name="gear" /></button>
+            {optsOpen && <div className="lb-pop" role="menu">{controls}</div>}
+          </div>
         </div>
       </div>
       <div className="stage">
@@ -188,13 +211,13 @@ export function FlashcardsPage() {
               <div key={i} className={`fc ${flipped ? 'flipped' : ''}`} onClick={onCardClick} role="button" aria-label="Flip card" tabIndex={0}>
                 <div className="face front">
                   <span className="lab">{faces.frontLabel}</span>
-                  <AutoAlign className={`big-t ${sizeClass(faces.front)}`} text={faces.front} />
-                  {faces.frontExtra && <AutoAlign className="sm-t" text={faces.frontExtra} />}
+                  <CardText className={`big-t ${sizeClass(faces.front)}`} text={faces.front} />
+                  {faces.frontExtra && <CardText className="sm-t" text={faces.frontExtra} />}
                 </div>
                 <div className="face back">
                   <span className="lab">{faces.backLabel}</span>
-                  <AutoAlign className={`big-t ${sizeClass(faces.back)}`} text={faces.back} />
-                  {faces.backExtra && <AutoAlign className="sm-t" text={faces.backExtra} />}
+                  <CardText className={`big-t ${sizeClass(faces.back)}`} text={faces.back} />
+                  {faces.backExtra && <CardText className="sm-t" text={faces.backExtra} />}
                 </div>
               </div>
             </div>
@@ -208,10 +231,10 @@ export function FlashcardsPage() {
               {RATINGS.map((x, k) => <button key={x.label} className={x.cls} tabIndex={flipped ? 0 : -1} onClick={() => rate(x.r)}>{x.label}<small>{k + 1} · {x.hint}</small></button>)}
             </div>
             {!hintHidden && (
-              <p className="hint-line" title="Click to hide this tip for good" onClick={() => hideHint('fc-keys')}>
+              <p className="hint-line" title="Hide this tip for good" onClick={() => hideHint('fc-keys')}>
                 <span className="for-keys"><span className="kbd">Space</span> flips the card, and again moves on. Rating with <span className="kbd">1</span>–<span className="kbd">4</span> is optional. <span className="kbd">←</span> <span className="kbd">→</span> move without rating.</span>
                 <span className="for-touch">Tap or swipe up to flip. Swipe sideways to move. Rating is optional.</span>
-                <span className="hide-x">Click to hide</span>
+                <span className="hide-x"><span className="for-keys">Click</span><span className="for-touch">Tap</span> to hide</span>
               </p>
             )}
           </>
@@ -239,22 +262,6 @@ function cardFaces(it: Item, dir: 'term' | 'def') {
   return { frontLabel: 'Question', front: promptText(it), frontExtra: choices || order, backLabel: 'Answer', back: answerText(it), backExtra: it.explanation }
 }
 
-/** Centres text that fits on one line; left-aligns it once it wraps. */
-function AutoAlign({ text, className }: { text: string; className: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [multi, setMulti] = useState(false)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const measure = () => {
-      const lh = parseFloat(getComputedStyle(el).lineHeight) || 24
-      const blocks = el.querySelectorAll('p, li, tr').length
-      setMulti(el.getBoundingClientRect().height > lh * 1.6 || blocks > 1)
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [text])
-  return <div ref={ref} className={`${className} ${multi ? 'multi' : ''}`}><Markdown>{text}</Markdown></div>
+function CardText({ text, className }: { text: string; className: string }) {
+  return <div className={className}><Markdown>{text}</Markdown></div>
 }

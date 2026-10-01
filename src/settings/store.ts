@@ -22,10 +22,22 @@ export const DARK_PALETTES = [
 ] as const
 export type DarkPalette = (typeof DARK_PALETTES)[number]['id']
 
+export const LIGHT_PALETTES = [
+  { id: 'paper', name: 'Paper', bg: '#F3F0E8' },
+  { id: 'sand', name: 'Sand', bg: '#EDE3D1' },
+  { id: 'offwhite', name: 'Off-white', bg: '#F7F7F4' },
+  { id: 'grey', name: 'Light grey', bg: '#ECEDEF' },
+  { id: 'white', name: 'White', bg: '#FFFFFF' },
+] as const
+export type LightPalette = (typeof LIGHT_PALETTES)[number]['id']
+
 type Settings = {
   theme: ThemePref
   accent: AccentId
   darkPalette: DarkPalette
+  lightPalette: LightPalette
+  /** A colour of the user's own; replaces the preset accent while set. */
+  customAccent: string | null
   /** Custom background colour; when set it decides light or dark by itself. */
   customBg: string | null
   sound: boolean
@@ -48,6 +60,8 @@ export const useSettings = create<Settings>()(
       theme: 'system',
       accent: 'moss',
       darkPalette: 'paper',
+      lightPalette: 'paper',
+      customAccent: null,
       customBg: null,
       sound: true,
       correctSound: 'chime',
@@ -86,19 +100,37 @@ function customPalette(bg: string, dark: boolean): Record<string, string> {
     : { '--bg': bg, '--surface': mix('white', 60), '--surface2': mix('black', 4), '--line': mix('black', 11), '--ink': mix('black', 88), '--muted': mix('black', 58), '--accent-ink': mix('white', 85) }
 }
 
+const isHex = (c: string | null): c is string => !!c && /^#[0-9a-f]{6}$/i.test(c)
+
+/** Whether the page renders dark: a custom background decides by its brightness, otherwise the theme setting. */
+export function isDarkTheme(s: Pick<Settings, 'theme' | 'customBg'>): boolean {
+  if (isHex(s.customBg)) return luminance(s.customBg) < 0.18
+  return s.theme === 'dark' || (s.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+}
+
 /** Apply theme, accent and motion settings to <html>. Called on load and whenever settings change. */
-export function applySettings(s: Pick<Settings, 'theme' | 'accent' | 'reduceMotion' | 'darkPalette' | 'customBg'>) {
+export function applySettings(s: Pick<Settings, 'theme' | 'accent' | 'reduceMotion' | 'darkPalette' | 'lightPalette' | 'customBg' | 'customAccent'>) {
   const root = document.documentElement
-  const custom = s.customBg && /^#[0-9a-f]{6}$/i.test(s.customBg) ? s.customBg : null
-  // A dark custom background gets light text and vice versa; the Light/Dark choice only applies without one.
-  const dark = custom ? luminance(custom) < 0.18 : s.theme === 'dark' || (s.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+  const custom = isHex(s.customBg) ? s.customBg : null
+  const dark = isDarkTheme(s)
   root.dataset.theme = dark ? 'dark' : 'light'
-  if (!custom && dark && s.darkPalette !== 'paper') root.dataset.palette = s.darkPalette
+  const palette = dark ? s.darkPalette : s.lightPalette
+  if (!custom && palette !== 'paper') root.dataset.palette = palette
   else delete root.dataset.palette
   const vars = custom ? customPalette(custom, dark) : null
   for (const v of CUSTOM_VARS) vars ? root.style.setProperty(v, vars[v]) : root.style.removeProperty(v)
+  if (isHex(s.customAccent)) {
+    root.style.setProperty('--accent', s.customAccent)
+    // Text on accent buttons: dark on a light accent, light on a dark one.
+    root.style.setProperty('--accent-ink', luminance(s.customAccent) > 0.36 ? '#141310' : '#FBFAF6')
+    return applyMotion(root, s.reduceMotion)
+  }
   const a = ACCENTS.find((x) => x.id === s.accent) ?? ACCENTS[0]
   root.style.setProperty('--accent', dark ? a.dark : a.light)
-  if (s.reduceMotion) root.dataset.motion = 'reduced'
+  applyMotion(root, s.reduceMotion)
+}
+
+function applyMotion(root: HTMLElement, reduce: boolean) {
+  if (reduce) root.dataset.motion = 'reduced'
   else delete root.dataset.motion
 }

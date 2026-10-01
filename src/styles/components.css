@@ -267,7 +267,6 @@ a.drow:hover { background: var(--surface2); }
 .inline-field { display: flex; gap: 8px; }
 .inline-field .input { flex: 1; min-width: 0; }
 .inline-field .btn { flex: none; height: auto; }
-@media (max-width: 420px) { .inline-field { flex-direction: column; } }
 
 /* ---------- custom background picker ---------- */
 .custombg { display: flex; align-items: center; gap: 8px; }
@@ -276,3 +275,48 @@ a.drow:hover { background: var(--surface2); }
 .sw-pick.on { outline-color: var(--ink); }
 .sw-pick:focus-within { outline-color: var(--accent); }
 .sw-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
+
+/* ---------- settings sections ---------- */
+.sset { border-top: 1px solid var(--line); }
+.sset:first-of-type { margin-top: 16px; }
+.sset-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 15px 2px; text-align: left; border-radius: 8px; transition: color .15s; }
+.sset-head .t { font-weight: 600; font-size: 14.5px; }
+.sset-head .sum { margin-left: auto; color: var(--muted); font-size: 12.5px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sset-head svg.i { color: var(--muted); transform: rotate(-90deg); transition: transform .25s var(--ease); }
+.sset.open .sset-head svg.i { transform: rotate(90deg); }
+.sset-head:hover .t { color: var(--accent); }
+.sset-body { padding: 0 2px 10px; }
+.sset .srow:first-of-type { margin-top: 0; }
+.sset .srow { padding: 13px 0; }
+.srow-btns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- colour picker ---------- */
+.cpick { position: fixed; z-index: 60; width: 232px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, .22); display: grid; gap: 12px; animation: cpin .16s var(--ease); }
+@keyframes cpin { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.cp-sv { position: relative; height: 150px; border-radius: 8px; cursor: crosshair; touch-action: none;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--hue)); }
+.cp-hue { position: relative; height: 12px; border-radius: 99px; cursor: pointer; touch-action: none;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.cp-dot { position: absolute; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 1px 4px rgba(0, 0, 0, .3); transform: translate(-50%, -50%); outline: none; }
+.cp-dot:focus-visible { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 0 4px var(--accent); }
+.cp-row { display: flex; align-items: center; gap: 8px; }
+.cp-chip { width: 30px; height: 30px; border-radius: 7px; flex: none; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 18%, transparent); }
+.cp-hex { height: 30px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; text-transform: lowercase; }
+
+/* ---------- scrollbars: thin, rounded, in the theme's colours ---------- */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--ink) 22%, transparent) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--ink) 22%, transparent); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in oklab, var(--ink) 38%, transparent); }
+/* Dialogs: keep the bar inside the rounded corners. */
+.sheet { scrollbar-gutter: stable; }
+.sheet::-webkit-scrollbar-track { margin: 12px 0; }
+
+/* ---------- sign-in code screen ---------- */
+.codeform { margin-top: 18px; display: grid; gap: 12px; }
+.codeform .err { margin-top: 0; }
+.btn.block { width: 100%; justify-content: center; height: 44px; }
+.code-links { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.code-links .linkbtn { margin-top: 0; }
+.code-links .linkbtn:disabled { color: var(--muted); cursor: default; }
