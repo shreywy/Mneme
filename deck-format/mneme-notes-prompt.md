@@ -69,9 +69,14 @@ Add a top-level `"deck"` field holding a complete Mneme deck: the same object yo
 
 ## 4. Block catalog
 
-Every block is an object with a `"type"`. Text fields accept Markdown: `**bold**`, `*italic*`, lists and tables.
-- Write math with LaTeX between **double** dollar signs: `$$\frac{a}{b}$$`.
-- A single `$` is always a currency sign.
+Every block is an object with a `"type"`. Text fields accept Markdown: `**bold**`, `*italic*`, lists and tables. Use `\n` for line breaks inside a JSON string.
+
+**Math:** use LaTeX between **double** dollar signs, inline or on its own line.
+- A single `$` always means money.
+- **Escape every backslash in JSON**: `\\frac`, `\\text`, `\\begin{aligned}`.
+- Write thousands as `12{,}000` inside math.
+- Put words in `\\text{}`.
+- For a calculation, state the formula first, then one step per line using `\\begin{aligned} ... &= ... \\\\ ... \\end{aligned}`.
 
 ### Structure
 
@@ -157,17 +162,40 @@ In notes, a question doesn't need `topic` or `difficulty`.
 
 **`worked`**: a worked example revealed one step at a time. `{ "type": "worked", "prompt": "Find ending equity.", "steps": ["Profit = 500 − 300 = 200", "Equity = 1,000 + 200 = 1,200"], "answer": "$1,200" }`
 
+**`demo`**: a small interactive or visual demo in self-contained HTML. Mneme runs it in a sandbox. Use it when a static block can't show the idea, for example:
+- a slider that moves a curve
+- a simulation
+- an algorithm stepping through
+- a custom labelled diagram
+
+```json
+{ "type": "demo", "title": "Move the price", "height": 320, "html": "<input type=range id=p min=1 max=10 value=4><svg id=g width=100% height=240></svg><script>/* draw, and redraw on input */</script>" }
+```
+
+**Demo rules**
+- `html` is one snippet with inline `<style>` and `<script>`, under 40 KB.
+- **No network:** external scripts, fonts, images, CDNs and `fetch` are all blocked. Use SVG, canvas or CSS; `data:` images are fine.
+- **Match Mneme's look so the demo blends into the page:**
+  - Leave the background transparent.
+  - Use only these colours: `var(--ink)`, `var(--muted)`, `var(--line)`, `var(--surface)`, `var(--accent)` (for the thing being shown), `var(--good)` and `var(--bad)`.
+  - Use `font-family: var(--font)`, with `var(--serif)` for a heading.
+  - Strokes are 1–1.5px, corners 6–10px. No shadows, gradients, glows or emoji.
+  - Use plain native inputs with short labels.
+  - Motion is 150–300ms. Anything that keeps moving needs a pause button.
+- It must work with mouse and touch.
+
 ---
 
 ## 5. Quality rules
 
 - **Teach, don't transcribe.** Explain each idea in plain words, then show it with a visual or an example.
 - **Pick the visual that fits.**
-  - An equation that breaks down: `flow`.
+  - An equation that breaks down: `flow`, or `math` with an aligned derivation.
   - A process: `steps` or `cycle`.
   - Two things students confuse: `compare`.
   - A rule with cases: `decision`.
   - Real numbers: `chart`.
+  - Something that needs interaction or a custom picture: `demo`.
   - Don't force a visual where a short paragraph is clearer.
 - **Interactive checks:** add one or two per section, about 10 to 20 per page. Prefer `question`, `match` and `worked` over `reveal`.
 - **Callouts:**
