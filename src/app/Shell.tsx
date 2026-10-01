@@ -238,6 +238,7 @@ export function PageMenu() {
         { label: 'Flashcards', icon: 'flip', onSelect: () => nav(`${url}/flashcards`) },
         { label: 'Test', icon: 'check', onSelect: () => nav(`${url}/test`) },
       ] : []),
+      { label: 'Make a cheat sheet', icon: 'list', onSelect: () => nav(`/cheatsheet?${kind === 'deck' ? 'd' : 'n'}=${id}`) },
       { sep: true as const },
       { label: 'Archive', icon: 'archive', onSelect: async () => { await (kind === 'deck' ? setArchived('deck', id, true) : setNoteArchived(id, true)); toast(`${kind === 'deck' ? 'Deck' : 'Notes'} archived`, 'Find it under Archive in the sidebar', 'archive') } },
       {

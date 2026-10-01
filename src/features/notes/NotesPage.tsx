@@ -44,6 +44,7 @@ export function NotesPage() {
 }
 
 function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; folders: Folder[] }) {
+  const nav = useNavigate()
   const [picker, setPicker] = useState(false)
   const progress = notesRepo.readingProgress(note)
   const sections = useMemo(() => note.blocks.flatMap((b, i) => (b.type === 'section' ? [{ i, title: b.title }] : b.type === 'quickref' ? [{ i, title: b.title ?? 'Quick reference' }] : [])), [note.blocks])
@@ -113,7 +114,7 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
     <>
       <TopBar crumbs={<>{path.length ? path.map((f) => <span key={f.id}><Link to={`/folder/${f.id}`}>{f.name}</Link> / </span>) : <><Link to="/">Library</Link> / </>}<b>{note.title}</b></>}>
         <button className={`btn sm ghost toc-toggle ${showContents ? 'on' : ''}`} onClick={() => setSettings({ notesContents: !showContents })} aria-pressed={showContents} title={showContents ? 'Hide the contents' : 'Show the contents'}><Icon name="list" /><span className="hide-sm">Contents</span></button>
-        <PageMenu onExport={exportFile} onPrint={print} onUnread={() => notesRepo.updateNote(note.id, { read: [] })}
+        <PageMenu onCheat={() => nav(`/cheatsheet?n=${note.id}${decks.length ? `&d=${decks.map((d) => d.id).join(',')}` : ''}`)} onExport={exportFile} onPrint={print} onUnread={() => notesRepo.updateNote(note.id, { read: [] })}
           onReset={async () => {
             if (!await confirmAction({ title: 'Remove all highlights and notes?', body: 'Every highlight and annotation on this page is deleted, on all your devices. Bookmarks stay.', confirm: 'Remove them', danger: true })) return
             const n = await notesRepo.clearMarks(note.id)
@@ -264,7 +265,7 @@ function Manage({ note, folders }: { note: NoteRow; folders: Folder[] }) {
   )
 }
 
-function PageMenu({ onExport, onPrint, onUnread, onReset }: { onExport: () => void; onPrint: () => void; onUnread: () => void; onReset: () => void }) {
+function PageMenu({ onCheat, onExport, onPrint, onUnread, onReset }: { onCheat: () => void; onExport: () => void; onPrint: () => void; onUnread: () => void; onReset: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -283,6 +284,7 @@ function PageMenu({ onExport, onPrint, onUnread, onReset }: { onExport: () => vo
       <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="more" /></button>
       {open && (
         <div className="menu" role="menu">
+          {item('Make a cheat sheet', 'list', onCheat)}
           {item('Export notes file', 'down', onExport)}
           {item('Print or save as PDF', 'copy', onPrint)}
           {item('Mark all sections unread', 'reset', onUnread)}
