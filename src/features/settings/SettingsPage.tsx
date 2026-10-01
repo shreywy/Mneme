@@ -45,7 +45,7 @@ export function SettingsPage() {
     <div className="page settings-page">
       <h1 className="title">Settings</h1>
       <p className="muted" style={{ marginTop: 6 }}>Preferences for how Mneme looks and behaves. Your account, sync and the destructive actions are on the Account page.</p>
-      <Section id="look" title="Appearance" summary="Theme, colours, motion" defaultOpen>
+      <Section id="look" icon="highlight" title="Appearance" summary="Theme, colours, motion" defaultOpen>
         <div className="srow"><div className="l"><b>Theme</b><span>{s.customBg ? 'Your custom background decides light or dark' : 'Light, dark, or follow your device'}</span></div>
           <Seg value={s.theme} onChange={(theme) => s.set({ theme, customBg: null })} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} />
         </div>
@@ -72,7 +72,7 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section id="sound" title="Sound" summary={s.sound ? `On · ${s.correctSound}` : 'Off'}>
+      <Section id="sound" icon="vol" title="Sound" summary={s.sound ? `On · ${s.correctSound}` : 'Off'}>
         <div className="srow tog"><div className="l"><b>Sounds</b><span>Soft sounds for answers and streaks. M mutes while studying.</span></div>
           <Toggle on={s.sound} onChange={(sound) => s.set({ sound })} label="Sounds" />
         </div>
@@ -82,7 +82,7 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section id="study" title="Studying" summary="Learn mode and tips">
+      <Section id="study" icon="cards" title="Studying" summary="Learn mode and tips">
         <div className="srow tog"><div className="l"><b>Match rounds in Learn</b><span>A quick matching round every few term cards</span></div>
           <Toggle on={s.learnMatch} onChange={(learnMatch) => s.set({ learnMatch })} label="Match rounds in Learn" />
         </div>
@@ -91,7 +91,7 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section id="data" title="Your data" summary="Storage, backup, reset">
+      <Section id="data" icon="archive" title="Your data" summary="Storage, backup, reset">
         <div className="srow"><div className="l"><b>Storage</b>
             <span>{persisted ? 'Saved in this browser, marked as persistent so it is not cleared automatically.' : 'Saved in this browser. Ask for persistent storage so the browser keeps it under low disk space.'}</span></div>
           {!persisted && <button className="btn sm" onClick={async () => { const p = await ensurePersistentStorage(); setPersisted(p); toast(p ? 'Storage is now persistent' : 'The browser said no', p ? undefined : 'Firefox may ask first, or allow it after you use the site more', p ? 'check' : 'x') }}>Make persistent</button>}
@@ -110,7 +110,7 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section id="ai" title="AI" summary="Coming later">
+      <Section id="ai" icon="spark" title="AI" summary="Coming later">
         <div className="srow"><div className="l"><b>Gemini API key</b><span>Optional. Unlocks the tutor and other AI tools in a later update.</span></div>
           <button className="btn sm" disabled>Coming soon</button>
         </div>
@@ -122,7 +122,7 @@ export function SettingsPage() {
 
 const OPEN_KEY = 'mneme.settings.sections'
 /** A titled group that opens and closes. Which ones are open is remembered on this device. */
-function Section({ id, title, summary, defaultOpen = false, children }: { id: string; title: string; summary: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function Section({ id, icon, title, summary, defaultOpen = false, children }: { id: string; icon: string; title: string; summary: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(() => {
     try { const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? 'null') as Record<string, boolean> | null; return v?.[id] ?? defaultOpen } catch { return defaultOpen }
   })
@@ -134,7 +134,7 @@ function Section({ id, title, summary, defaultOpen = false, children }: { id: st
   return (
     <section className={`sset ${open ? 'open' : ''}`}>
       <button type="button" className="sset-head" onClick={toggle} aria-expanded={open}>
-        <span className="t">{title}</span><span className="sum">{summary}</span><Icon name="chev" />
+        <span className="sico"><Icon name={icon} size={16} /></span><span className="t">{title}</span><span className="sum">{summary}</span><Icon name="chev" className="sch" />
       </button>
       <Collapse open={open}><div className="sset-body">{children}</div></Collapse>
     </section>
