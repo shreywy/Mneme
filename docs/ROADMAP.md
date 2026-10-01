@@ -11,6 +11,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - Streak effects, sounds, themes, accents, focus mode, collapsible sidebar
 - Phone layout and iOS "Add to Home Screen"
 - LaTeX and Markdown formatting rules in the prompt, with importer repair for single-backslash LaTeX
+- Deck export (.mneme.json), full backup and restore, persistent-storage request
 - Sandboxed HTML demos on cards and in notes (opaque origin, no network; verified: storage, IndexedDB, the parent DOM and fetch are all blocked)
 
 ## Next up
