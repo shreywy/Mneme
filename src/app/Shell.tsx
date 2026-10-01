@@ -6,6 +6,7 @@ import { createFolder, descendants, listArchive, listLibrary } from '../data/rep
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
 import { isTyping, useUI } from './ui'
+import { Collapse } from '../ui/motion'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -19,6 +20,7 @@ export function Shell() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && useUI.getState().focus && !useUI.getState().dialog) { setFocus(false); return }
       if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey || useUI.getState().dialog) return
       if (e.key === '[') { set({ sidebar: useSettings.getState().sidebar === 'rail' ? 'full' : 'rail' }); setPeek(false) }
       else if (e.key === 'f' || e.key === 'F') setFocus(!useUI.getState().focus)
@@ -103,7 +105,7 @@ function FolderTree() {
           </button>
           <Link to={`/folder/${f.id}`}><Icon name="folder" /><span className="t">{f.name}</span><span className="n">{count(f.id)}</span></Link>
         </div>
-        {open && (
+        <Collapse open={open}>
           <>
             {kids.map((k) => <Node key={k.id} f={k} depth={depth + 1} />)}
             {ds.map((d) => (
@@ -112,7 +114,7 @@ function FolderTree() {
               </Link>
             ))}
           </>
-        )}
+        </Collapse>
       </div>
     )
   }

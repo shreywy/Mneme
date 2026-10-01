@@ -380,3 +380,24 @@
   .ai { gap: 6px; }
   .cont-row { position: sticky; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 3; padding: 8px 0; background: linear-gradient(to top, var(--bg) 70%, transparent); }
 }
+
+/* ---------- motion system ---------- */
+.collapse { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s var(--ease), opacity .22s var(--ease); opacity: 0; }
+.collapse.open { grid-template-rows: 1fr; opacity: 1; }
+.collapse-inner { overflow: hidden; min-height: 0; }
+.tabpanel { animation: tabin .26s var(--ease); }
+@keyframes tabin { from { opacity: 0; transform: translateY(6px); } }
+.page-leave { animation: pageout .2s var(--ease) forwards !important; }
+@keyframes pageout { to { opacity: 0; transform: translateY(-6px) scale(.99); } }
+.cards > .dcard, .dlist > .drow { animation: cardin .34s var(--ease) both; animation-delay: calc(min(var(--i, 0), 12) * 28ms); }
+@keyframes cardin { from { opacity: 0; transform: translateY(8px); } }
+.mbar i { transition: flex-grow .6s var(--ease); }
+.desc .clampable { transition: max-height .3s var(--ease); max-height: 30em; }
+.desc .clamp { max-height: 3.2em; }
+.cg-body { animation: none; }
+
+.fc-wrap { touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform; }
+@media (hover: none) { .hint-line .kbd-hint { display: none; } }
+
+.hint-line .for-touch { display: none; }
+@media (hover: none), (max-width: 760px) { .hint-line .for-keys { display: none; } .hint-line .for-touch { display: inline; } }

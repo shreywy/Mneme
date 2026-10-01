@@ -58,6 +58,10 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
         Paste this prompt into Claude, ChatGPT or Gemini along with your slides, notes or textbook pages. It replies with a deck file you can import.
         Every field is optional, so you can copy it straight away.
       </p>
+      <p className="lede" style={{ fontSize: 12.5 }}>
+        Best results: Claude makes a file on its own. In ChatGPT, ask for a downloadable file. In Gemini, turn on Canvas first.
+        If the reply shows up as a code block instead, use that block's copy button, not a text selection.
+      </p>
 
       <div className="formgrid">
         <div className="field full"><span>What to make</span>

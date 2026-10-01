@@ -14,6 +14,7 @@ import { Seg, Tabs } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
 import { confirmAction } from '../../ui/confirm'
 import { CardEditor, DeckInfoEditor } from './CardEditor'
+import { AnimatedNumber, Collapse } from '../../ui/motion'
 import { downloadJson, fileSlug, toDeckFile } from '../../deck-format/export'
 import { FolderSelect } from '../library/FolderSelect'
 
@@ -27,6 +28,9 @@ export function DeckPage() {
   const [tab, setTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState<Item | 'new' | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  /** Fade the page out, then go: used after delete and archive so the page doesn't just vanish. */
+  const leaveTo = (to: string) => { setLeaving(true); setTimeout(() => nav(to), 200) }
   const nav = useNavigate()
 
   const data = useLiveQuery(async () => {
@@ -51,9 +55,8 @@ export function DeckPage() {
 
   const archive = async () => {
     if (!await confirmAction({ title: `Archive "${deck.title}"?`, body: 'It leaves the library but keeps its cards and progress. You can bring it back from Archive any time.', confirm: 'Archive' })) return
-    await repo.setArchived('deck', deckId, true)
-    toast('Deck archived', 'Find it under Archive in the sidebar', 'archive')
-    nav('/')
+    leaveTo('/')
+    setTimeout(async () => { await repo.setArchived('deck', deckId, true); toast('Deck archived', 'Find it under Archive in the sidebar', 'archive') }, 200)
   }
 
   return (
@@ -63,7 +66,7 @@ export function DeckPage() {
         <button className="btn ghost sm" onClick={() => { downloadJson(`${fileSlug(deck.title)}.mneme.json`, toDeckFile(deck, items)); toast('Deck exported', 'Saved as a .mneme.json file you can re-import or share') }}><Icon name="down" />Export</button>
         <button className="btn ghost sm" onClick={archive}><Icon name="archive" />Archive</button>
       </TopBar>
-      <div className="page">
+      <div className={`page ${leaving ? 'page-leave' : ''}`} key={deckId}>
         <h1 className="title">{deck.title}</h1>
         <div className="meta">
           {deck.course && <><span>{deck.course}</span><i>/</i></>}
@@ -76,11 +79,13 @@ export function DeckPage() {
           <button className="btn" disabled={!shown.length} onClick={() => nav(`/deck/${deckId}/flashcards${qs}`)}><Icon name="cards" />Flashcards</button>
           <button className="btn" disabled={!shown.length} onClick={() => nav(`/deck/${deckId}/test${qs}`)}><Icon name="clock" />Test</button>
           <span className="bar-gap" />
-          <Seg value={filter} onChange={(v) => setParam('f', v === 'all' ? null : v)} options={[
-            { value: 'all', label: 'All' },
-            { value: 'questions', label: 'Questions', disabled: !hasQs },
-            { value: 'terms', label: 'Terms', disabled: !hasTerms },
-          ]} />
+          {hasTerms && hasQs && (
+            <Seg value={filter} onChange={(v) => setParam('f', v === 'all' ? null : v)} options={[
+              { value: 'all', label: 'All' },
+              { value: 'questions', label: 'Questions' },
+              { value: 'terms', label: 'Terms' },
+            ]} />
+          )}
           {deck.topics.length > 1 && (
             <select className="select" style={{ width: 'auto', maxWidth: 240, height: 36 }} value={topic ?? ''} onChange={(e) => setParam('topic', e.target.value || null)} aria-label="Topic">
               <option value="">All topics</option>
@@ -94,19 +99,19 @@ export function DeckPage() {
         </div>
 
         {tab === 'overview' && (
-          <div className="grid2">
+          <div className="grid2 tabpanel">
             <div className="panel">
               <h3>Progress <span>{shown.length === items.length ? 'whole deck' : 'current filter'}</span></h3>
-              <div className="big">{pct}<small>% learned</small></div>
+              <div className="big"><AnimatedNumber value={pct} /><small>% learned</small></div>
               <div className="mbar">
                 <i style={{ flexGrow: m.mastered, background: 'var(--seg4)' }} /><i style={{ flexGrow: m.familiar, background: 'var(--seg3)' }} />
                 <i style={{ flexGrow: m.learning, background: 'var(--seg2)' }} /><i style={{ flexGrow: m.new, background: 'var(--seg1)' }} />
               </div>
               <div className="legend">
-                <div><span className="dot" style={{ background: 'var(--seg1)' }} />New<b>{m.new}</b></div>
-                <div><span className="dot" style={{ background: 'var(--seg2)' }} />Learning<b>{m.learning}</b></div>
-                <div><span className="dot" style={{ background: 'var(--seg3)' }} />Familiar<b>{m.familiar}</b></div>
-                <div><span className="dot" style={{ background: 'var(--seg4)' }} />Mastered<b>{m.mastered}</b></div>
+                <div><span className="dot" style={{ background: 'var(--seg1)' }} />New<b><AnimatedNumber value={m.new} /></b></div>
+                <div><span className="dot" style={{ background: 'var(--seg2)' }} />Learning<b><AnimatedNumber value={m.learning} /></b></div>
+                <div><span className="dot" style={{ background: 'var(--seg3)' }} />Familiar<b><AnimatedNumber value={m.familiar} /></b></div>
+                <div><span className="dot" style={{ background: 'var(--seg4)' }} />Mastered<b><AnimatedNumber value={m.mastered} /></b></div>
               </div>
             </div>
             <div className="panel list">
@@ -135,7 +140,7 @@ export function DeckPage() {
                   if (await confirmAction({ title: 'Reset progress for this deck?', body: 'Mneme forgets every answer you gave on these cards. The cards themselves stay.', confirm: 'Reset progress', danger: true })) { await repo.resetDeckProgress(deckId); toast('Progress reset') }
                 }}><Icon name="reset" />Reset progress</button>
                 <button className="btn ghost danger sm" onClick={async () => {
-                  if (await confirmAction({ title: `Delete "${deck.title}"?`, body: `This removes ${plural(items.length, 'card')} and all progress for good. Archiving keeps them instead.`, confirm: 'Delete deck', danger: true })) { await repo.deleteDeck(deckId); toast('Deck deleted'); nav('/') }
+                  if (await confirmAction({ title: `Delete "${deck.title}"?`, body: `This removes ${plural(items.length, 'card')} and all progress for good. Archiving keeps them instead.`, confirm: 'Delete deck', danger: true })) { leaveTo('/'); setTimeout(async () => { await repo.deleteDeck(deckId); toast('Deck deleted') }, 200) }
                 }}><Icon name="trash" />Delete deck</button>
               </div>
             </div>
@@ -189,7 +194,7 @@ function ManageCards({ items, topics, onEdit, onDelete }: { items: Item[]; topic
   const groups = GROUP_ORDER.map((g) => ({ g, cards: list.filter((it) => (it.kind === 'term' ? 'term' : it.qtype) === g) })).filter((x) => x.cards.length)
   const isOpen = (g: string) => (needle ? true : open[g] ?? groups.length === 1)
   return (
-    <div style={{ marginTop: 22 }}>
+    <div style={{ marginTop: 22 }} className="tabpanel">
       <div className="searchbar"><Icon name="search" /><input className="input" placeholder={`Search ${items.length} cards`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       {groups.length === 0 && <p className="empty-note">No cards match.</p>}
       {groups.map(({ g, cards }) => (
@@ -198,7 +203,7 @@ function ManageCards({ items, topics, onEdit, onDelete }: { items: Item[]; topic
             <svg className="i chev"><use href="#i-down2" /></svg>
             <b>{GROUP_LABEL[g]}</b><span className="muted">{cards.length}</span>
           </button>
-          {isOpen(g) && <div className="cg-body">{cards.map((it) => <CardRow key={it.key} it={it} topics={topics} onEdit={onEdit} onDelete={onDelete} />)}</div>}
+          <Collapse open={isOpen(g)}><div className="cg-body">{cards.map((it) => <CardRow key={it.key} it={it} topics={topics} onEdit={onEdit} onDelete={onDelete} />)}</div></Collapse>
         </section>
       ))}
     </div>
@@ -243,7 +248,7 @@ function Description({ text }: { text: string }) {
   const long = text.length > 160
   return (
     <div className="desc">
-      <p className={`muted ${long && !open ? 'clamp' : ''}`}>{text}</p>
+      <p className={`muted ${long ? 'clampable' : ''} ${long && !open ? 'clamp' : ''}`}>{text}</p>
       {long && <button className="linkbtn" onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Show more'}</button>}
     </div>
   )

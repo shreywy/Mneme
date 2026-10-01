@@ -70,7 +70,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
         <button className="btn sm" onClick={() => open('prompt')}><Icon name="prompt" />Get the prompt</button>
         <button className="btn sm" onClick={() => open('import')}><Icon name="upload" />Import</button>
       </TopBar>
-      <div className="page">
+      <div className="page" key={folder?.id ?? 'root'}>
         {folder ? <FolderHeader key={folder.id} folder={folder} folders={lib.folders} /> : (
           <>
             <h1 className="title">Library</h1>
@@ -103,8 +103,8 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
               <section className="group">
                 <h2>{folder ? 'Folders inside' : 'Folders'}<span>{subfolders.length}</span></h2>
                 <div className="cards">
-                  {subfolders.map((f) => { const s = stats(f); return (
-                    <Link key={f.id} className="dcard fcard" to={`/folder/${f.id}`}>
+                  {subfolders.map((f, i) => { const s = stats(f); return (
+                    <Link key={f.id} className="dcard fcard" to={`/folder/${f.id}`} style={{ '--i': i } as React.CSSProperties}>
                       <span className="fico"><Icon name="folder" size={18} /></span>
                       <b>{f.name}</b>
                       <div className="sub">{plural(s.decks, 'deck')}{s.sub ? ` · ${plural(s.sub, 'subfolder')}` : ''} · {plural(s.items, 'card')}</div>
@@ -135,8 +135,8 @@ function Decks({ decks, lib, view, showFolder }: { decks: DeckRow[]; lib: Lib; v
   if (view === 'list') {
     return (
       <div className="dlist">
-        {decks.map((d) => { const m = lib.mastery.get(d.id); const pct = learnedPct(d, m); return (
-          <Link key={d.id} className="drow" to={`/deck/${d.id}`}>
+        {decks.map((d, i) => { const m = lib.mastery.get(d.id); const pct = learnedPct(d, m); return (
+          <Link key={d.id} className="drow" to={`/deck/${d.id}`} style={{ '--i': i } as React.CSSProperties}>
             <b>{d.title}</b>
             <span className="muted">{showFolder && folderName(d.folderId) ? `${folderName(d.folderId)} · ` : ''}{plural(d.termCount + d.questionCount, 'card')}</span>
             <span className="mbar"><i style={{ flexGrow: pct, background: 'var(--seg4)' }} /><i style={{ flexGrow: 1 - pct, background: 'var(--seg1)' }} /></span>
@@ -147,14 +147,14 @@ function Decks({ decks, lib, view, showFolder }: { decks: DeckRow[]; lib: Lib; v
       </div>
     )
   }
-  return <div className="cards">{decks.map((d) => <DeckCard key={d.id} d={d} m={lib.mastery.get(d.id)} folder={showFolder ? folderName(d.folderId) : undefined} />)}</div>
+  return <div className="cards">{decks.map((d, i) => <DeckCard key={d.id} i={i} d={d} m={lib.mastery.get(d.id)} folder={showFolder ? folderName(d.folderId) : undefined} />)}</div>
 }
 
-function DeckCard({ d, m, folder }: { d: DeckRow; m?: MasteryCounts; folder?: string }) {
+function DeckCard({ d, m, folder, i = 0 }: { d: DeckRow; m?: MasteryCounts; folder?: string; i?: number }) {
   const total = d.termCount + d.questionCount
   const c = m ?? { new: total, learning: 0, familiar: 0, mastered: 0 }
   return (
-    <Link className="dcard" to={`/deck/${d.id}`}>
+    <Link className="dcard" to={`/deck/${d.id}`} style={{ '--i': i } as React.CSSProperties}>
       {folder && <span className="dfolder">{folder}</span>}
       <b>{d.title}</b>
       <div className="sub">{plural(d.termCount, 'term')} · {plural(d.questionCount, 'question')} · studied {relTime(d.lastStudiedAt)}</div>

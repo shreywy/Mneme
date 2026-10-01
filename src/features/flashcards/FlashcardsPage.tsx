@@ -75,15 +75,57 @@ export function FlashcardsPage() {
     }, 170)
   }, [order.length, i])
   const hintHidden = useSettings((s) => s.hiddenHints.includes('fc-keys'))
-  const swipe = useRef<{ x: number; y: number; moved: boolean } | null>(null)
-  const onPointerDown = (e: React.PointerEvent) => { swipe.current = { x: e.clientX, y: e.clientY, moved: false } }
-  const onPointerUp = (e: React.PointerEvent) => {
-    const s = swipe.current
-    if (!s) return
-    const dx = e.clientX - s.x, dy = e.clientY - s.y
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { s.moved = true; go(dx < 0 ? i + 1 : i - 1) }
+  // Finger-following swipes: drag sideways to move between cards, up or down to flip.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ x: number; y: number; t: number; axis: '' | 'x' | 'y'; dx: number; dy: number } | null>(null)
+  const suppressClick = useRef(false)
+  const setWrap = (transform: string, transition = '') => {
+    const el = wrapRef.current
+    if (!el) return
+    el.style.transition = transition
+    el.style.transform = transform
   }
-  const onCardClick = () => { if (swipe.current?.moved) { swipe.current = null; return } setFlipped((f) => !f) }
+  const swapTo = (target: number, forward: boolean) => {
+    setI(target); setFlipped(false); setT0(performance.now())
+    setSlide(forward ? 'in-right' : 'in-left')
+    setTimeout(() => { setSlide(''); sliding.current = false }, 280)
+  }
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (sliding.current || e.button > 0) return
+    drag.current = { x: e.clientX, y: e.clientY, t: performance.now(), axis: '', dx: 0, dy: 0 }
+    suppressClick.current = false
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d) return
+    d.dx = e.clientX - d.x; d.dy = e.clientY - d.y
+    if (!d.axis && Math.hypot(d.dx, d.dy) > 8) {
+      d.axis = Math.abs(d.dx) > Math.abs(d.dy) ? 'x' : 'y'
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    }
+    if (d.axis === 'x') setWrap(`translateX(${d.dx}px) rotate(${d.dx / 40}deg)`)
+    if (d.axis === 'y') setWrap(`perspective(900px) rotateX(${Math.max(-28, Math.min(28, -d.dy / 3))}deg) translateY(${d.dy * 0.25}px)`)
+  }
+  const onPointerUp = () => {
+    const d = drag.current
+    drag.current = null
+    if (!d || !d.axis) return
+    suppressClick.current = true
+    const v = Math.abs(d.dx) / Math.max(1, performance.now() - d.t)
+    if (d.axis === 'x') {
+      const forward = d.dx < 0
+      const target = i + (forward ? 1 : -1)
+      if ((Math.abs(d.dx) > 90 || v > 0.6) && target >= 0 && target <= order.length) {
+        sliding.current = true
+        setWrap(`translateX(${(forward ? -1 : 1) * window.innerWidth}px) rotate(${forward ? -8 : 8}deg)`, 'transform .18s cubic-bezier(.5,0,.9,.6)')
+        setTimeout(() => { setWrap('', ''); swapTo(target, forward) }, 180)
+      } else setWrap('', 'transform .3s cubic-bezier(.2,1.4,.4,1)')
+    } else {
+      setWrap('', 'transform .28s cubic-bezier(.2,1.2,.4,1)')
+      if (Math.abs(d.dy) > 60) setFlipped((f) => !f)
+    }
+  }
+  const onCardClick = () => { if (suppressClick.current) { suppressClick.current = false; return } setFlipped((f) => !f) }
   const rate = useCallback(async (r: Grade) => {
     if (!card || !flipped) return
     if (r === Rating.Again) setAgain((a) => [...a, card])
@@ -142,7 +184,7 @@ export function FlashcardsPage() {
         )}
         {card && faces && (
           <>
-            <div className={`fc-wrap ${slide}`} onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
+            <div ref={wrapRef} className={`fc-wrap ${slide}`} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
               <div key={i} className={`fc ${flipped ? 'flipped' : ''}`} onClick={onCardClick} role="button" aria-label="Flip card" tabIndex={0}>
                 <div className="face front">
                   <span className="lab">{faces.frontLabel}</span>
@@ -167,7 +209,8 @@ export function FlashcardsPage() {
             </div>
             {!hintHidden && (
               <p className="hint-line" title="Click to hide this tip for good" onClick={() => hideHint('fc-keys')}>
-                <span className="kbd">Space</span> flips the card, and again moves on. Rating with <span className="kbd">1</span>–<span className="kbd">4</span> is optional. <span className="kbd">←</span> <span className="kbd">→</span> move without rating.
+                <span className="for-keys"><span className="kbd">Space</span> flips the card, and again moves on. Rating with <span className="kbd">1</span>–<span className="kbd">4</span> is optional. <span className="kbd">←</span> <span className="kbd">→</span> move without rating.</span>
+                <span className="for-touch">Tap or swipe up to flip. Swipe sideways to move. Rating is optional.</span>
                 <span className="hide-x">Click to hide</span>
               </p>
             )}
