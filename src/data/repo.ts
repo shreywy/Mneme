@@ -26,11 +26,57 @@ export async function createFolder(name: string, parentId: string | null = null)
 
 export async function renameFolder(id: string, name: string) { await db.folders.update(id, { name: name.trim() || 'Untitled' }) }
 
+/** Delete a folder; its decks and subfolders move up to the folder's parent. */
 export async function deleteFolder(id: string) {
-  await db.transaction('rw', db.folders, db.decks, async () => {
-    await db.decks.where('folderId').equals(id).modify({ folderId: null })
+  await db.transaction('rw', db.folders, db.decks, db.notes, async () => {
+    const f = await db.folders.get(id)
+    const parent = f?.parentId ?? null
+    await db.decks.where('folderId').equals(id).modify({ folderId: parent })
+    await db.folders.where('parentId').equals(id).modify({ parentId: parent })
+    const notes = await db.notes.where('folderId').equals(id).toArray()
+    for (const n of notes) await db.notes.put({ ...n, folderId: parent })
     await db.folders.delete(id)
   })
+}
+
+/** Move a folder under another (or to the top level). Refuses to create a cycle. */
+export async function moveFolder(id: string, parentId: string | null) {
+  const all = await db.folders.toArray()
+  for (let p = parentId; p; p = all.find((f) => f.id === p)?.parentId ?? null) {
+    if (p === id) throw new Error("A folder can't go inside itself.")
+  }
+  await db.folders.update(id, { parentId })
+}
+
+/** Ids of a folder and everything nested under it. */
+export function descendants(folders: Folder[], id: string): Set<string> {
+  const out = new Set([id])
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const f of folders) if (f.parentId && out.has(f.parentId) && !out.has(f.id)) { out.add(f.id); grew = true }
+  }
+  return out
+}
+
+export async function setArchived(kind: 'deck' | 'folder', id: string, archived: boolean) {
+  const patch = archived ? { archived: true, archivedAt: Date.now() } : { archived: false }
+  if (kind === 'deck') await db.decks.update(id, patch)
+  else await db.folders.update(id, patch)
+}
+
+/** Archived decks and folders, newest first. */
+export async function listArchive(): Promise<{ folders: Folder[]; decks: DeckRow[] }> {
+  const [folders, decks] = await Promise.all([db.folders.toArray(), db.decks.toArray()])
+  const by = (a: { archivedAt?: number }, b: { archivedAt?: number }) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0)
+  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter((d) => d.archived).sort(by) }
+}
+
+/** Folders hidden because they, or a parent, are archived. */
+export function hiddenFolderIds(folders: Folder[]): Set<string> {
+  const hidden = new Set<string>()
+  for (const f of folders) if (f.archived) for (const d of descendants(folders, f.id)) hidden.add(d)
+  return hidden
 }
 
 export async function importDeck(nd: NormalizedDeck): Promise<{ deckId: string; merged: boolean }> {
@@ -71,10 +117,13 @@ export async function importDeck(nd: NormalizedDeck): Promise<{ deckId: string; 
   return { deckId, merged }
 }
 
+/** Everything not archived (an archived folder hides what's inside it). */
 export async function listLibrary(): Promise<{ folders: Folder[]; decks: DeckRow[] }> {
   const [folders, decks] = await Promise.all([db.folders.orderBy('position').toArray(), db.decks.toArray()])
-  decks.sort((a, b) => (b.lastStudiedAt ?? b.updatedAt) - (a.lastStudiedAt ?? a.updatedAt))
-  return { folders, decks }
+  const hidden = hiddenFolderIds(folders)
+  const live = decks.filter((d) => !d.archived && !(d.folderId && hidden.has(d.folderId)))
+  live.sort((a, b) => (b.lastStudiedAt ?? b.updatedAt) - (a.lastStudiedAt ?? a.updatedAt))
+  return { folders: folders.filter((f) => !hidden.has(f.id)), decks: live }
 }
 
 export const getDeck = (id: string) => db.decks.get(id)
@@ -155,6 +204,46 @@ export async function deleteDeck(deckId: string) {
     await db.records.delete(deckId)
     await db.decks.delete(deckId)
   })
+}
+
+async function recount(deckId: string) {
+  const items = await db.items.where('deckId').equals(deckId).toArray()
+  await db.decks.update(deckId, {
+    termCount: items.filter((i) => i.kind === 'term').length,
+    questionCount: items.filter((i) => i.kind === 'question').length,
+    updatedAt: Date.now(),
+  })
+}
+
+/** Add a card, or replace one with the same key (progress is kept). */
+export async function saveItem(deckId: string, item: Item) {
+  await db.transaction('rw', db.items, db.decks, async () => {
+    const existing = await db.items.get([deckId, item.key])
+    let position = existing?.position
+    if (position === undefined) {
+      const all = await db.items.where('deckId').equals(deckId).toArray()
+      position = all.reduce((m, i) => Math.max(m, i.position), -1) + 1
+    }
+    await db.items.put({ ...item, deckId, position } as ItemRow)
+    await recount(deckId)
+  })
+}
+
+export async function deleteItem(deckId: string, key: string) {
+  await db.transaction('rw', [db.items, db.cards, db.reviews, db.decks], async () => {
+    await db.items.delete([deckId, key])
+    await db.cards.delete([deckId, key])
+    await db.reviews.where('deckId').equals(deckId).filter((r) => r.key === key).delete()
+    await recount(deckId)
+  })
+}
+
+export async function updateDeckInfo(deckId: string, p: { title?: string; course?: string; description?: string }) {
+  const patch: Partial<DeckRow> = { updatedAt: Date.now() }
+  if (p.title !== undefined) patch.title = p.title.trim() || 'Untitled deck'
+  if (p.course !== undefined) patch.course = p.course.trim()
+  if (p.description !== undefined) patch.description = p.description.trim()
+  await db.decks.update(deckId, patch)
 }
 
 export async function moveDeck(deckId: string, folderId: string | null) { await db.decks.update(deckId, { folderId }) }

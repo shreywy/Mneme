@@ -3,7 +3,7 @@ import type { Item, Topic } from '../deck-format/types'
 import type { CardState } from '../engine/memory'
 import type { Block } from '../notes-format/types'
 
-export type Folder = { id: string; name: string; parentId: string | null; position: number; createdAt: number }
+export type Folder = { id: string; name: string; parentId: string | null; position: number; createdAt: number; archived?: boolean; archivedAt?: number }
 export type DeckRow = {
   id: string
   folderId: string | null
@@ -17,6 +17,8 @@ export type DeckRow = {
   createdAt: number
   updatedAt: number
   lastStudiedAt?: number
+  archived?: boolean
+  archivedAt?: number
 }
 export type ItemRow = Item & { deckId: string; position: number }
 export type StudyMode = 'learn' | 'flashcards' | 'test'

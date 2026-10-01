@@ -71,6 +71,66 @@ describe('repo', () => {
     expect(await db.cards.where('deckId').equals(deckId).count()).toBe(0)
   })
 
+  it('edits a card in place and keeps its progress', async () => {
+    const { deckId } = await repo.importDeck(deck())
+    await repo.recordAnswer({ deckId, key: 't1', correct: true, ms: 1000, mode: 'learn', rating: Rating.Good })
+    await repo.saveItem(deckId, { kind: 'term', key: 't1', topic: 'a', term: 'Asset', definition: 'Edited.', aliases: [] })
+    const items = await repo.getItems(deckId)
+    expect(items.find((i) => i.key === 't1')).toMatchObject({ definition: 'Edited.' })
+    expect(items.map((i) => i.key)).toEqual(['t1', 'q1'])
+    expect((await repo.getCardStates(deckId)).get('t1')?.seen).toBe(1)
+  })
+
+  it('adds a new card at the end and updates the counts', async () => {
+    const { deckId } = await repo.importDeck(deck())
+    await repo.saveItem(deckId, { kind: 'term', key: 't9', topic: 'a', term: 'Equity', definition: 'Owed to owners.', aliases: [] })
+    expect((await repo.getItems(deckId)).map((i) => i.key)).toEqual(['t1', 'q1', 't9'])
+    expect((await repo.getDeck(deckId))?.termCount).toBe(2)
+  })
+
+  it('deletes a card with its progress and updates the counts', async () => {
+    const { deckId } = await repo.importDeck(deck())
+    await repo.recordAnswer({ deckId, key: 'q1', correct: true, ms: 1000, mode: 'learn', rating: Rating.Good })
+    await repo.deleteItem(deckId, 'q1')
+    expect((await repo.getItems(deckId)).map((i) => i.key)).toEqual(['t1'])
+    expect((await repo.getCardStates(deckId)).has('q1')).toBe(false)
+    expect((await repo.getDeck(deckId))?.questionCount).toBe(0)
+  })
+
+  it('updates deck info', async () => {
+    const { deckId } = await repo.importDeck(deck())
+    await repo.updateDeckInfo(deckId, { title: 'Quiz 1 (final)', description: 'All of it' })
+    expect(await repo.getDeck(deckId)).toMatchObject({ title: 'Quiz 1 (final)', description: 'All of it' })
+  })
+
+  it('archives and restores a deck, and leaves archived decks out of the library list', async () => {
+    const { deckId } = await repo.importDeck(deck())
+    await repo.setArchived('deck', deckId, true)
+    expect((await repo.listLibrary()).decks.map((d) => d.id)).not.toContain(deckId)
+    expect((await repo.listArchive()).decks.map((d) => d.id)).toContain(deckId)
+    await repo.setArchived('deck', deckId, false)
+    expect((await repo.listLibrary()).decks.map((d) => d.id)).toContain(deckId)
+  })
+
+  it('nests folders and refuses to move a folder inside itself', async () => {
+    const parent = await repo.createFolder('ACC100')
+    const child = await repo.createFolder('Chapter 1', parent)
+    expect((await db.folders.get(child))?.parentId).toBe(parent)
+    await expect(repo.moveFolder(parent, child)).rejects.toThrow()
+    const other = await repo.createFolder('Other')
+    await repo.moveFolder(child, other)
+    expect((await db.folders.get(child))?.parentId).toBe(other)
+  })
+
+  it('deleting a folder moves its decks and subfolders up a level', async () => {
+    const parent = await repo.createFolder('Course')
+    const child = await repo.createFolder('Unit', parent)
+    const { deckId } = await repo.importDeck(deck({ course: undefined }))
+    await repo.moveDeck(deckId, child)
+    await repo.deleteFolder(child)
+    expect((await repo.getDeck(deckId))?.folderId).toBe(parent)
+  })
+
   it('computes the median response time from recent correct answers', async () => {
     const { deckId } = await repo.importDeck(deck())
     for (const ms of [1000, 3000, 2000]) await repo.recordAnswer({ deckId, key: 'q1', correct: true, ms, mode: 'learn', rating: Rating.Good })
