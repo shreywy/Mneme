@@ -151,6 +151,18 @@ describe('LaTeX escaping mistakes from LLMs', () => {
   })
 })
 
+describe('chat-safe encoding', () => {
+  it('turns ⟦…⟧ math into $$…$$ and decodes \\u003c-escaped demo HTML', () => {
+    const raw = `{"format":"mneme.deck","version":1,"deck":{"title":"T"},"topics":[{"id":"a","name":"A"}],"terms":[],"questions":[{"id":"q","type":"true_false","topic":"a","difficulty":1,"prompt":"Is ⟦\\\\frac{1}{2}⟧ a half?","answer":true,"explanation":"Yes: ⟦\\\\text{half} = 0.5⟧","demo":{"html":"\\u003csvg\\u003e\\u003c/svg\\u003e"}}]}`
+    const r = parseDeckText(raw)
+    if (!r.ok) throw new Error(r.errors.join())
+    const q = r.deck.items[0]
+    expect(q.kind === 'question' && q.prompt).toBe('Is $$\\frac{1}{2}$$ a half?')
+    expect(q.kind === 'question' && q.explanation).toBe('Yes: $$\\text{half} = 0.5$$')
+    expect(q.demo?.html).toBe('<svg></svg>')
+  })
+})
+
 describe('demos', () => {
   it('keeps a demo on a question and a term, defaulting placement to explanation', () => {
     const d = minimal()

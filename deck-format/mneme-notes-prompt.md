@@ -29,10 +29,12 @@ EXTRA NOTES:
 
 ## 2. Output rules
 
-1. Output **only** the JSON.
-   - If you can create files, make one named `<title-in-kebab-case>.mneme.json`.
-   - Otherwise, output a single ```` ```json ```` code block.
-2. The JSON must be valid: double quotes, no trailing commas, no comments.
+1. Output **only** the JSON. Name it `<title-in-kebab-case>.mneme.json` if you make a file.
+2. **Deliver it so nothing gets rendered.** Chat apps render math and HTML in replies, which breaks the file.
+   - If you can create a file, canvas, artifact or document (Claude artifacts, ChatGPT files or canvas, Gemini Canvas), put the JSON there.
+   - Otherwise, use exactly one ```` ```json ```` code block that runs from the first `{` to the last `}`. Never put three backticks inside the JSON, and never close the block early.
+   - Never preview, render or explain any part of it. It is data for another app.
+   - The JSON must be valid: double quotes, no trailing commas, no comments.
 3. **Skip the practice questions in the source.** Don't reproduce end-of-chapter exercises as notes. Test ideas with the interactive blocks instead (section 4).
 4. Base everything on the attached material. If you add standard knowledge the material doesn't state, keep it short and say so in the text.
 5. If the notes are too long for one response, stop at a section boundary, say "continue" at the very end **outside** the JSON, and continue in the next reply with the remaining `blocks` only. The user will paste the parts together. Avoid this if you can by being concise.
@@ -71,7 +73,7 @@ Add a top-level `"deck"` field holding a complete Mneme deck: the same object yo
 
 Every block is an object with a `"type"`. Text fields accept Markdown: `**bold**`, `*italic*`, lists and tables. Use `\n` for line breaks inside a JSON string.
 
-**Math:** use LaTeX between **double** dollar signs, inline or on its own line.
+**Math (chat-safe):** wrap LaTeX in `⟦` and `⟧`, inline or on its own line. **Never use `$$`, `\(` or `\[`**: chat apps render those and break the file.
 - A single `$` always means money.
 - **Escape every backslash in JSON**: `\\frac`, `\\text`, `\\begin{aligned}`.
 - Write thousands as `12{,}000` inside math.
@@ -169,11 +171,11 @@ In notes, a question doesn't need `topic` or `difficulty`.
 - a custom labelled diagram
 
 ```json
-{ "type": "demo", "title": "Move the price", "height": 320, "html": "<input type=range id=p min=1 max=10 value=4><svg id=g width=100% height=240></svg><script>/* draw, and redraw on input */</script>" }
+{ "type": "demo", "title": "Move the price", "height": 320, "html": "\u003cinput type=range id=p min=1 max=10 value=4\u003e\u003csvg id=g width=100% height=240\u003e\u003c/svg\u003e\u003cscript\u003e/* draw, and redraw on input */\u003c/script\u003e" }
 ```
 
 **Demo rules**
-- `html` is one snippet with inline `<style>` and `<script>`, under 40 KB.
+- `html` is one snippet with inline `<style>` and `<script>`, under 40 KB. **Write every `<` as `\u003c` and every `>` as `\u003e`** so chat apps can't render the tags.
 - **No network:** external scripts, fonts, images, CDNs and `fetch` are all blocked. Use SVG, canvas or CSS; `data:` images are fine.
 - **Match Mneme's look so the demo blends into the page:**
   - Leave the background transparent.

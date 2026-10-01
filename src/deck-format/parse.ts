@@ -52,7 +52,9 @@ function escapeStrayBackslashes(s: string): string {
  * Single backslashes that happen to be valid JSON escapes (\f in \frac, \t in \text, \b in \beta, \n in \neq)
  * arrive as control characters. Inside $$…$$ math, put the LaTeX command back.
  */
-function repairMath(str: string): string {
+function repairMath(input: string): string {
+  // Chat-safe math delimiters from the prompt: ⟦…⟧ means $$…$$.
+  const str = input.includes('⟦') ? input.replace(/⟦/g, '$$$$').replace(/⟧/g, '$$$$') : input
   if (!str.includes('$$')) return str
   return str.replace(/\$\$([\s\S]*?)\$\$/g, (_, m: string) => '$$' + m
     .replace(/\f/g, '\\f')

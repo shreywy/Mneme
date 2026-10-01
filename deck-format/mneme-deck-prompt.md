@@ -29,10 +29,12 @@ EXTRA NOTES:   (optional: e.g. "the prof loves journal-entry questions")
 
 ## 2. Output rules
 
-1. Output **only** the JSON deck: no commentary before or after it.
-   - If you can create downloadable files, create one named `<deck-title-in-kebab-case>.mneme.json`.
-   - Otherwise, output a single ```` ```json ```` code block.
-2. The JSON must be valid: double quotes, no trailing commas, no comments.
+1. Output **only** the JSON deck: no commentary before or after it. Name it `<deck-title-in-kebab-case>.mneme.json` if you make a file.
+2. **Deliver it so nothing gets rendered.** Chat apps render math and HTML in replies, which breaks the file.
+   - If you can create a file, canvas, artifact or document (Claude artifacts, ChatGPT files or canvas, Gemini Canvas), put the JSON there.
+   - Otherwise, use exactly one ```` ```json ```` code block that runs from the first `{` to the last `}`. Never put three backticks inside the JSON, and never close the block early.
+   - Never preview, render or explain any part of it. It is data for another app.
+   - The JSON must be valid: double quotes, no trailing commas, no comments.
 3. **If the deck is too long for one response**, split it into parts. Each part must be a complete, valid file with the same `deck.title`, and must set `"part": { "index": N, "of": TOTAL }`. Put `topics` in part 1 only. Mneme merges the parts. After each part, stop and wait for the user to say "continue".
 4. Base everything on the attached material. If you add standard knowledge the material doesn't state, set `"source": "general knowledge"` on that item.
 
@@ -196,11 +198,12 @@ Mneme renders Markdown and LaTeX, so format for reading, not as one long line.
   `"| Account | Debit | Credit |\n|---|---|---|\n| Cash | 500 | |\n| Revenue | | 500 |"`
 - Don't use HTML, images or links in these fields. Mneme removes them. For visuals, use `demo` (below).
 
-**Math with LaTeX**
-- Put LaTeX between **double** dollar signs: `$$\\frac{a}{b}$$`. It can sit inside a sentence or on its own line. A single `$` always means money, so write `$12,000` as normal.
+**Math (chat-safe)**
+- Wrap math in `⟦` and `⟧`: `⟦\\frac{a}{b}⟧`. Mneme renders it with LaTeX. **Never use `$$`, `\(` or `\[`**: chat apps would render those and break the file.
+- A single `$` always means money, so write `$12,000` as normal.
 - **Escape every backslash in JSON**: write `\\frac`, `\\text`, `\\times`, `\\begin{aligned}`. (Mneme repairs most single-backslash mistakes, but don't rely on it.)
-- Inside LaTeX, write thousands as `12{,}000` so the comma doesn't add a space.
-- Put words inside math in `\\text{}`: `$$\\text{Profit} = \\text{Revenue} - \\text{Expenses}$$`.
+- Inside math, write thousands as `12{,}000` so the comma doesn't add a space.
+- Put words inside math in `\\text{}`: `⟦\\text{Profit} = \\text{Revenue} - \\text{Expenses}⟧`.
 
 **Calculations in explanations** (this matters most for math-heavy courses)
 1. If a formula is used, state it first, on its own line, with each symbol named.
@@ -209,7 +212,7 @@ Mneme renders Markdown and LaTeX, so format for reading, not as one long line.
 
 Example `explanation` value (as it appears inside the JSON string):
 ```
-"Formula: $$\\text{Ending equity} = \\text{Opening equity} + \\text{Contributions} + \\text{Revenue} - \\text{Expenses} - \\text{Dividends}$$\n\n$$\\begin{aligned} \\text{Ending equity} &= 98{,}250 + 20{,}000 + 324{,}600 - 296{,}750 - 7{,}000 \\\\ &= 139{,}100 \\\\ \\text{Assets} &= \\text{Liabilities} + \\text{Equity} \\\\ &= 209{,}200 + 139{,}100 \\\\ &= 348{,}300 \\end{aligned}$$\n\nSo assets are **$348,300**."
+"Formula: ⟦\\text{Ending equity} = \\text{Opening equity} + \\text{Contributions} + \\text{Revenue} - \\text{Expenses} - \\text{Dividends}⟧\n\n⟦\\begin{aligned} \\text{Ending equity} &= 98{,}250 + 20{,}000 + 324{,}600 - 296{,}750 - 7{,}000 \\\\ &= 139{,}100 \\\\ \\text{Assets} &= \\text{Liabilities} + \\text{Equity} \\\\ &= 209{,}200 + 139{,}100 \\\\ &= 348{,}300 \\end{aligned}⟧\n\nSo assets are **$348,300**."
 ```
 - Terms can use LaTeX too. For example, a ratio's `definition` can end with its formula.
 - Multi-line `prompt`s are fine when a question needs data. Put the numbers in a list or table instead of one long sentence.
@@ -231,12 +234,13 @@ Leave it out otherwise. Most cards don't need one.
   "title": "Shift the demand curve",
   "placement": "explanation",
   "height": 320,
-  "html": "<style>body{font:14px system-ui;margin:12px}</style><input type=range id=s min=-50 max=50 value=0><svg id=g width=100% height=240></svg><script>/* draw and redraw on input */</script>"
+  "html": "\u003cinput type=range id=s min=-50 max=50 value=0\u003e\u003csvg id=g width=100% height=240\u003e\u003c/svg\u003e\u003cscript\u003e/* draw and redraw on input */\u003c/script\u003e"
 }
 ```
 
 **Fields**
 - `html`: one HTML snippet with inline `<style>` and `<script>`. Keep it under 40 KB.
+- **Write every `<` as `\u003c` and every `>` as `\u003e` inside `html`** (for example `\u003csvg width=200\u003e`). JSON decodes them back, and chat apps can't render the tags by mistake.
 - `placement`:
   - `"explanation"` (the default) shows the demo after the student answers.
   - `"question"` shows it with the question, when the student needs it to answer.
@@ -309,6 +313,7 @@ Leave it out otherwise. Most cards don't need one.
 - Every `topic` value matches a topic `id`.
 - There are no duplicate ids or duplicate questions.
 - Numbers in explanations match the answers.
+- No `$$`, `\(`, `\[` or raw `<`/`>` in demo HTML: math uses `⟦…⟧`, and demo tags use `\u003c` and `\u003e`.
 - The JSON is valid.
 
 ---
