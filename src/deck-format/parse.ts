@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Item, NormalizedDeck, ParseResult, QuestionType, Topic } from './types'
+import type { Item, NormalizedDeck, ParseResult, QuestionItem, QuestionType, SimpleQuestion, Topic } from './types'
 import { QUESTION_TYPES } from './types'
 
 // ---------- zod schemas (mirror deck-format/deck.schema.json) ----------
@@ -44,6 +44,54 @@ const toNum = (v: unknown) => (typeof v === 'string' && v.trim() !== '' && !isNa
 
 function describeIssue(e: z.ZodError): string {
   return e.issues.map((i) => `${i.path.length ? i.path.join('.') + ': ' : ''}${i.message}`).join('; ')
+}
+
+function normalizeSimple(q: Raw, id: string, topic: string, warnings: string[]): SimpleQuestion | null {
+  const type = String(q.type ?? '')
+  if (!QUESTION_TYPES.includes(type as QuestionType) || type === 'scenario') { warnings.push(`Skipped ${id}: question type "${type}" isn't supported yet.`); return null }
+  let difficulty = toNum(q.difficulty)
+  if (difficulty !== 1 && difficulty !== 2 && difficulty !== 3) difficulty = 2
+  if (typeof q.explanation !== 'string') warnings.push(`${id}: no explanation.`)
+  const fixed: Raw = { ...q, id, topic, difficulty, explanation: typeof q.explanation === 'string' ? q.explanation : '' }
+  if (Array.isArray(q.choices)) fixed.choices = q.choices.map((c) => (isObj(c) ? { ...c, correct: toBool(c.correct) } : c))
+  if (type === 'true_false') fixed.answer = toBool(q.answer)
+  if (type === 'numeric') { fixed.answer = toNum(q.answer); fixed.tolerance = toNum(q.tolerance ?? 0) }
+  if (type === 'short_answer' && !Array.isArray(q.accept)) fixed.accept = []
+  const r = questionSchema.safeParse(fixed)
+  if (!r.success) { warnings.push(`Skipped ${id}: ${describeIssue(r.error)}`); return null }
+  const d = r.data
+  const common = { kind: 'question' as const, key: id, topic: d.topic, prompt: d.prompt, explanation: d.explanation, difficulty: d.difficulty, ...(d.source ? { source: d.source } : {}) }
+  switch (d.type) {
+    case 'multiple_choice': return { ...common, qtype: 'multiple_choice', choices: d.choices }
+    case 'multiple_select': return { ...common, qtype: 'multiple_select', choices: d.choices }
+    case 'true_false': return { ...common, qtype: 'true_false', answer: d.answer }
+    case 'short_answer': return { ...common, qtype: 'short_answer', answer: d.answer, accept: d.accept }
+    case 'numeric': return { ...common, qtype: 'numeric', answer: d.answer, tolerance: d.tolerance, ...(d.unit ? { unit: d.unit } : {}) }
+    case 'cloze': return { ...common, qtype: 'cloze' }
+    case 'ordering': return { ...common, qtype: 'ordering', items: d.items }
+  }
+}
+
+function normalizeQuestion(q: Raw, id: string, topic: string, warnings: string[]): QuestionItem | null {
+  if (String(q.type ?? '') !== 'scenario') return normalizeSimple(q, id, topic, warnings)
+  const prompt = typeof q.prompt === 'string' ? q.prompt.trim() : typeof q.scenario === 'string' ? q.scenario.trim() : ''
+  if (!prompt) { warnings.push(`Skipped ${id}: the scenario has no case text.`); return null }
+  const rawParts = Array.isArray(q.questions) ? q.questions : Array.isArray(q.parts) ? q.parts : []
+  const parts: SimpleQuestion[] = []
+  rawParts.forEach((pq, k) => {
+    if (!isObj(pq)) return
+    const pid = `${id}--${typeof pq.id === 'string' && pq.id.trim() ? slug(pq.id) : k + 1}`
+    const part = normalizeSimple({ ...pq, difficulty: pq.difficulty ?? q.difficulty }, pid, topic, warnings)
+    if (part) parts.push(part)
+  })
+  if (parts.length < 2) { warnings.push(`Skipped ${id}: a scenario needs at least two working questions.`); return null }
+  let difficulty = toNum(q.difficulty)
+  if (difficulty !== 1 && difficulty !== 2 && difficulty !== 3) difficulty = 3
+  return {
+    kind: 'question', key: id, qtype: 'scenario', topic, prompt, parts, difficulty: difficulty as 1 | 2 | 3,
+    explanation: typeof q.explanation === 'string' ? q.explanation : '',
+    ...(typeof q.source === 'string' && q.source.trim() ? { source: q.source.trim() } : {}),
+  }
 }
 
 // ---------- main ----------
@@ -116,32 +164,8 @@ export function parseDeckText(input: string): ParseResult {
   ;(Array.isArray(raw.questions) ? raw.questions : []).forEach((q, i) => {
     if (!isObj(q)) return
     const id = typeof q.id === 'string' && q.id.trim() ? slug(q.id) : `q-${i + 1}`
-    const type = String(q.type ?? '')
-    if (!QUESTION_TYPES.includes(type as QuestionType)) { warnings.push(`Skipped ${id}: question type "${type}" isn't supported yet.`); return }
-    let difficulty = toNum(q.difficulty)
-    if (difficulty !== 1 && difficulty !== 2 && difficulty !== 3) difficulty = 2
-    if (typeof q.explanation !== 'string') warnings.push(`${id}: no explanation.`)
-    const fixed: Raw = {
-      ...q, id, topic: fixTopic(q.topic, id), difficulty,
-      explanation: typeof q.explanation === 'string' ? q.explanation : '',
-    }
-    if (Array.isArray(q.choices)) fixed.choices = q.choices.map((c) => (isObj(c) ? { ...c, correct: toBool(c.correct) } : c))
-    if (type === 'true_false') fixed.answer = toBool(q.answer)
-    if (type === 'numeric') { fixed.answer = toNum(q.answer); fixed.tolerance = toNum(q.tolerance ?? 0) }
-    if (type === 'short_answer' && !Array.isArray(q.accept)) fixed.accept = []
-    const r = questionSchema.safeParse(fixed)
-    if (!r.success) { warnings.push(`Skipped ${id}: ${describeIssue(r.error)}`); return }
-    const d = r.data
-    const common = { kind: 'question' as const, key: id, topic: d.topic, prompt: d.prompt, explanation: d.explanation, difficulty: d.difficulty, ...(d.source ? { source: d.source } : {}) }
-    switch (d.type) {
-      case 'multiple_choice': keep(id, { ...common, qtype: 'multiple_choice', choices: d.choices }); break
-      case 'multiple_select': keep(id, { ...common, qtype: 'multiple_select', choices: d.choices }); break
-      case 'true_false': keep(id, { ...common, qtype: 'true_false', answer: d.answer }); break
-      case 'short_answer': keep(id, { ...common, qtype: 'short_answer', answer: d.answer, accept: d.accept }); break
-      case 'numeric': keep(id, { ...common, qtype: 'numeric', answer: d.answer, tolerance: d.tolerance, ...(d.unit ? { unit: d.unit } : {}) }); break
-      case 'cloze': keep(id, { ...common, qtype: 'cloze' }); break
-      case 'ordering': keep(id, { ...common, qtype: 'ordering', items: d.items }); break
-    }
+    const item = normalizeQuestion(q, id, fixTopic(q.topic, id), warnings)
+    if (item) keep(id, item)
   })
 
   if (items.length === 0) return { ok: false, errors: ['No usable terms or questions were found.', ...warnings.slice(0, 10)] }

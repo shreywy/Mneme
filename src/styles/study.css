@@ -104,6 +104,18 @@
 .order .chip { padding: 8px 12px; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); font-size: 14px; transition: background-color .15s, transform .12s var(--ease); }
 .order .chip:hover { background: var(--surface2); }
 
+.case { padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 15px; line-height: 1.6; }
+.case table { font-size: 14px; }
+.parts { display: grid; gap: 14px; margin-top: 16px; }
+.part { border-left: 2px solid var(--line); padding: 4px 0 6px 16px; }
+.part.ok { border-left-color: var(--good); }
+.part.miss { border-left-color: var(--bad); }
+.part .q { font-size: 18px; margin: 6px 0 12px; }
+.part .q.long, .part .q.xlong { font-size: 16px; }
+.part-n { font-size: 12px; color: var(--muted); display: flex; gap: 10px; }
+.part.ok .part-n span { color: var(--good); font-weight: 600; }
+.part.miss .part-n span { color: var(--bad); font-weight: 600; }
+.part-why { margin-top: 10px; font-size: 13.5px; color: var(--muted); line-height: 1.55; }
 .why { margin-top: 16px; padding: 16px 18px; background: var(--surface2); border-radius: 9px; font-size: 14px; line-height: 1.6; animation: whyin .25s var(--ease); }
 @keyframes whyin { from { opacity: 0; transform: translateY(6px); } }
 .why .h { font-family: var(--serif); font-style: italic; font-size: 15px; margin-bottom: 4px; }

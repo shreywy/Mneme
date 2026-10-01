@@ -26,6 +26,15 @@ export function QuestionView({ ex, mode, response, revealed, grade, onRespond, k
           : ex.kind === 'order' ? 'Put these in order'
             : ex.kind === 'cloze' ? 'Fill in the blanks' : null
   const promptStr = ex.kind === 'cloze' ? '' : ex.prompt
+  if (ex.kind === 'scenario') {
+    return (
+      <>
+        <div className="q" style={{ marginBottom: 10 }}><span className="lead">Read the case, then answer each part</span></div>
+        <div className="case"><Markdown>{ex.prompt}</Markdown></div>
+        <ScenarioParts ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
+      </>
+    )
+  }
   return (
     <>
       {ex.kind !== 'cloze' && (
@@ -50,7 +59,37 @@ function Body({ ex, mode, response, revealed, grade, onRespond, keyboard }: Prop
       answer={`${ex.unit === '$' ? '$' : ''}${ex.answer.toLocaleString()}${ex.unit && ex.unit !== '$' ? ' ' + ex.unit : ''}`} />
     case 'cloze': return <ClozeAnswer ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} keyboard={keyboard} />
     case 'order': return <OrderAnswer ex={ex} mode={mode} response={response} revealed={revealed} onRespond={onRespond} keyboard={keyboard} />
+    case 'scenario': return null
   }
+}
+
+/** Every part of a case on one screen. Answers are collected, then checked together. */
+function ScenarioParts({ ex, mode, response, revealed, grade, onRespond }: { ex: Extract<Exercise, { kind: 'scenario' }> } & Omit<Props, 'ex'>) {
+  const [rs, setRs] = useState<(Response | undefined)[]>(response?.kind === 'parts' ? response.responses : ex.parts.map(() => undefined))
+  const set = (i: number, r: Response) => {
+    const next = [...rs]; next[i] = r; setRs(next)
+    if (mode === 'test') onRespond({ kind: 'parts', responses: next }, false)
+  }
+  const answered = rs.filter(Boolean).length
+  return (
+    <div className="parts">
+      {ex.parts.map((p, i) => (
+        <div className={`part ${revealed ? (grade?.parts?.[i]?.correct ? 'ok' : 'miss') : ''}`} key={p.key}>
+          <div className="part-n">Part {i + 1} of {ex.parts.length}{revealed && <span>{grade?.parts?.[i]?.correct ? 'Correct' : 'Missed'}</span>}</div>
+          <QuestionView ex={p} mode={revealed ? 'learn' : 'test'} response={rs[i]} revealed={revealed} grade={grade?.parts?.[i]} keyboard={false}
+            onRespond={(r) => set(i, r)} />
+          {revealed && p.item.kind === 'question' && p.item.explanation && <div className="part-why"><Markdown>{p.item.explanation}</Markdown></div>}
+        </div>
+      ))}
+      {mode === 'learn' && !revealed && (
+        <div className="cont-row">
+          <button className="btn" disabled={!answered} onClick={() => onRespond({ kind: 'parts', responses: rs }, true)}>
+            Check {answered < ex.parts.length ? `${answered} of ${ex.parts.length} answered` : 'answers'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Number keys pick options while the question is live. */

@@ -68,6 +68,15 @@ export function CardEditor({ item, topics, onSave, onClose }: { item: Item | nul
     if (r.error || !r.item) { setErr(r.error ?? 'Check the fields.'); return }
     onSave(r.item)
   }
+  if (f.kind === 'scenario') {
+    return (
+      <Sheet onClose={onClose} label="Edit card" width={480}>
+        <h2>Case questions</h2>
+        <p className="lede">Cases with several questions can't be edited here yet. You can delete this one, or fix it in the deck file and import it again (your progress on other cards is kept).</p>
+        <div className="actions"><button className="btn primary" onClick={onClose}>OK</button></div>
+      </Sheet>
+    )
+  }
   const setChoice = (i: number, p: Partial<Choice>) => up({ choices: f.choices.map((c, k) => (k === i ? { ...c, ...p } : f.kind === 'multiple_choice' && p.correct ? { ...c, correct: false } : c)) })
 
   return (
@@ -77,7 +86,7 @@ export function CardEditor({ item, topics, onSave, onClose }: { item: Item | nul
         <label className="field"><span>Type</span>
           <select className="select" value={f.kind} disabled={!isNew} onChange={(e) => up({ kind: e.target.value as Kind })}>
             <option value="term">Term</option>
-            {QUESTION_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+            {QUESTION_TYPES.filter((t) => t !== 'scenario' || !isNew).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
           </select>
         </label>
         <label className="field"><span>Topic</span>

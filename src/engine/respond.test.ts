@@ -36,6 +36,19 @@ describe('gradeResponse', () => {
     expect(gradeResponse(ord, { kind: 'order', order: ['1', '2', '3'] }).correct).toBe(true)
     expect(gradeResponse(ord, { kind: 'order', order: ['2', '1', '3'] }).correct).toBe(false)
   })
+  it('grades a scenario part by part and needs every part right', () => {
+    const parts = [
+      q({ key: 'a', qtype: 'true_false', answer: true }),
+      q({ key: 'b', qtype: 'numeric', answer: 2000, tolerance: 0 }),
+    ]
+    const ex = buildExercise(q({ qtype: 'scenario', parts }), [], 'recall')
+    const both = gradeResponse(ex, { kind: 'parts', responses: [{ kind: 'bool', value: true }, { kind: 'text', value: '2,000' }] })
+    expect(both.correct).toBe(true)
+    const one = gradeResponse(ex, { kind: 'parts', responses: [{ kind: 'bool', value: true }, { kind: 'text', value: '1' }] })
+    expect(one.correct).toBe(false)
+    expect(one.parts?.map((p) => p.correct)).toEqual([true, false])
+  })
+
   it('treats a missing response as wrong', () => {
     const tf = buildExercise(q({ qtype: 'true_false', answer: true }), [], 'recall')
     expect(gradeResponse(tf, undefined).correct).toBe(false)

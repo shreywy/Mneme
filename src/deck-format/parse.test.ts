@@ -30,7 +30,7 @@ describe('parseDeckText', () => {
     if (r.ok) {
       expect(r.deck.title).toBe('Quiz 1 review')
       expect(r.deck.items.filter((i) => i.kind === 'term').length).toBe(4)
-      expect(r.deck.items.filter((i) => i.kind === 'question').length).toBe(8)
+      expect(r.deck.items.filter((i) => i.kind === 'question').length).toBe(9)
     }
   })
 
@@ -120,6 +120,41 @@ describe('parseDeckText', () => {
       expect(r.deck.items.filter((i) => i.key === 't-a').length).toBe(1)
       expect(r.warnings.join(' ')).toMatch(/duplicate/i)
     }
+  })
+})
+
+describe('scenario questions', () => {
+  const scenario = (parts: unknown[]) => minimal({
+    questions: [{
+      id: 'q-case', type: 'scenario', topic: 'basics', difficulty: 3, explanation: 'Overall.',
+      prompt: 'Harbor Co. received $12,000 on Dec 1 for 6 months of work.',
+      questions: parts,
+    }],
+  })
+  const tf = { id: 'p1', type: 'true_false', prompt: 'Revenue is earned evenly.', answer: true, explanation: 'Yes.' }
+  const num = { id: 'p2', type: 'numeric', prompt: 'Revenue earned by Dec 31?', answer: 2000, explanation: '12,000 / 6.' }
+
+  it('parses a shared case with its sub-questions', () => {
+    const r = parseDeckText(JSON.stringify(scenario([tf, num])))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const q = r.deck.items.find((i) => i.key === 'q-case')
+    expect(q?.kind === 'question' && q.qtype === 'scenario' && q.parts.map((p) => p.qtype)).toEqual(['true_false', 'numeric'])
+  })
+
+  it('drops a broken part with a warning and keeps the rest', () => {
+    const r = parseDeckText(JSON.stringify(scenario([tf, num, { id: 'p3', type: 'multiple_choice', prompt: 'x', explanation: 'y', choices: [] }])))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const q = r.deck.items.find((i) => i.key === 'q-case')
+    expect(q?.kind === 'question' && q.qtype === 'scenario' && q.parts.length).toBe(2)
+    expect(r.warnings.join(' ')).toMatch(/p3/)
+  })
+
+  it('skips a scenario with fewer than two usable parts', () => {
+    const r = parseDeckText(JSON.stringify(scenario([tf])))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.deck.items.some((i) => i.key === 'q-case')).toBe(false)
   })
 })
 

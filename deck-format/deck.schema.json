@@ -4,28 +4,66 @@
   "title": "Mneme deck",
   "description": "A study deck for Mneme (format v1). Multi-part decks share deck.title and set deck.part.",
   "type": "object",
-  "required": ["format", "version", "deck"],
+  "required": [
+    "format",
+    "version",
+    "deck"
+  ],
   "additionalProperties": false,
   "properties": {
-    "format": { "const": "mneme.deck" },
-    "version": { "const": 1 },
+    "format": {
+      "const": "mneme.deck"
+    },
+    "version": {
+      "const": 1
+    },
     "deck": {
       "type": "object",
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "additionalProperties": false,
       "properties": {
-        "title": { "$ref": "#/$defs/shortText", "maxLength": 120 },
-        "course": { "$ref": "#/$defs/shortText", "maxLength": 80 },
-        "description": { "type": "string", "maxLength": 1000 },
-        "sources": { "type": "array", "items": { "$ref": "#/$defs/shortText" }, "maxItems": 50 },
-        "language": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+        "title": {
+          "$ref": "#/$defs/shortText",
+          "maxLength": 120
+        },
+        "course": {
+          "$ref": "#/$defs/shortText",
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shortText"
+          },
+          "maxItems": 50
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
         "part": {
           "type": "object",
-          "required": ["index", "of"],
+          "required": [
+            "index",
+            "of"
+          ],
           "additionalProperties": false,
           "properties": {
-            "index": { "type": "integer", "minimum": 1 },
-            "of": { "type": "integer", "minimum": 1, "maximum": 50 }
+            "index": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "of": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         }
       }
@@ -35,12 +73,22 @@
       "maxItems": 200,
       "items": {
         "type": "object",
-        "required": ["id", "name"],
+        "required": [
+          "id",
+          "name"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "$ref": "#/$defs/id" },
-          "name": { "$ref": "#/$defs/shortText" },
-          "summary": { "type": "string", "maxLength": 500 }
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "name": {
+            "$ref": "#/$defs/shortText"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 500
+          }
         }
       }
     },
@@ -49,17 +97,42 @@
       "maxItems": 5000,
       "items": {
         "type": "object",
-        "required": ["id", "term", "definition", "topic"],
+        "required": [
+          "id",
+          "term",
+          "definition",
+          "topic"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "$ref": "#/$defs/id" },
-          "term": { "$ref": "#/$defs/shortText" },
-          "definition": { "$ref": "#/$defs/richText" },
-          "topic": { "$ref": "#/$defs/id" },
-          "aliases": { "type": "array", "items": { "$ref": "#/$defs/shortText" }, "maxItems": 20 },
-          "example": { "$ref": "#/$defs/richText" },
-          "explanation": { "$ref": "#/$defs/richText" },
-          "source": { "$ref": "#/$defs/shortText" }
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "term": {
+            "$ref": "#/$defs/shortText"
+          },
+          "definition": {
+            "$ref": "#/$defs/richText"
+          },
+          "topic": {
+            "$ref": "#/$defs/id"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/shortText"
+            },
+            "maxItems": 20
+          },
+          "example": {
+            "$ref": "#/$defs/richText"
+          },
+          "explanation": {
+            "$ref": "#/$defs/richText"
+          },
+          "source": {
+            "$ref": "#/$defs/shortText"
+          }
         }
       }
     },
@@ -68,110 +141,351 @@
       "maxItems": 5000,
       "items": {
         "oneOf": [
-          { "$ref": "#/$defs/multipleChoice" },
-          { "$ref": "#/$defs/multipleSelect" },
-          { "$ref": "#/$defs/trueFalse" },
-          { "$ref": "#/$defs/shortAnswer" },
-          { "$ref": "#/$defs/numeric" },
-          { "$ref": "#/$defs/cloze" },
-          { "$ref": "#/$defs/ordering" }
+          {
+            "$ref": "#/$defs/multipleChoice"
+          },
+          {
+            "$ref": "#/$defs/multipleSelect"
+          },
+          {
+            "$ref": "#/$defs/trueFalse"
+          },
+          {
+            "$ref": "#/$defs/shortAnswer"
+          },
+          {
+            "$ref": "#/$defs/numeric"
+          },
+          {
+            "$ref": "#/$defs/cloze"
+          },
+          {
+            "$ref": "#/$defs/ordering"
+          },
+          {
+            "$ref": "#/$defs/scenario"
+          }
         ]
       }
     }
   },
   "$defs": {
-    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$" },
-    "shortText": { "type": "string", "minLength": 1, "maxLength": 300 },
-    "richText": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "richText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
     "base": {
       "type": "object",
-      "required": ["id", "type", "prompt", "topic", "explanation", "difficulty"],
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "topic",
+        "explanation",
+        "difficulty"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "prompt": { "$ref": "#/$defs/richText" },
-        "topic": { "$ref": "#/$defs/id" },
-        "explanation": { "$ref": "#/$defs/richText" },
-        "difficulty": { "enum": [1, 2, 3] },
-        "source": { "$ref": "#/$defs/shortText" }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "prompt": {
+          "$ref": "#/$defs/richText"
+        },
+        "topic": {
+          "$ref": "#/$defs/id"
+        },
+        "explanation": {
+          "$ref": "#/$defs/richText"
+        },
+        "difficulty": {
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/shortText"
+        }
       }
     },
     "choice": {
       "type": "object",
-      "required": ["text", "correct"],
+      "required": [
+        "text",
+        "correct"
+      ],
       "additionalProperties": false,
       "properties": {
-        "text": { "$ref": "#/$defs/richText" },
-        "correct": { "type": "boolean" },
-        "why": { "$ref": "#/$defs/richText" }
+        "text": {
+          "$ref": "#/$defs/richText"
+        },
+        "correct": {
+          "type": "boolean"
+        },
+        "why": {
+          "$ref": "#/$defs/richText"
+        }
       }
     },
     "multipleChoice": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
-      "required": ["choices"],
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "choices"
+      ],
       "unevaluatedProperties": false,
       "properties": {
-        "type": { "const": "multiple_choice" },
+        "type": {
+          "const": "multiple_choice"
+        },
         "choices": {
-          "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/choice" },
-          "contains": { "properties": { "correct": { "const": true } } }, "minContains": 1, "maxContains": 1
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/choice"
+          },
+          "contains": {
+            "properties": {
+              "correct": {
+                "const": true
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
         }
       }
     },
     "multipleSelect": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
-      "required": ["choices"],
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "choices"
+      ],
       "unevaluatedProperties": false,
       "properties": {
-        "type": { "const": "multiple_select" },
+        "type": {
+          "const": "multiple_select"
+        },
         "choices": {
-          "type": "array", "minItems": 3, "maxItems": 8, "items": { "$ref": "#/$defs/choice" },
-          "contains": { "properties": { "correct": { "const": true } } }, "minContains": 2
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/choice"
+          },
+          "contains": {
+            "properties": {
+              "correct": {
+                "const": true
+              }
+            }
+          },
+          "minContains": 2
         }
       }
     },
     "trueFalse": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
-      "required": ["answer"],
-      "unevaluatedProperties": false,
-      "properties": { "type": { "const": "true_false" }, "answer": { "type": "boolean" } }
-    },
-    "shortAnswer": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
-      "required": ["answer"],
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "answer"
+      ],
       "unevaluatedProperties": false,
       "properties": {
-        "type": { "const": "short_answer" },
-        "answer": { "$ref": "#/$defs/shortText" },
-        "accept": { "type": "array", "items": { "$ref": "#/$defs/shortText" }, "maxItems": 20 }
+        "type": {
+          "const": "true_false"
+        },
+        "answer": {
+          "type": "boolean"
+        }
+      }
+    },
+    "shortAnswer": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "answer"
+      ],
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": {
+          "const": "short_answer"
+        },
+        "answer": {
+          "$ref": "#/$defs/shortText"
+        },
+        "accept": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shortText"
+          },
+          "maxItems": 20
+        }
       }
     },
     "numeric": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
-      "required": ["answer"],
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "answer"
+      ],
       "unevaluatedProperties": false,
       "properties": {
-        "type": { "const": "numeric" },
-        "answer": { "type": "number" },
-        "tolerance": { "type": "number", "minimum": 0 },
-        "unit": { "type": "string", "maxLength": 20 }
+        "type": {
+          "const": "numeric"
+        },
+        "answer": {
+          "type": "number"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 20
+        }
       }
     },
     "cloze": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
       "unevaluatedProperties": false,
       "properties": {
-        "type": { "const": "cloze" },
-        "prompt": { "type": "string", "pattern": "\\{\\{[^{}]+\\}\\}" }
+        "type": {
+          "const": "cloze"
+        },
+        "prompt": {
+          "type": "string",
+          "pattern": "\\{\\{[^{}]+\\}\\}"
+        }
       }
     },
     "ordering": {
-      "allOf": [{ "$ref": "#/$defs/base" }],
-      "required": ["items"],
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "items"
+      ],
       "unevaluatedProperties": false,
       "properties": {
-        "type": { "const": "ordering" },
-        "items": { "type": "array", "minItems": 3, "maxItems": 12, "items": { "$ref": "#/$defs/shortText" } }
+        "type": {
+          "const": "ordering"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/shortText"
+          }
+        }
       }
+    },
+    "scenarioPart": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/multipleChoice"
+        },
+        {
+          "$ref": "#/$defs/multipleSelect"
+        },
+        {
+          "$ref": "#/$defs/trueFalse"
+        },
+        {
+          "$ref": "#/$defs/shortAnswer"
+        },
+        {
+          "$ref": "#/$defs/numeric"
+        },
+        {
+          "$ref": "#/$defs/cloze"
+        },
+        {
+          "$ref": "#/$defs/ordering"
+        }
+      ]
+    },
+    "scenario": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "topic",
+        "questions"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "scenario"
+        },
+        "prompt": {
+          "$ref": "#/$defs/richText"
+        },
+        "topic": {
+          "$ref": "#/$defs/id"
+        },
+        "difficulty": {
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/shortText"
+        },
+        "questions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 6,
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

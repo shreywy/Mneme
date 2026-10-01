@@ -20,6 +20,7 @@ export const TYPE_LABELS: Record<QuestionType, string> = {
   numeric: 'Numeric',
   cloze: 'Fill in the blank',
   ordering: 'Put in order',
+  scenario: 'Case with questions',
 }
 
 const DIFFICULTY_RULES = {

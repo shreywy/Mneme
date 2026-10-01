@@ -168,6 +168,23 @@ Type-specific fields:
 ```
 <!-- /type -->
 
+<!-- type:scenario -->
+**`scenario`**: one shared case with 2 to 6 questions about it. The case is shown once, and all the questions under it are answered together.
+- Use it when several questions depend on the same facts, such as a business's numbers, a set of transactions, or a passage.
+- The case goes in `prompt`. A table is fine.
+- The questions go in `questions`. They use the same types as above, but have no `topic` or `difficulty` of their own.
+```json
+{ "id": "q-case-harbor", "type": "scenario", "topic": "adjusting-entries", "difficulty": 3,
+  "prompt": "On December 1, Harbor Co. received $12,000 cash for a six-month consulting contract that started that day. It prepares statements on December 31.",
+  "questions": [
+    { "id": "earned", "type": "numeric", "prompt": "How much revenue is earned by December 31?", "answer": 2000, "unit": "$", "explanation": "$12,000 ÷ 6 = $2,000 per month; one month has passed." },
+    { "id": "liability", "type": "numeric", "prompt": "What is the Unearned Revenue balance on December 31?", "answer": 10000, "unit": "$", "explanation": "$12,000 received − $2,000 earned." },
+    { "id": "cash-entry", "type": "true_false", "prompt": "The December 31 adjustment debits Cash.", "answer": false, "explanation": "Cash was recorded on December 1; the adjustment moves $2,000 from Unearned Revenue to Revenue." }
+  ],
+  "explanation": "Cash came in first, so the adjustment only shifts the earned part from the liability to revenue." }
+```
+<!-- /type -->
+
 ### Formatting inside text fields
 - These fields allow Markdown: `prompt`, `definition`, `explanation`, `example`, choice `text` and `why`.
 - You may use **bold**, *italic*, `code`, lists and tables (for example, a journal entry as a table).
@@ -180,9 +197,14 @@ Type-specific fields:
 
 **Coverage**
 - Decide what an exam on this material would test, then make sure all of it is covered.
-- Aim for a real **mix**: about 55–65% `multiple_choice`, and the rest spread across `true_false`, `short_answer`, `numeric`, `cloze`, `ordering` and `multiple_select`, wherever they fit naturally.
+- Aim for a real **mix**: about 55–65% `multiple_choice`, and the rest spread across `true_false`, `short_answer`, `numeric`, `cloze`, `ordering`, `multiple_select` and `scenario`, wherever they fit naturally. Worked examples and multi-step problems from the material make good `scenario` cards.
 - Calculation-heavy material should get plenty of `numeric` questions.
 - Include `difficulty: 3` scenario questions like the ones on real exams, not just recall.
+
+**Every question stands on its own**
+- The student sees one question at a time, without the textbook. Never refer to exercise numbers, page numbers or anything outside the question ("the PQ2-4 business", "the company in Example 3", "as shown in Figure 2").
+- If a question needs facts from a worked example, either put those facts in the question itself, or make a `scenario` that contains the case and several questions about it.
+- Don't ask about the material itself ("What does slide 12 show?"). Ask about the ideas.
 
 **Terms vs. questions**
 - Every important vocabulary word goes in `terms`, even if a question also covers it. Mneme builds its own term drills from `terms`, so don't also write "What does X mean?" questions.
@@ -212,6 +234,7 @@ Type-specific fields:
 
 **Self-check before you output**
 - Every `multiple_choice` has exactly one `"correct": true`, and every `multiple_select` has at least two.
+- No question mentions an exercise number, page, figure or example the student can't see.
 - Every `topic` value matches a topic `id`.
 - There are no duplicate ids or duplicate questions.
 - Numbers in explanations match the answers.
@@ -440,6 +463,39 @@ A small but complete deck showing every item type. Your real deck should be much
         "Prepare financial statements"
       ],
       "explanation": "Each step feeds the next; statements come only after adjustments so they reflect accrual-basis numbers."
+    },
+    {
+      "id": "q-case-harbor",
+      "type": "scenario",
+      "topic": "adjusting-entries",
+      "difficulty": 3,
+      "prompt": "On December 1, Harbor Co. received $12,000 cash for a six-month consulting contract that started that day. It prepares statements on December 31.",
+      "questions": [
+        {
+          "id": "earned",
+          "type": "numeric",
+          "prompt": "How much revenue is earned by December 31?",
+          "answer": 2000,
+          "unit": "$",
+          "explanation": "$12,000 ÷ 6 = $2,000 per month; one month has passed."
+        },
+        {
+          "id": "liability",
+          "type": "numeric",
+          "prompt": "What is the Unearned Revenue balance on December 31?",
+          "answer": 10000,
+          "unit": "$",
+          "explanation": "$12,000 received − $2,000 earned."
+        },
+        {
+          "id": "cash-entry",
+          "type": "true_false",
+          "prompt": "The December 31 adjustment debits Cash.",
+          "answer": false,
+          "explanation": "Cash was recorded on December 1. The adjustment moves $2,000 from Unearned Revenue to revenue."
+        }
+      ],
+      "explanation": "Cash came in first, so the adjustment only shifts the earned part from the liability to revenue."
     }
   ]
 }

@@ -12,6 +12,7 @@ export type Exercise = { key: string; item: Item } & (
   | { kind: 'numeric'; prompt: string; answer: number; tolerance: number; unit?: string }
   | { kind: 'cloze'; cloze: ParsedCloze }
   | { kind: 'order'; prompt: string; items: string[]; shuffled: string[] }
+  | { kind: 'scenario'; prompt: string; parts: Exercise[] }
 )
 
 function distractorTerms(t: TermItem, pool: Item[], rng: Rng, n: number): TermItem[] {
@@ -50,6 +51,7 @@ export function buildExercise(item: Item, pool: Item[], format: 'recall' | 'type
       if (shuffled.join('\u0000') === item.items.join('\u0000')) shuffled = [...item.items].reverse()
       return { key, item, kind: 'order', prompt: item.prompt, items: item.items, shuffled }
     }
+    case 'scenario': return { key, item, kind: 'scenario', prompt: item.prompt, parts: item.parts.map((p) => buildExercise(p, pool, 'recall', rng)) }
   }
 }
 
@@ -64,6 +66,7 @@ export function answerText(item: Item): string {
     case 'numeric': return `${item.unit === '$' ? '$' : ''}${item.answer.toLocaleString()}${item.unit && item.unit !== '$' ? ' ' + item.unit : ''}`
     case 'cloze': return parseCloze(item.prompt).blanks.map((b) => b[0]).join(' · ')
     case 'ordering': return item.items.map((s, i) => `${i + 1}. ${s}`).join('  ')
+    case 'scenario': return item.parts.map((p, i) => `(${i + 1}) ${answerText(p)}`).join('  ')
   }
 }
 

@@ -20,7 +20,11 @@ export type Numeric = Base & { qtype: 'numeric'; answer: number; tolerance: numb
 export type Cloze = Base & { qtype: 'cloze' }
 export type Ordering = Base & { qtype: 'ordering'; items: string[] }
 
-export type QuestionItem = MultipleChoice | MultipleSelect | TrueFalse | ShortAnswer | Numeric | Cloze | Ordering
+export type SimpleQuestion = MultipleChoice | MultipleSelect | TrueFalse | ShortAnswer | Numeric | Cloze | Ordering
+/** One shared case (text or table) with 2–6 questions about it, shown and graded together. */
+export type Scenario = Base & { qtype: 'scenario'; parts: SimpleQuestion[] }
+
+export type QuestionItem = SimpleQuestion | Scenario
 export type QuestionType = QuestionItem['qtype']
 
 export type TermItem = {
@@ -51,4 +55,4 @@ export type ParseResult =
   | { ok: true; deck: NormalizedDeck; warnings: string[] }
   | { ok: false; errors: string[] }
 
-export const QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'multiple_select', 'true_false', 'short_answer', 'numeric', 'cloze', 'ordering']
+export const QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'multiple_select', 'true_false', 'short_answer', 'numeric', 'cloze', 'ordering', 'scenario']

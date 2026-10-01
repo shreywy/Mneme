@@ -8,8 +8,9 @@ export type Response =
   | { kind: 'text'; value: string }
   | { kind: 'blanks'; values: string[] }
   | { kind: 'order'; order: string[] }
+  | { kind: 'parts'; responses: (Response | undefined)[] }
 
-export type Grade = { correct: boolean; close?: string; blanks?: boolean[] }
+export type Grade = { correct: boolean; close?: string; blanks?: boolean[]; parts?: Grade[] }
 
 export function gradeResponse(ex: Exercise, r: Response | undefined): Grade {
   if (!r) return { correct: false }
@@ -25,5 +26,9 @@ export function gradeResponse(ex: Exercise, r: Response | undefined): Grade {
       return { correct: blanks.every(Boolean), blanks }
     }
     case 'order': return { correct: r.kind === 'order' && r.order.length === ex.items.length && r.order.every((s, i) => s === ex.items[i]) }
+    case 'scenario': {
+      const parts = ex.parts.map((p, i) => gradeResponse(p, r.kind === 'parts' ? r.responses[i] : undefined))
+      return { correct: parts.every((g) => g.correct), parts }
+    }
   }
 }

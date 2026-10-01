@@ -167,6 +167,12 @@ function cardFaces(it: Item, dir: 'term' | 'def') {
       ? { frontLabel: 'Term', front: it.term, frontExtra: '', backLabel: 'Definition', back: it.definition, backExtra: extra }
       : { frontLabel: 'Definition', front: it.definition, frontExtra: '', backLabel: 'Term', back: it.term, backExtra: extra }
   }
+  if (it.qtype === 'scenario') {
+    return {
+      frontLabel: 'Case', front: it.prompt, frontExtra: it.parts.map((p, k) => `**${k + 1}.** ${promptText(p)}`).join('\n\n'),
+      backLabel: 'Answers', back: it.parts.map((p, k) => `**${k + 1}.** ${answerText(p)}`).join('\n\n'), backExtra: it.explanation,
+    }
+  }
   const choices = it.qtype === 'multiple_choice' || it.qtype === 'multiple_select' ? it.choices.map((c, k) => `${String.fromCharCode(65 + k)}. ${c.text}`).join('\n\n') : ''
   const order = it.qtype === 'ordering' ? it.items.slice().sort().join(' · ') : ''
   return { frontLabel: 'Question', front: promptText(it), frontExtra: choices || order, backLabel: 'Answer', back: answerText(it), backExtra: it.explanation }
