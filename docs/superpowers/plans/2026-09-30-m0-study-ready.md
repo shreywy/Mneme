@@ -1,6 +1,5 @@
 # M0 "study-ready" implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **Execution method:** Native (inline). Shrey delegated execution while away ("take control and keep working until I'm back"), with a hard deadline of 2026-10-01 4pm.
 
