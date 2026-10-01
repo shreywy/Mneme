@@ -264,3 +264,7 @@ a.drow:hover { background: var(--surface2); }
 .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .app.rail:not(.peek) .acct { flex: none; padding: 2px; }
 .app.rail:not(.peek) .acct .who { display: none; }
+.inline-field { display: flex; gap: 8px; }
+.inline-field .input { flex: 1; min-width: 0; }
+.inline-field .btn { flex: none; height: auto; }
+@media (max-width: 420px) { .inline-field { flex-direction: column; } }

@@ -75,14 +75,14 @@ function SignIn() {
             }}>{PROVIDERS[p].icon}Continue with {PROVIDERS[p].name}</button>
           ))}
           {providers.length > 0 && <div className="or"><span>or use email</span></div>}
-          <form className="formgrid" style={{ gridTemplateColumns: '1fr' }} onSubmit={(e) => { e.preventDefault(); send() }}>
+          <form onSubmit={(e) => { e.preventDefault(); send() }}>
             <label className="field"><span>Email</span>
-              <input className="input" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.ca" />
+              <div className="inline-field">
+                <input className="input" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.ca" />
+                <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Sending…' : 'Email me a code'}</button>
+              </div>
             </label>
             {err && <p className="err">{err}</p>}
-            <div className="actions" style={{ marginTop: 4 }}>
-              <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Sending…' : 'Email me a code'}</button>
-            </div>
           </form>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>Anything you made as a guest on this device moves into your account when you sign in.</p>
         </>

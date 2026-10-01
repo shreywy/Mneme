@@ -22,14 +22,30 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - Deck export (.mneme.json), full backup and restore, persistent-storage request
 - Sandboxed HTML demos on cards and in notes (opaque origin, no network; verified: storage, IndexedDB, the parent DOM and fetch are all blocked)
 
+## Order of work (agreed 2026-10-01)
+1. **End-to-end pass** of sign-in and sync on mnemee.pages.dev, phone and PC, fixing whatever breaks (planned for 2026-10-02)
+2. **Account page and menu** (below)
+3. **Notes** (imported, LLM-generated notes pages)
+4. **Text notes** (the user's own writing pages)
+5. **AI** (Gemini, bring your own key)
+6. **Preview site, GitHub polish, v1 release**
+7. **Offline desktop app** (much later)
+
+Shrey wants drafts of the bigger designs (text notes especially) before they're built.
+
 ## Next up
-- [ ] **Notes pages:** list page, notes page (renderer is built), importing notes, notes options in the prompt builder, deck↔notes linking on both pages, course units in the sidebar
+- [ ] **Notes as a page type, not a tab:** importing gives you a *page*, which is either a deck or notes. Remove the Notes tab from the sidebar; notes pages live in folders next to decks. Then: notes page (renderer is built), notes import, notes options in the prompt builder, deck↔notes linking on both pages, course units in the sidebar
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
-- [ ] **Next, in order:** (1) ~~the free email sender~~ done, (2) an end-to-end test pass of sign-in and sync on mnemee.pages.dev (two devices, phone included), fixing whatever breaks, (3) only then new features
 - [ ] Google sign-in: create a Google Cloud OAuth client with the same Supabase callback URL
-- [ ] Profile: username and avatar (preset icons, colours, letters, or an uploaded image), set on first sign-in along with a few settings
+- [ ] **Account becomes its own page** (sign-in included), not a pop-up
+- [ ] **Account menu** (on that page, separate from Settings: Settings is preferences, Account is identity and the destructive actions):
+  - [ ] Change username
+  - [ ] Profile picture: preset icons, colours, letters, or an uploaded image (set on first sign-in too, with a few settings)
+  - [ ] Sync now (force a sync), with last-synced time and pending changes
+  - [ ] Clear all decks: needs an emailed code
+  - [ ] Delete account and all data: needs an emailed code, typing a confirmation phrase, then a slide-to-delete. Needs a server function to remove the auth user (an RPC with `security definer`, or an Edge Function), plus a download-everything offer first
 - [ ] Storage clean-up near the free 500 MB limit. A 200-question deck is about 250 KB, so roughly 2,000 decks fit. Watch total database size (not a deck count; reviews and progress grow too). At about 75% (~1,500 decks' worth), ask each user about decks they haven't opened in a long time: "You haven't used this deck in N months. Delete it?", with a download button first. Never delete without a yes.
 - [ ] Sync a deck's notes links and course units once the Notes pages exist (tables are already in place)
 
@@ -61,6 +77,22 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] GoatCounter analytics and live README badges (users, decks, cards studied)
 - [ ] Full README: screenshots, GIF, architecture and ER diagrams, feature list
 - [ ] Deploy to Cloudflare Pages from `main`
+
+## Themes
+- [ ] More dark palettes: true black, grey, and a Discord-style blue-grey
+- [ ] Custom theme: a colour picker for the background, with text and line colours worked out from its brightness so contrast stays readable
+
+## Text notes (the user's own pages; draft the design with Shrey first)
+- [ ] Pageless editor in the style of Google Docs but sleeker: headings, lists, tables, diagrams, code blocks with syntax highlighting for many languages, highlighting, and annotations (comments attached to selected text)
+- [ ] Paste and drag in images; draw over them and over the page with good pen settings (colour, width, highlighter, eraser)
+- [ ] Images aren't stored by Mneme: upload them to a free image host (Imgur API or similar) and keep only the link
+- [ ] Lives in the same folder tree as decks and notes pages, so a course is all in one place
+- [ ] With AI: snapshot any area of the app and ask Gemini to explain it. It has to feel instant.
+
+## Offline desktop app (much later)
+- [ ] Packaged Windows app that works fully offline with no limits on notes or decks; Android later, maybe
+- [ ] Optional sign-in, choosing which folders sync
+- [ ] Add documents and PDFs to folders; a file tree that can hold files next to notes and decks (tree-style storage across the whole app, with files only in the desktop app)
 
 ## Study features
 - [ ] Weak spots: a virtual deck of the most-missed cards across all decks
