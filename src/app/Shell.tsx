@@ -7,7 +7,7 @@ import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
 import { isTyping, useUI } from './ui'
 import { Collapse } from '../ui/motion'
-import { accountsEnabled, useAccount } from '../sync/account'
+import { accountsEnabled, displayName, useAccount } from '../sync/account'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -157,9 +157,9 @@ function AccountButton({ onOpen }: { onOpen: () => void }) {
   if (!accountsEnabled) {
     return <><span className="avatar" title="Guest mode: everything is saved in this browser">G</span><span className="who lbl">Guest</span></>
   }
-  const name = user?.email?.split('@')[0] ?? 'Guest'
+  const name = user ? displayName(user) : 'Guest'
   return (
-    <button className="acct" onClick={onOpen} title={user ? `${user.email} · ${status}` : 'Sign in to sync across devices'}>
+    <button className="acct" onClick={onOpen} title={user ? `${user.email ?? name} · ${status}` : 'Sign in to sync across devices'}>
       <span className="avatar">{user ? name[0].toUpperCase() : 'G'}{user && <span className={`syncdot ${status}`} />}</span>
       <span className="who lbl">{user ? name : <>Guest <span className="signin">Sign in</span></>}</span>
     </button>

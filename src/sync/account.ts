@@ -177,3 +177,9 @@ export async function signOut() {
 }
 
 export const unsyncedCount = pendingCount
+
+/** GitHub username when signed in with GitHub, otherwise the part of the email before the @. */
+export function displayName(user: User): string {
+  const m = user.user_metadata as { user_name?: string; preferred_username?: string } | undefined
+  return m?.user_name ?? m?.preferred_username ?? user.email?.split('@')[0] ?? 'You'
+}

@@ -15,6 +15,7 @@ import { Seg } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
 import { confirmAction } from '../../ui/confirm'
 import { FolderSelect } from './FolderSelect'
+import { accountsEnabled, displayName, useAccount } from '../../sync/account'
 
 type Lib = { folders: Folder[]; decks: DeckRow[]; mastery: Map<string, MasteryCounts> }
 
@@ -209,6 +210,7 @@ function FolderHeader({ folder, folders }: { folder: Folder; folders: Folder[] }
 function Empty() {
   const open = useUI((s) => s.open)
   const nav = useNavigate()
+  const { user, status, lastSync } = useAccount()
   const trySample = async () => {
     const r = parseDeckText(extractPromptExample(template))
     if (!r.ok) return
@@ -230,7 +232,13 @@ function Empty() {
           <div><b>Run it anywhere</b>Paste it into Claude, ChatGPT or Gemini with your files. It returns a <code>.json</code> deck.</div>
           <div><b>Import and learn</b>Drop the file here. Learn mode keeps going until you know every card.</div>
         </div>
-        <p style={{ fontSize: 12.5, marginTop: 36 }}>You're in guest mode. Decks and progress stay in this browser.</p>
+        <p style={{ fontSize: 12.5, marginTop: 36 }}>
+          {user
+            ? status === 'syncing' && !lastSync
+              ? 'Bringing in the decks from your account…'
+              : `Signed in as ${displayName(user)}. Decks you add here show up on your other devices.`
+            : <>You're in guest mode. Decks and progress stay in this browser.{accountsEnabled && <> <button className="linkbtn" style={{ fontSize: 'inherit', marginTop: 0 }} onClick={() => open('account')}>Sign in</button> to use them on your other devices.</>}</>}
+        </p>
       </div>
     </div>
   )
