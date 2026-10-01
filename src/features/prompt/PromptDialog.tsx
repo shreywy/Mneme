@@ -5,6 +5,7 @@ import { QUESTION_TYPES, type QuestionType } from '../../deck-format/types'
 import { Icon } from '../../ui/Icons'
 import { Seg, Sheet, Toggle } from '../../ui/controls'
 import { toast } from '../../ui/toasts'
+import { useUI } from '../../app/ui'
 
 const STORE = 'mneme.promptOptions'
 type Form = {
@@ -22,6 +23,8 @@ function load(): Form {
 }
 
 export function PromptDialog({ onClose }: { onClose: () => void }) {
+  const openDialog = useUI((u) => u.open)
+  const [copied, setCopied] = useState(false)
   const [f, setF] = useState<Form>(load)
   const up = (p: Partial<Form>) => setF((x) => ({ ...x, ...p }))
 
@@ -38,7 +41,7 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
   const remember = () => { try { localStorage.setItem(STORE, JSON.stringify(f)) } catch { /* private mode */ } }
   const copy = async () => {
     remember()
-    try { await navigator.clipboard.writeText(text); toast('Prompt copied', 'Paste it into your LLM with your course files') }
+    try { await navigator.clipboard.writeText(text); setCopied(true); toast('Prompt copied', 'Paste it into your LLM with your course files') }
     catch { toast('Copy failed', 'Use Download instead', 'x') }
   }
   const download = () => {
@@ -103,7 +106,8 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
       <div className="actions">
         <span className="muted" style={{ marginRight: 'auto', fontSize: 12.5, alignSelf: 'center' }}>{Math.round(text.length / 1000)}k characters</span>
         <button className="btn" onClick={download}><Icon name="down" />Download .md</button>
-        <button className="btn primary" onClick={copy}><Icon name="copy" />Copy prompt</button>
+        <button className={`btn ${copied ? '' : 'primary'}`} onClick={copy}><Icon name={copied ? 'check' : 'copy'} />{copied ? 'Copied' : 'Copy prompt'}</button>
+        <button className={`btn ${copied ? 'primary' : ''}`} onClick={() => openDialog('import')} title="When your LLM gives you the file">Next: import the file<Icon name="chev" className="flip-x" /></button>
       </div>
     </Sheet>
   )

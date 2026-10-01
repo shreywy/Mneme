@@ -240,3 +240,5 @@ a.drow:hover { background: var(--surface2); }
   .drow > span:not(.pct):not(.acts) { display: none; }
   .drow.static { grid-template-columns: 1fr auto; }
 }
+
+.i.flip-x { transform: scaleX(-1); }
