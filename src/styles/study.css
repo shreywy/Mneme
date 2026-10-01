@@ -373,6 +373,7 @@
 @media (max-width: 760px) {
   .sheet { top: auto; bottom: 0; left: 0; right: 0; width: 100%; transform: none; border-radius: 16px 16px 0 0; border-bottom: 0; max-height: 90dvh; padding-bottom: calc(18px + env(safe-area-inset-bottom)); animation: msheet .3s cubic-bezier(.2, .9, .25, 1); }
   @keyframes msheet { from { transform: translateY(40px); opacity: 0; } }
+  .sheet.pinned { top: auto; transform: none; max-height: 90dvh; animation: msheet .3s cubic-bezier(.2, .9, .25, 1); }
   .sheet .actions { position: sticky; bottom: calc(-18px - env(safe-area-inset-bottom)); background: var(--surface); padding: 12px 0 4px; margin-bottom: -4px; }
   .sheet .actions .btn { flex: 1; }
   .srow { flex-wrap: wrap; }

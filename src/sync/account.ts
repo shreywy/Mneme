@@ -29,6 +29,7 @@ const remote = () => supabaseRemote(supabase!)
 
 export async function initAccount() {
   if (!supabase) return
+  void oauthProviders()
   installHooks()
   const { data } = await supabase.auth.getSession()
   await handleUser(data.session?.user ?? null)

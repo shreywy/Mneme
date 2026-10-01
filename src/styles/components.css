@@ -147,6 +147,8 @@ h1.title { font-family: var(--serif); font-weight: 500; font-size: 42px; letter-
 @keyframes fadein { from { opacity: 0; } }
 .sheet { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(var(--w, 540px), calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 26px; z-index: 51; box-shadow: 0 20px 60px rgba(0, 0, 0, .18); animation: sheetin .25s var(--ease); }
 @keyframes sheetin { from { opacity: 0; transform: translate(-50%, -47%) scale(.97); } }
+.sheet.pinned { top: max(24px, 14vh); transform: translateX(-50%); max-height: calc(100vh - max(24px, 14vh) - 24px); animation-name: sheetin-top; }
+@keyframes sheetin-top { from { opacity: 0; transform: translate(-50%, 10px) scale(.97); } }
 .sheet h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; letter-spacing: -.01em; }
 .sheet .lede { color: var(--muted); margin-top: 6px; line-height: 1.5; font-size: 13.5px; }
 .sheet .close { position: absolute; top: 18px; right: 18px; }

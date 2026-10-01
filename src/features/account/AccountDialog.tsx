@@ -26,7 +26,7 @@ const PROVIDERS: Record<OAuthProvider, { name: string; icon: React.ReactNode }> 
 export function AccountDialog({ onClose }: { onClose: () => void }) {
   const { user } = useAccount()
   return (
-    <Sheet onClose={onClose} label="Account" width={460}>
+    <Sheet onClose={onClose} label="Account" width={460} top>
       {user ? <SignedIn onClose={onClose} /> : <SignIn />}
     </Sheet>
   )
@@ -135,6 +135,7 @@ function SignedIn({ onClose }: { onClose: () => void }) {
 
 function friendly(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e)
+  if (/error sending/i.test(m)) return "Couldn't send the email just now. Try again in a minute, or use another way to sign in."
   if (/rate limit|too many/i.test(m)) return 'Too many emails in a short time. Wait a minute and try again.'
   if (/expired|invalid/i.test(m)) return "That code didn't work. Check it, or request a new one."
   if (/fetch|network/i.test(m)) return "Couldn't reach the server. Check your connection."

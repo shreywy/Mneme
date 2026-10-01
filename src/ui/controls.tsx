@@ -51,8 +51,9 @@ export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boo
   return <button type="button" role="switch" aria-checked={on} aria-label={label} className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} />
 }
 
-/** Centered modal. Closes on Escape and on scrim click. */
-export function Sheet({ onClose, children, width, label }: { onClose: () => void; children: ReactNode; width?: number; label: string }) {
+/** Centered modal. Closes on Escape and on scrim click. `top` pins the sheet near the top instead of centring it, so fields don't move when the content grows
+ *  (password managers place their icon once and don't follow a field that shifts). */
+export function Sheet({ onClose, children, width, label, top }: { onClose: () => void; children: ReactNode; width?: number; label: string; top?: boolean }) {
   useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
     window.addEventListener('keydown', onKey, true)
@@ -61,7 +62,7 @@ export function Sheet({ onClose, children, width, label }: { onClose: () => void
   return (
     <>
       <div className="scrim" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={label} style={width ? ({ '--w': `${width}px` } as React.CSSProperties) : undefined}>
+      <div className={`sheet${top ? ' pinned' : ''}`} role="dialog" aria-modal="true" aria-label={label} style={width ? ({ '--w': `${width}px` } as React.CSSProperties) : undefined}>
         <button className="iconbtn close" onClick={onClose} aria-label="Close">
           <svg className="i"><use href="#i-x" /></svg>
         </button>
