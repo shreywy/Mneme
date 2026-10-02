@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { IconSprite } from '../ui/Icons'
 import { ContextMenuHost } from '../ui/ContextMenu'
@@ -16,6 +17,9 @@ import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
 import { ConfirmHost } from '../ui/confirm'
 
+// Pages bring the editor with them, so they load on first use.
+const SheetPage = lazy(() => import('../features/sheet/SheetPage').then((m) => ({ default: m.SheetPage })))
+
 export function App() {
   return (
     <BrowserRouter>
@@ -27,6 +31,7 @@ export function App() {
           <Route path="deck/:deckId" element={<DeckPage />} />
           <Route path="notes/:noteId" element={<NotesPage />} />
           <Route path="notes" element={<Navigate to="/" replace />} />
+          <Route path="write/:sheetId" element={<Suspense fallback={<div className="page" />}><SheetPage /></Suspense>} />
           <Route path="archive" element={<ArchivePage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="settings" element={<SettingsPage />} />

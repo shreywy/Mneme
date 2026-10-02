@@ -12,7 +12,8 @@ type Props = {
   autoFocus?: boolean
   onDoc: (doc: unknown) => void
   onHeight: (lines: number) => void
-  onBlur: () => void
+  /** Called with the final document; the block may be removed if it's empty. */
+  onBlur: (doc: unknown) => void
 }
 
 /** One text block. StarterKit's input rules give the markdown shortcuts: #, -, 1., >, ```, ---. [ ] makes a checklist. */
@@ -31,7 +32,7 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
     content: (block.data.doc as object | null) ?? '',
     autofocus: autoFocus ? 'end' : false,
     onUpdate: ({ editor: e }) => { clearTimeout(save.current); save.current = setTimeout(() => cb.current.onDoc(e.getJSON()), 400) },
-    onBlur: ({ editor: e }) => { clearTimeout(save.current); cb.current.onDoc(e.getJSON()); cb.current.onBlur() },
+    onBlur: ({ editor: e }) => { clearTimeout(save.current); cb.current.onBlur(e.getJSON()) },
   })
   // A change from another device replaces the content, unless this block is being edited here.
   useEffect(() => {
@@ -39,7 +40,13 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
       editor.commands.setContent(block.data.doc as object, { emitUpdate: false })
     }
   }, [editor, block.data.doc])
-  useEffect(() => { if (autoFocus && editor && !editor.isFocused) editor.commands.focus('end') }, [autoFocus, editor])
+  // Focus after the click that created the block has finished, or the browser takes focus back.
+  useEffect(() => {
+    if (!autoFocus || !editor) return
+    // focus('end') places the cursor; its own DOM focus waits for an animation frame, so focus the view now too.
+    const t = setTimeout(() => { if (!editor.isDestroyed && !editor.isFocused) { editor.commands.focus('end'); editor.view.focus() } }, 30)
+    return () => clearTimeout(t)
+  }, [autoFocus, editor])
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = box.current
