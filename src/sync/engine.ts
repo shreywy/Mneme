@@ -49,7 +49,14 @@ export const SPECS: Spec[] = [
   { remote: 'note_marks', table: () => db.marks, idOf: (r) => String(r.id), localKey: byKey(() => db.marks) },
   { remote: 'sheets', table: () => db.sheets, idOf: (r) => String(r.id), localKey: byKey(() => db.sheets) },
   { remote: 'sheet_blocks', table: () => db.sheetBlocks, idOf: (r) => String(r.id), localKey: byKey(() => db.sheetBlocks) },
+  { remote: 'sheet_ink', table: () => db.sheetInk, idOf: (r) => String(r.id), localKey: byKey(() => db.sheetInk) },
 ]
+
+/**
+ * The server doesn't have this table yet (the app shipped before its migration ran). That table's rows
+ * wait in the queue and everything else carries on syncing.
+ */
+const missingTable = (e: unknown) => ['PGRST205', '42P01'].includes(String((e as { code?: string } | null)?.code))
 
 // ---------- pending queue ----------
 const PENDING_KEY = 'mneme.sync.pending'
@@ -132,7 +139,7 @@ export async function push(remote: Remote): Promise<number> {
           return row ? { id, doc: JSON.parse(JSON.stringify(row)), deleted: false } : { id, doc: {}, deleted: true }
         }))).filter((r) => r.deleted === deletions)
         if (!rows.length) continue
-        await remote.upsert(spec.remote, rows)
+        try { await remote.upsert(spec.remote, rows) } catch (e) { if (missingTable(e)) break; throw e }
         const s = pending.get(spec.remote)
         for (const r of rows) s?.delete(r.id)
         savePending()
@@ -151,7 +158,8 @@ export async function pull(remote: Remote): Promise<number> {
     for (;;) {
       const cursor = cursors[spec.remote] ?? '1970-01-01T00:00:00.000Z'
       const since = new Date(Math.max(0, Date.parse(cursor) - OVERLAP_MS)).toISOString()
-      const rows = await remote.pullSince(spec.remote, since, 1000)
+      let rows: RemoteRow[]
+      try { rows = await remote.pullSince(spec.remote, since, 1000) } catch (e) { if (missingTable(e)) break; throw e }
       if (!rows.length) break
       const waiting = pending.get(spec.remote)
       await db.transaction('rw', spec.table(), async (tx) => {

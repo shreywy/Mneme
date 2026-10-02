@@ -10,6 +10,7 @@ import { Icon } from '../../ui/Icons'
 import { nodeFor, opensItself, runInsert } from './editor/commands'
 import { INSERT_DRAG } from './TextBlock'
 import { useRecents, useSheetUI, type Tool } from './store'
+import { InkBar } from './Ink'
 
 export const MYBLOCK_DRAG = 'application/x-mneme-myblock'
 
@@ -28,10 +29,14 @@ export async function insertNow(id: InsertId, at?: { x: number; y: number }) {
   await canvas.newBlock([opensItself(node)], at)
 }
 
-const TOOLS: { id: Tool; label: string; icon: string; key: string }[] = [
+const TOOLS: { id: Tool; label: string; icon: string; key: string; ink?: boolean }[] = [
   { id: 'text', label: 'Type: click the paper to write there', icon: 'text', key: 'T' },
   { id: 'select', label: 'Select: drag to pick several blocks', icon: 'cursor', key: 'V' },
   { id: 'pan', label: 'Move around the page', icon: 'hand', key: 'H' },
+  { id: 'pen', label: 'Pen: draw anywhere. Hold at the end of a stroke for a shape', icon: 'pen', key: 'P', ink: true },
+  { id: 'highlighter', label: 'Highlighter: goes behind the text', icon: 'highlight', key: 'M', ink: true },
+  { id: 'eraser', label: 'Eraser', icon: 'eraser', key: 'E', ink: true },
+  { id: 'lasso', label: 'Lasso: draw around ink and blocks to select them', icon: 'lasso', key: 'L', ink: true },
 ]
 
 /** Tools along the bottom: what a drag on the paper does, bookmarks, and Insert. */
@@ -52,15 +57,16 @@ export function Dock() {
   return (
     <>
       <div className="sheet-dock" onPointerDown={(e) => e.stopPropagation()}>
-        {TOOLS.map((t) => (
-          <button key={t.id} className={`dk ${tool === t.id ? 'on' : ''}`} aria-label={t.label} aria-pressed={tool === t.id} title={`${t.label}  ${t.key}`}
-            onMouseDown={(e) => e.preventDefault()} onClick={() => useSheetUI.setState({ tool: t.id })}><Icon name={t.icon} size={18} /></button>
+        {TOOLS.map((t, i) => (
+          <span key={t.id} className="dk-wrap">{t.ink && !TOOLS[i - 1].ink && <i className="dk-sep" />}
+          <button className={`dk ${tool === t.id ? 'on' : ''}`} aria-label={t.label} aria-pressed={tool === t.id} title={`${t.label}  ${t.key}`}
+            onMouseDown={(e) => e.preventDefault()} onClick={() => useSheetUI.setState({ tool: t.id })}><Icon name={t.icon} size={18} /></button></span>
         ))}
         <i className="dk-sep" />
         <button className="dk" aria-label="Add a bookmark in the middle of the view" title="Bookmark this spot" onMouseDown={(e) => e.preventDefault()} onClick={() => void canvas?.addBookmark()}><Icon name="flag" size={18} /></button>
         <button className={`dk dk-insert ${open ? 'on' : ''}`} title="Insert  I" onMouseDown={(e) => e.preventDefault()} onClick={() => useSheetUI.setState({ insertOpen: !open })}><Icon name="plus" size={16} />Insert</button>
       </div>
-      {open && <InsertPanel />}
+      {open ? <InsertPanel /> : <InkBar />}
     </>
   )
 }

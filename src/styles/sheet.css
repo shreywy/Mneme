@@ -270,3 +270,46 @@
 .save-state.warn i { background: #C8742C; }
 @keyframes save-pulse { 50% { opacity: .35; } }
 @media (max-width: 767px) { .save-state { display: none; } }
+
+/* Ink. Both layers live in the canvas world: highlighter behind the blocks, pen in front of them. */
+.ink-layer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.ink-layer.under { z-index: -100000; }
+.ink-layer.over { z-index: 7900; }
+.ink-layer.block { z-index: 1; }
+.ink-hl { opacity: .45; }
+:root[data-theme="light"] .sheet-host:not(.paper-dark) .ink-hl, .sheet-host.paper-light .ink-hl { mix-blend-mode: multiply; opacity: .6; }
+.ink-sel { filter: drop-shadow(0 0 1.5px var(--accent)) drop-shadow(0 0 1px var(--accent)); }
+.ink-snap { animation: ink-snap .28s var(--ease); }
+@keyframes ink-snap { from { opacity: .35; } to { opacity: 1; } }
+.ink-lasso { fill: color-mix(in oklab, var(--accent) 8%, transparent); stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.ink-eraser { fill: color-mix(in oklab, var(--ink) 6%, transparent); stroke: color-mix(in oklab, var(--ink) 55%, transparent); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.sheet-host.inking { cursor: crosshair; }
+.sheet-host.inking .sblock, .sheet-host.inking .sbookmark { pointer-events: none; }
+.sheet-host.ink-eraser { cursor: none; }
+.sheet-host.ink-lasso { cursor: crosshair; }
+.rblock { position: relative; }
+
+.sheet-dock .dk-wrap { display: contents; }
+.ink-bar { position: absolute; z-index: 7; left: 50%; bottom: 74px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); animation: ink-bar-in .18s var(--ease); white-space: nowrap; }
+@keyframes ink-bar-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+.ink-bar .dk-sep { width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
+.ink-slot { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 99px; }
+.ink-slot.on { background: var(--surface2); }
+.ink-slot .sw-pick { width: 18px; height: 18px; }
+.ink-swatch { width: 24px; height: 24px; border-radius: 99px; border: 2px solid var(--surface); background: var(--c); box-shadow: 0 0 0 1px var(--line); cursor: pointer; transition: transform .12s var(--ease), box-shadow .12s var(--ease); }
+.ink-swatch:hover { transform: scale(1.08); }
+.ink-swatch[aria-pressed="true"], .ink-swatch.on { box-shadow: 0 0 0 2px var(--accent); }
+.ink-swatch.sm { width: 18px; height: 18px; padding: 0 !important; height: 18px !important; border-width: 1.5px; }
+.ink-size { width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.ink-size i { display: block; border-radius: 99px; background: var(--ink); }
+.ink-size:hover { background: var(--surface2); }
+.ink-size.on { background: color-mix(in oklab, var(--accent) 18%, transparent); }
+.ink-hint { padding: 0 6px; color: var(--muted); font: 500 13px var(--sans); }
+.ink-more { position: relative; }
+.ink-more .iconbtn.on { background: var(--surface2); }
+.ink-pop { position: absolute; bottom: calc(100% + 10px); right: -8px; width: 300px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); white-space: normal; display: grid; gap: 10px; animation: ink-bar-in .16s var(--ease); }
+.ink-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 500 13px var(--sans); color: var(--ink); }
+.ink-row.col { flex-direction: column; align-items: stretch; gap: 6px; }
+.ink-row input[type="range"] { width: 140px; accent-color: var(--accent); }
+.sel-colors { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; }
+@media (max-width: 767px) { .ink-bar { bottom: 70px; max-width: calc(100vw - 24px); overflow-x: auto; } }

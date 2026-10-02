@@ -72,6 +72,14 @@ export function IconSprite() {
       <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" /></symbol>
       <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></symbol>
       <symbol id="i-highlight" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z" /><path d="M4 21h16" /></symbol>
+      <symbol id="i-pen" viewBox="0 0 24 24"><path d="M15.5 4.5l4 4L9 19l-5 1 1-5z" /><path d="M13.5 6.5l4 4" /></symbol>
+      <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M8.5 19.5L4 15l9.5-9.5 6.5 6.5-8 7.5z" /><path d="M9 10l5.5 5.5M8.5 19.5H20" /></symbol>
+      <symbol id="i-lasso" viewBox="0 0 24 24"><ellipse cx="12.5" cy="9" rx="8" ry="5" strokeDasharray="2.6 2.4" /><path d="M7.5 13c-1.6 1.6-1.2 3.6.4 4.4 1.7.8 1.2 2.6-.4 3.1" /></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4" /></symbol>
+      <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5" /><rect x="3.5" y="9" width="17" height="7" rx="1.5" /><path d="M7 14h10v6H7z" /></symbol>
+      <symbol id="i-sheets" viewBox="0 0 24 24"><rect x="5" y="3.5" width="11" height="14" rx="1" /><path d="M8 20.5h11v-14" /></symbol>
+      <symbol id="i-shape" viewBox="0 0 24 24"><rect x="3.5" y="10" width="9" height="9" rx="1" /><circle cx="16" cy="8" r="4.5" /></symbol>
+      <symbol id="i-spark2" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></symbol>
       <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></symbol>
       <symbol id="i-comment" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" /></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></symbol>

@@ -1,12 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as sheets from '../../data/sheets'
+import * as inkData from '../../data/ink'
+import { anchorFor, distToStroke, encodePoints, insidePolygon, lassoPicks, recogniseShape, rubOut, shiftPoints, straightenHighlight, strokeBounds, type Pt } from '../../sheets/ink'
 import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
 import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
 import { titleFrom } from '../../sheets/order'
 import { fontCss } from '../../sheets/fonts'
 import type { InsertId } from '../../sheets/insert'
-import type { SheetBlock, SheetRow } from '../../sheets/types'
+import type { SheetBlock, SheetRow, SheetStroke } from '../../sheets/types'
 import type { Editor } from '@tiptap/react'
 import { isTyping } from '../../app/ui'
 import { isDarkTheme, useSettings } from '../../settings/store'
@@ -24,7 +26,8 @@ import { INSERT_DRAG, TextBlock } from './TextBlock'
  */
 const TextBlockMemo = memo(TextBlock, (a, b) => a.block === b.block && a.unit === b.unit && a.autoFocus === b.autoFocus)
 import { Toolbar } from './Toolbar'
-import { useSheetUI } from './store'
+import { isInkTool, useSheetUI } from './store'
+import { HIGHLIGHTERS, InkLayer, inkColor, useInk, worldPoints, type Draft, type InkShift } from './Ink'
 
 const START: View = { x: 0, y: 0, zoom: 1 }
 const viewKey = (id: string) => `mneme.sheet.view.${id}`
@@ -37,6 +40,13 @@ type Gesture =
   | { kind: 'pan'; sx: number; sy: number; moved: boolean; wasEditing: boolean; click: boolean }
   | { kind: 'box'; a: { x: number; y: number }; b: { x: number; y: number } }
   | { kind: 'pinch'; dist: number; zoom: number }
+  | { kind: 'draw' }
+  /** Strokes as they stand during this rub (`work`), the ones it removed that existed before, and the pieces it made. */
+  | { kind: 'erase'; work: Map<string, SheetStroke>; before: Map<string, SheetStroke>; added: Map<string, SheetStroke>; writes: Promise<void> }
+  | { kind: 'lasso' }
+
+/** A pen has been used in this tab: with "only the pen draws" on Auto, fingers now move the page instead. */
+let seenPen = false
 
 /**
  * Class names that give a page its own light or dark paper, whatever the app uses. It takes the palette
@@ -54,12 +64,25 @@ export function usePaperTheme(s: SheetRow) {
  * The infinite canvas: pan, zoom, click to type, move and resize blocks on the grid, select several,
  * bookmarks, and drop targets for Insert.
  */
-export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[] }) {
+export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: SheetBlock[]; strokes: SheetStroke[] }) {
   const unit = sheet.paper.spacing
   const [view, setView] = useState<View>(() => loadView(sheet.id))
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [focusId, setFocusId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [selInk, setSelInk] = useState<Set<string>>(() => new Set())
+  const select = (ids: Iterable<string>, ink: Iterable<string> = []) => { setSelected(new Set(ids)); setSelInk(new Set(ink)) }
+  // The stroke being drawn. It stays drawn until the saved stroke shows up, so nothing flickers.
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const draftRef = useRef<Draft | null>(null)
+  const landing = useRef<string | null>(null)
+  const [lasso, setLasso] = useState<number[][] | null>(null)
+  const [eraserAt, setEraserAt] = useState<{ x: number; y: number } | null>(null)
+  const [inkShift, setInkShift] = useState<InkShift | null>(null)
+  const shiftLanded = useRef(false)
+  const hold = useRef<{ timer?: ReturnType<typeof setTimeout>; x: number; y: number }>({ x: 0, y: 0 })
+  const taps = useRef({ t: 0, n: 0, moved: false })
+  const prefs = useInk()
   // Heights as measured here. Only the block being edited writes its height, so a device that measures
   // slightly differently never marks a block changed (which would push its copy over newer text).
   const [heights, setHeights] = useState<Record<string, number>>({})
@@ -71,6 +94,11 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     const p = placed[b.id], h = heights[b.id]
     return p || h ? { ...b, ...(p ?? {}), ...(h ? { h } : {}) } : b
   }), [blocks, heights, placed])
+  const spots = useMemo(() => new Map(shown.map((b) => [b.id, { x: b.x, y: b.y }])), [shown])
+  useEffect(() => {
+    if (landing.current && strokes.some((x) => x.id === landing.current)) { landing.current = null; if (!draftRef.current) setDraft(null) }
+    if (shiftLanded.current) { shiftLanded.current = false; setInkShift(null) }
+  }, [strokes])
   const [gesture, setGesture] = useState<Gesture | null>(null)
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null)
   const [space, setSpace] = useState(false)
@@ -79,8 +107,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   const host = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   // Latest values for listeners that are attached once.
-  const live = useRef({ blocks, selected, view, size, shown })
-  live.current = { blocks, selected, view, size, shown }
+  const live = useRef({ blocks, selected, view, size, shown, strokes, selInk, spots, prefs })
+  live.current = { blocks, selected, view, size, shown, strokes, selInk, spots, prefs }
   const main = blocks.find((b) => b.role === 'main')
   const theme = usePaperTheme(sheet)
 
@@ -96,6 +124,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  // Picking up the pen, highlighter or eraser lets go of the selection, so its frame can't get in the way.
+  useEffect(() => { if (tool === 'pen' || tool === 'highlighter' || tool === 'eraser') { setSelected(new Set()); setSelInk(new Set()) } }, [tool])
   // Leaving the page puts the tools back to typing and closes Insert.
   useEffect(() => () => useSheetUI.setState({ tool: 'text', insertOpen: false, editor: null, lastEditor: null, blockId: null, canvas: null }), [])
 
@@ -121,17 +151,24 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     const c = toWorld(v, s.w / 2, s.h / 3)
     return { x: Math.floor(c.x / unit) - 6, y: Math.floor(c.y / unit) }
   }
-  const removeBlocks = useCallback(async (ids: Set<string>) => {
+  /** Deletes blocks (not the main column) with whatever is drawn on them, and any strokes in `inkIds`. One undo brings it all back. */
+  const removeSelection = useCallback(async (ids: Set<string>, inkIds: Set<string> = new Set()) => {
     const gone = live.current.blocks.filter((b) => ids.has(b.id) && b.role !== 'main')
-    if (!gone.length) return
-    const c: Change = gone.length === 1 ? { kind: 'remove', block: gone[0] } : { kind: 'batch', changes: gone.map((block) => ({ kind: 'remove', block })) }
+    const goneIds = new Set(gone.map((b) => b.id))
+    const goneInk = live.current.strokes.filter((st) => inkIds.has(st.id) || (st.blockId && goneIds.has(st.blockId)))
+    const list: Change[] = [...gone.map((block) => ({ kind: 'remove' as const, block })), ...goneInk.map((stroke) => ({ kind: 'ink-remove' as const, stroke }))]
+    if (!list.length) return
+    const c: Change = list.length === 1 ? list[0] : { kind: 'batch', changes: list }
     history.record(c)
     await applyChange(c)
-    setSelected(new Set())
-    toast(gone.length === 1 ? 'Block deleted' : `${gone.length} blocks deleted`, gone.length === 1 ? 'Ctrl+Z brings it back' : 'Ctrl+Z brings them back', 'trash')
+    select([])
+    const what = gone.length === 1 ? 'Block deleted' : gone.length ? `${gone.length} blocks deleted` : 'Drawing deleted'
+    toast(what, list.length === 1 ? 'Ctrl+Z brings it back' : 'Ctrl+Z brings them back', 'trash')
   }, [history])
-  const addBlocks = useCallback((made: SheetBlock[]) => {
-    if (made.length) history.record(made.length === 1 ? { kind: 'add', block: made[0] } : { kind: 'batch', changes: made.map((block) => ({ kind: 'add', block })) })
+  const removeBlocks = useCallback((ids: Set<string>) => removeSelection(ids), [removeSelection])
+  const addMade = useCallback((made: { blocks: SheetBlock[]; ink: SheetStroke[] }) => {
+    const list: Change[] = [...made.blocks.map((block) => ({ kind: 'add' as const, block })), ...made.ink.map((stroke) => ({ kind: 'ink-add' as const, stroke }))]
+    if (list.length) history.record(list.length === 1 ? list[0] : { kind: 'batch', changes: list })
   }, [history])
   const undo = useCallback(() => { const c = history.undo(); if (c) void applyChange(c) }, [history])
   const redo = useCallback(() => { const c = history.redo(); if (c) void applyChange(c) }, [history])
@@ -164,8 +201,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
           if (!g) return
           const box = boundsOf(g.blocks) ?? { w: 1, h: 1 }
           const made = await placeMyBlock(g, sheet.id, at ?? freeSpot(live.current.shown, middleCell(), box.w, box.h))
-          addBlocks(made)
-          setSelected(new Set(made.map((b) => b.id)))
+          addMade(made)
+          select(made.blocks.map((b) => b.id))
         },
         addBookmark,
         jumpTo,
@@ -200,10 +237,10 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo() }
       else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo() }
-      else if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); setSelected(new Set(live.current.blocks.map((b) => b.id))) }
-      else if (mod && e.key.toLowerCase() === 'd' && live.current.selected.size) { e.preventDefault(); void duplicate(live.current.selected) }
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && live.current.selected.size) { e.preventDefault(); void removeBlocks(live.current.selected) }
-      else if (e.key === 'Escape') setSelected(new Set())
+      else if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); select(live.current.blocks.map((b) => b.id), live.current.strokes.map((x) => x.id)) }
+      else if (mod && e.key.toLowerCase() === 'd' && (live.current.selected.size || live.current.selInk.size)) { e.preventDefault(); void duplicate(live.current.selected, live.current.selInk) }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && (live.current.selected.size || live.current.selInk.size)) { e.preventDefault(); void removeSelection(live.current.selected, live.current.selInk) }
+      else if (e.key === 'Escape') { select([]); if (draftRef.current) cancelInk() }
     }
     const onUp = (e: KeyboardEvent) => { if (e.key === ' ') setSpace(false) }
     const onBlur = () => { setSpace(false); pointers.current.clear(); setGesture(null) }
@@ -211,12 +248,20 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     window.addEventListener('keyup', onUp)
     window.addEventListener('blur', onBlur)
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onUp); window.removeEventListener('blur', onBlur) }
-  }, [undo, redo, removeBlocks]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [undo, redo, removeSelection]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const duplicate = async (ids: Set<string>) => {
-    const made = await sheets.duplicateBlocks(live.current.blocks.filter((b) => ids.has(b.id)))
-    addBlocks(made)
-    setSelected(new Set(made.map((b) => b.id)))
+  const duplicate = async (ids: Set<string>, inkIds: Set<string> = new Set()) => {
+    const made = await sheets.duplicateBlocks(live.current.blocks.filter((b) => ids.has(b.id)), live.current.strokes.filter((x) => inkIds.has(x.id)), unit)
+    addMade(made)
+    select(made.blocks.map((b) => b.id), made.ink.map((x) => x.id))
+  }
+  /** New colour for the selected strokes. */
+  const recolor = async (color: string) => {
+    const list = live.current.strokes.filter((x) => live.current.selInk.has(x.id) && x.color !== color)
+    if (!list.length) return
+    const changes: Change[] = list.map((before) => ({ kind: 'ink-update', before, after: { ...before, color } }))
+    history.record(changes.length === 1 ? changes[0] : { kind: 'batch', changes })
+    await inkData.putStrokes(list.map((x) => ({ ...x, color })))
   }
   const saveAsMine = async (ids: Set<string>) => {
     const list = live.current.shown.filter((b) => ids.has(b.id))
@@ -247,9 +292,10 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     }
     if (b) {
       const ids = live.current.selected.has(b.id) ? live.current.selected : new Set([b.id])
+      const inkIds = live.current.selected.has(b.id) ? live.current.selInk : new Set<string>()
       const many = ids.size > 1
       return [
-        { label: many ? `Duplicate ${ids.size} blocks` : 'Duplicate', icon: 'copy', kbd: 'Ctrl D', onSelect: () => duplicate(ids) },
+        { label: many ? `Duplicate ${ids.size} blocks` : 'Duplicate', icon: 'copy', kbd: 'Ctrl D', onSelect: () => duplicate(ids, inkIds) },
         { label: 'Save as my block…', icon: 'star', onSelect: () => saveAsMine(ids) },
         ...(!many ? [
           { label: 'Bring to front', icon: 'upload', onSelect: () => toFront(b) },
@@ -258,7 +304,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         { sep: true as const },
         b.role === 'main' && !many
           ? { label: "The main column can't be deleted", disabled: true, onSelect: () => {} }
-          : { label: many ? `Delete ${ids.size} blocks` : 'Delete block', icon: 'trash', kbd: 'Del', danger: true, onSelect: () => removeBlocks(ids) },
+          : { label: many ? `Delete ${ids.size} blocks` : 'Delete block', icon: 'trash', kbd: 'Del', danger: true, onSelect: () => removeSelection(ids, inkIds) },
       ]
     }
     const p = local(e)
@@ -268,7 +314,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       { label: 'Insert here…', icon: 'plus', onSelect: () => useSheetUI.setState({ insertOpen: true }) },
       { label: 'Add a bookmark here', icon: 'flag', onSelect: () => addBookmark({ x: gx, y: gy }) },
       { sep: true as const },
-      { label: 'Select all', kbd: 'Ctrl A', onSelect: () => setSelected(new Set(live.current.blocks.map((x) => x.id))) },
+      { label: 'Select all', kbd: 'Ctrl A', onSelect: () => select(live.current.blocks.map((x) => x.id), live.current.strokes.map((x) => x.id)) },
       { label: 'Recenter page', icon: 'reset', onSelect: () => setView(START) },
     ]
   })
@@ -278,14 +324,28 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   const onPointerDown = (e: React.PointerEvent) => {
     useSheetUI.setState({ editor: null }) // the toolbar lets go of the block you were in
     const mouse = e.pointerType === 'mouse'
+    if (e.pointerType === 'pen') seenPen = true
     if (mouse && e.button !== 0 && e.button !== 1) return // right-click opens the menu
     if (mouse && e.button === 1) e.preventDefault() // no autoscroll
+    const inking = isInkTool(tool)
+    const penOnly = prefs.penOnly === 'on' || (prefs.penOnly === 'auto' && seenPen)
+    const fingerPans = inking && penOnly && e.pointerType === 'touch'
+    // Palm rejection: while the pen is drawing, a hand resting on the screen does nothing.
+    if (fingerPans && (gesture?.kind === 'draw' || gesture?.kind === 'erase' || gesture?.kind === 'lasso')) return
     try { host.current!.setPointerCapture(e.pointerId) } catch { /* a pointer the browser no longer tracks */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    const panOnly = (mouse && e.button === 1) || space || tool === 'pan'
+    if (e.pointerType === 'touch') {
+      const now = performance.now()
+      taps.current = pointers.current.size === 1 ? { t: now, n: 1, moved: false } : { ...taps.current, n: now - taps.current.t < 250 ? pointers.current.size : 0 }
+    }
+    const panOnly = (mouse && e.button === 1) || space || tool === 'pan' || fingerPans
     if (pointers.current.size === 2) {
+      // A second finger means pinch: a stroke the first one started is dropped.
+      if (draftRef.current) cancelInk()
       const [a, b] = [...pointers.current.values()]
       setGesture({ kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: view.zoom })
+    } else if (inking && !panOnly) {
+      startInk(e)
     } else if (!panOnly && e.pointerType !== 'touch' && (e.shiftKey || tool === 'select')) {
       const p = local(e), w = toWorld(view, p.x, p.y)
       setGesture({ kind: 'box', a: w, b: w })
@@ -296,9 +356,14 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     }
   }
   const onPointerMove = (e: React.PointerEvent) => {
+    if (tool === 'eraser' && e.pointerType !== 'touch') { const p = local(e); setEraserAt(toWorld(view, p.x, p.y)) }
     const prev = pointers.current.get(e.pointerId)
     if (!prev || !gesture) return
+    if (e.pointerType === 'touch' && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > 2) taps.current.moved = true
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (gesture.kind === 'draw') { extendDraft(e); return }
+    if (gesture.kind === 'erase') { const p = local(e); eraseAt(gesture, toWorld(view, p.x, p.y)); return }
+    if (gesture.kind === 'lasso') { const p = local(e), w = toWorld(view, p.x, p.y); setLasso((l) => (l ? [...l, [w.x, w.y]] : l)); return }
     if (gesture.kind === 'pinch' && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
       const mid = local({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 })
@@ -314,24 +379,151 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     }
   }
   const onPointerUp = async (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return // a palm the pen ignored
     pointers.current.delete(e.pointerId)
     try { host.current?.releasePointerCapture(e.pointerId) } catch { /* already released */ }
     if (pointers.current.size) return
+    // Two fingers tapped together: undo.
+    if (e.pointerType === 'touch' && taps.current.n === 2 && !taps.current.moved && performance.now() - taps.current.t < 400) {
+      taps.current.n = 0
+      setGesture(null)
+      undo()
+      return
+    }
     const g = gesture
     setGesture(null)
+    if (g?.kind === 'erase') { finishErase(g); return }
+    if (g?.kind === 'draw') { if (e.type === 'pointercancel') cancelInk(); else void finishDraw(); return }
+    if (g?.kind === 'lasso') { finishLasso(); return }
     if (!g || e.type === 'pointercancel') return
     if (g.kind === 'box') {
-      setSelected(new Set(blocksInRect(shown, { x: g.a.x / unit, y: g.a.y / unit }, { x: g.b.x / unit, y: g.b.y / unit })))
+      const x0 = Math.min(g.a.x, g.b.x), x1 = Math.max(g.a.x, g.b.x), y0 = Math.min(g.a.y, g.b.y), y1 = Math.max(g.a.y, g.b.y)
+      select(blocksInRect(shown, { x: g.a.x / unit, y: g.a.y / unit }, { x: g.b.x / unit, y: g.b.y / unit }), strokes.filter((x) => {
+        const pts = worldPoints(x, spots, unit)
+        if (!pts) return false
+        const r = strokeBounds(pts), cx = r.x + r.w / 2, cy = r.y + r.h / 2
+        return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1
+      }).map((x) => x.id))
       return
     }
     if (g.kind !== 'pan' || g.moved) return
-    if (selected.size) { setSelected(new Set()); return }
+    if (selected.size || selInk.size) { select([]); return }
     if (!g.click || g.wasEditing) return // the first click away just stops editing
     const p = local(e)
     const { gx, gy } = cellAt(view, p.x, p.y, unit)
     const block = await sheets.addBlock({ sheetId: sheet.id, x: gx, y: gy, w: 12, h: 1, kind: 'text', data: { doc: EMPTY_PARAGRAPH }, z: nextZ() })
     history.record({ kind: 'add', block })
     setFocusId(block.id)
+  }
+
+  // ---------- ink ----------
+  const cancelInk = () => { clearTimeout(hold.current.timer); draftRef.current = null; setDraft(null); setLasso(null) }
+  /** Hold still for a moment at the end of a pen stroke and it becomes a clean shape (Alt: off the grid). */
+  const armHold = (cx: number, cy: number, alt: boolean) => {
+    clearTimeout(hold.current.timer)
+    hold.current = {
+      x: cx, y: cy, timer: setTimeout(() => {
+        const d = draftRef.current
+        if (!d || d.shape || d.tool !== 'pen' || !live.current.prefs.shapes) return
+        const shape = recogniseShape(d.pts, unit, !alt)
+        if (shape) { const n = { ...d, pts: shape.pts, shape: true }; draftRef.current = n; setDraft(n) }
+      }, 550),
+    }
+  }
+  const pressureOf = (ev: PointerEvent | React.PointerEvent) => (ev.pointerType === 'pen' && prefs.pressure ? ev.pressure || 0.5 : 0.5)
+  const startInk = (e: React.PointerEvent) => {
+    const p = local(e), w = toWorld(view, p.x, p.y)
+    if (tool === 'lasso') { select([]); setLasso([[w.x, w.y]]); setGesture({ kind: 'lasso' }); return }
+    if (tool === 'eraser') {
+      const g = { kind: 'erase' as const, work: new Map(strokes.map((x) => [x.id, x])), before: new Map<string, SheetStroke>(), added: new Map<string, SheetStroke>(), writes: Promise.resolve() }
+      setGesture(g)
+      eraseAt(g, w)
+      return
+    }
+    const pen = tool === 'pen'
+    const d: Draft = {
+      tool: pen ? 'pen' : 'highlighter', pts: [[w.x, w.y, pressureOf(e)]], color: pen ? prefs.pens[prefs.pen] : prefs.highlighter,
+      size: pen ? prefs.penSize : prefs.highlighterSize, shape: false, sim: pen && prefs.pressure && e.pointerType !== 'pen',
+    }
+    draftRef.current = d
+    setDraft(d)
+    setGesture({ kind: 'draw' })
+    armHold(e.clientX, e.clientY, e.altKey)
+  }
+  const extendDraft = (e: React.PointerEvent) => {
+    const d = draftRef.current
+    if (!d || d.shape) return
+    const r = host.current!.getBoundingClientRect()
+    const evs = e.nativeEvent.getCoalescedEvents?.() ?? []
+    const add: Pt[] = (evs.length ? evs : [e.nativeEvent]).map((ev) => {
+      const w = toWorld(view, ev.clientX - r.left, ev.clientY - r.top)
+      return [w.x, w.y, pressureOf(ev)]
+    })
+    const n = { ...d, pts: [...d.pts, ...add] }
+    draftRef.current = n
+    setDraft(n)
+    if (Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > 3) armHold(e.clientX, e.clientY, e.altKey)
+  }
+  /** Saves the stroke: a highlighter along a line straightens onto it; one drawn mostly over a block is pinned to it. */
+  const finishDraw = async () => {
+    clearTimeout(hold.current.timer)
+    const d = draftRef.current
+    draftRef.current = null
+    if (!d) return
+    let pts = d.pts, shape = d.shape
+    if (d.tool === 'highlighter' && !shape) { const st = straightenHighlight(pts, unit); if (st) { pts = st; shape = true } }
+    if (d.tool === 'highlighter' && pts.length < 2) { setDraft(null); return }
+    const rects = live.current.shown.filter((b) => b.kind === 'text').map((b) => ({ id: b.id, x: b.x * unit, y: b.y * unit, w: b.w * unit, h: b.h * unit }))
+    const blockId = anchorFor(pts, rects)
+    const at = blockId ? rects.find((r) => r.id === blockId)! : null
+    const own = at ? pts.map(([x, y, pr]): Pt => [x - at.x, y - at.y, pr]) : pts
+    const row = await inkData.addStroke({
+      sheetId: sheet.id, ...(blockId ? { blockId } : {}), tool: d.tool, color: d.color, size: d.size, pts: encodePoints(own),
+      ...(shape ? { shape: true } : {}), ...(d.sim && !shape ? { sim: true } : {}),
+    })
+    landing.current = row.id
+    history.record({ kind: 'ink-add', stroke: row })
+  }
+  /** Erases under (x, y): whole strokes, or just the part rubbed over (the rest stays as separate pieces). */
+  const eraseAt = (g: Extract<Gesture, { kind: 'erase' }>, w: { x: number; y: number }) => {
+    const { prefs: pr, spots: at, view: v } = live.current
+    const r = pr.eraserSize / 2 / v.zoom
+    const gone: string[] = [], made: SheetStroke[] = []
+    for (const st of g.work.values()) {
+      const pts = worldPoints(st, at, unit)
+      if (!pts) continue
+      const reach = r + st.size / 2
+      if (pr.eraser === 'stroke') { if (distToStroke(pts, [w.x, w.y]) <= reach) gone.push(st.id); continue }
+      const pieces = rubOut(pts, [w.x, w.y], reach)
+      if (!pieces) continue
+      gone.push(st.id)
+      const b = st.blockId ? at.get(st.blockId) : null
+      const ox = b ? b.x * unit : 0, oy = b ? b.y * unit : 0
+      const now = Date.now()
+      for (const piece of pieces) made.push({ ...st, id: crypto.randomUUID(), pts: encodePoints(piece.map(([x, y, pp]): Pt => [x - ox, y - oy, pp])), createdAt: now, updatedAt: now })
+    }
+    if (!gone.length) return
+    for (const id of gone) {
+      const st = g.work.get(id)!
+      g.work.delete(id)
+      if (g.added.has(id)) g.added.delete(id); else g.before.set(id, st)
+    }
+    for (const st of made) { g.work.set(st.id, st); g.added.set(st.id, st) }
+    // In order: a piece made a moment ago may be rubbed out again before it's even saved.
+    g.writes = g.writes.then(() => inkData.deleteStrokes(gone)).then(() => inkData.putStrokes(made))
+  }
+  const finishErase = (g: Extract<Gesture, { kind: 'erase' }>) => {
+    const changes: Change[] = [...[...g.before.values()].map((stroke) => ({ kind: 'ink-remove' as const, stroke })), ...[...g.added.values()].map((stroke) => ({ kind: 'ink-add' as const, stroke }))]
+    if (changes.length) history.record(changes.length === 1 ? changes[0] : { kind: 'batch', changes })
+  }
+  /** Selects the strokes mostly inside the lasso, and the blocks whose middle is. */
+  const finishLasso = () => {
+    const poly = lasso
+    setLasso(null)
+    if (!poly || poly.length < 3) return
+    const inks = lassoPicks(strokes.map((x) => ({ id: x.id, pts: worldPoints(x, spots, unit) ?? [] })), poly)
+    const inside = shown.filter((b) => insidePolygon([(b.x + b.w / 2) * unit, (b.y + Math.max(1, b.h) / 2) * unit], poly)).map((b) => b.id)
+    select(inside, inks)
   }
 
   /**
@@ -368,6 +560,10 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     e.preventDefault()
     e.stopPropagation()
     const moving = !b ? blocks.filter((x) => selected.has(x.id)) : what === 'move' && selected.has(b.id) ? blocks.filter((x) => selected.has(x.id)) : [b]
+    const movingIds = new Set(moving.map((m) => m.id))
+    // Selected strokes come along. Ones drawn on a block that moves ride on it already.
+    const inkMoving = what === 'move' && (!b || selected.has(b.id)) ? strokes.filter((x) => selInk.has(x.id) && !(x.blockId && movingIds.has(x.blockId))) : []
+    let shift = { dx: 0, dy: 0 }
     const sx = e.clientX, sy = e.clientY
     const el = e.currentTarget as HTMLElement
     try { el.setPointerCapture(e.pointerId) } catch { /* a pointer the browser no longer tracks */ }
@@ -380,7 +576,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       frame = 0
       const ev = last
       if (!ev) return
-      const step = (px: number) => (ev.altKey ? px / unit : snapUnits(px, unit))
+      // Blocks snap to the grid (Alt: free); drawing on its own moves freely.
+      const step = (px: number) => (ev.altKey || !moving.length ? px / unit : snapUnits(px, unit))
       const dx = step((ev.clientX - sx) / view.zoom), dy = step((ev.clientY - sy) / view.zoom)
       latest = moving.map((m) => (what === 'move' ? { ...m, x: m.x + dx, y: m.y + dy } : { ...m, w: Math.max(4, m.w + dx) }))
       setPlaced((p) => {
@@ -388,6 +585,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         for (const m of latest) n[m.id] = { x: m.x, y: m.y, w: m.w }
         return n
       })
+      if (inkMoving.length) { shift = { dx: dx * unit, dy: dy * unit }; setInkShift({ ...shift, blocks: movingIds }) }
     }
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return
@@ -412,7 +610,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       }
       if (!moved && !b) {
         // A click on the selection (not a drag) lets go of it and puts the cursor where you clicked.
-        setSelected(new Set())
+        select([])
         const pm = document.elementsFromPoint(ev.clientX, ev.clientY).find((x) => x.classList.contains('ProseMirror')) as (Element & { editor?: Editor }) | undefined
         const ed = pm?.editor
         const at = ed?.view.posAtCoords({ left: ev.clientX, top: ev.clientY })
@@ -422,10 +620,16 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       const changes: Extract<Change, { kind: 'update' }>[] = moving
         .map((before, i) => ({ kind: 'update' as const, before, after: latest[i] }))
         .filter((c) => c.before.x !== c.after.x || c.before.y !== c.after.y || c.before.w !== c.after.w)
-      if (!changes.length) { setPlaced((p) => settle(p, blocks)); return }
-      history.record(changes.length === 1 ? changes[0] : { kind: 'batch', changes })
+      const inkChanges: Extract<Change, { kind: 'ink-update' }>[] = shift.dx || shift.dy
+        ? inkMoving.map((before) => ({ kind: 'ink-update' as const, before, after: { ...before, pts: shiftPoints(before.pts, shift.dx, shift.dy) } }))
+        : []
+      if (!changes.length && !inkChanges.length) { setPlaced((p) => settle(p, blocks)); setInkShift(null); return }
+      const all: Change[] = [...changes, ...inkChanges]
+      history.record(all.length === 1 ? all[0] : { kind: 'batch', changes: all })
       // One write for the whole drop. Patches, not whole rows: text may have changed meanwhile.
       void sheets.updateBlocks(changes.map((c) => ({ id: c.after.id, patch: what === 'move' ? { x: c.after.x, y: c.after.y } : { w: c.after.w } })))
+      if (inkChanges.length) { shiftLanded.current = true; void inkData.updateStrokes(inkChanges.map((c) => ({ id: c.after.id, patch: { pts: c.after.pts } }))) }
+      else setInkShift(null)
     }
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
@@ -455,10 +659,20 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
 
   const zoomBy = (factor: number) => setView((v) => zoomAt(v, size.w / 2, size.h / 2, factor))
   const box = gesture?.kind === 'box' ? { a: toScreen(view, gesture.a.x, gesture.a.y), b: toScreen(view, gesture.b.x, gesture.b.y) } : null
-  const sel = selected.size ? boundsOf(shown.filter((b) => selected.has(b.id))) : null
-  const many = selected.size > 1
+  // The selection frame takes in selected strokes too (in grid units, shifted while they're dragged).
+  const inkBoxes = strokes.filter((x) => selInk.has(x.id)).flatMap((x) => {
+    const pts = worldPoints(x, spots, unit)
+    if (!pts) return []
+    const r = strokeBounds(pts), pad = x.size / 2
+    const sh = inkShift && !(x.blockId && inkShift.blocks.has(x.blockId)) ? inkShift : null
+    return [{ x: (r.x - pad + (sh?.dx ?? 0)) / unit, y: (r.y - pad + (sh?.dy ?? 0)) / unit, w: (r.w + pad * 2) / unit, h: (r.h + pad * 2) / unit }]
+  })
+  const selCount = selected.size + selInk.size
+  const sel = selCount ? boundsOf([...shown.filter((b) => selected.has(b.id)), ...inkBoxes]) : null
+  const many = selCount > 1
   const panning = (gesture?.kind === 'pan' && gesture.moved) || gesture?.kind === 'pinch'
-  const cursor = panning ? 'panning' : space || tool === 'pan' ? 'can-pan' : tool === 'select' ? 'can-select' : ''
+  const inking = isInkTool(tool) && !space
+  const cursor = panning ? 'panning' : space || tool === 'pan' ? 'can-pan' : tool === 'select' ? 'can-select' : inking ? `inking ink-${tool}` : ''
   return (
     <div className="sheet-wrap">
       <Toolbar mainBlockId={main?.id} />
@@ -466,7 +680,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         style={{ ...paperStyle(sheet.paper, view), '--page-font': fontCss(sheet.paper.font) } as React.CSSProperties}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
-        onLostPointerCapture={(e) => { pointers.current.delete(e.pointerId); if (!pointers.current.size) setGesture(null) }}
+        onPointerLeave={() => setEraserAt(null)}
+        onLostPointerCapture={(e) => { if (!pointers.current.has(e.pointerId)) return; pointers.current.delete(e.pointerId); if (!pointers.current.size && gesture?.kind !== 'draw' && gesture?.kind !== 'erase' && gesture?.kind !== 'lasso') setGesture(null) }}
         onDragOver={onDragOver} onDragLeave={(e) => { if (e.currentTarget === e.target) setGhost(null) }} onDrop={onDrop}>
         <div className="sheet-world" style={{ transform: `translate(${-view.x * view.zoom}px, ${-view.y * view.zoom}px) scale(${view.zoom})` }}>
           <div className="sheet-origin" aria-hidden="true" />
@@ -491,15 +706,23 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
               <span className="swidth" aria-hidden="true" onPointerDown={startDrag(b, 'width')} />
             </div>
           ) })}
+          <InkLayer strokes={strokes} blocks={spots} unit={unit} selected={selInk} shift={inkShift} draft={draft} lasso={lasso}
+            eraser={tool === 'eraser' && eraserAt ? { ...eraserAt, r: prefs.eraserSize / 2 / view.zoom } : null} />
           {sel && (
             <div className={`sheet-sel ${many ? 'many' : ''}`} style={{ left: sel.x * unit - 6, top: sel.y * unit - 6, width: sel.w * unit + 12, height: sel.h * unit + 12 }}
               onPointerDown={startDrag(null, 'move')} title="Drag to move · click to edit">
-              {many && <button className="sel-grip" aria-label={`Move the ${selected.size} selected blocks`} title="Drag to move them all" onPointerDown={startDrag(null, 'move')}><Icon name="grid" size={13} /></button>}
+              {(many || !selected.size) && <button className="sel-grip" aria-label={`Move the ${selCount} selected things`} title="Drag to move them all" onPointerDown={startDrag(null, 'move')}><Icon name="grid" size={13} /></button>}
               <div className="sel-bar" onPointerDown={(e) => e.stopPropagation()} style={{ transform: `scale(${1 / view.zoom})` }}>
-                <span className="n">{many ? `${selected.size} selected` : 'Selected'}</span>
-                <button onClick={() => duplicate(selected)} title="Duplicate  Ctrl+D"><Icon name="copy" size={14} />Duplicate</button>
-                <button onClick={() => saveAsMine(selected)} title="Save to My blocks"><Icon name="star" size={14} />Save</button>
-                <button className="danger" disabled={!many && main !== undefined && selected.has(main.id)} onClick={() => removeBlocks(selected)} title="Delete  Del"><Icon name="trash" size={14} />Delete</button>
+                <span className="n">{many ? `${selCount} selected` : 'Selected'}</span>
+                <button onClick={() => duplicate(selected, selInk)} title="Duplicate  Ctrl+D"><Icon name="copy" size={14} />Duplicate</button>
+                {selected.size > 0 && <button onClick={() => saveAsMine(selected)} title="Save to My blocks (with what's drawn on them)"><Icon name="star" size={14} />Save</button>}
+                {selInk.size > 0 && (
+                  <span className="sel-colors" role="group" aria-label="Colour">
+                    {[...new Set([...prefs.pens, ...HIGHLIGHTERS])].map((c) => <button key={c} className="ink-swatch sm" style={{ '--c': inkColor(c) } as React.CSSProperties} aria-label={`Colour ${c === 'ink' ? 'like the text' : c}`} onClick={() => void recolor(c)} />)}
+                  </span>
+                )}
+                {selInk.size > 0 && <button disabled title="Ask Gemini about what you selected. Comes with AI."><Icon name="spark" size={14} />Ask Gemini</button>}
+                <button className="danger" disabled={!many && main !== undefined && selected.has(main.id)} onClick={() => removeSelection(selected, selInk)} title="Delete  Del"><Icon name="trash" size={14} />Delete</button>
               </div>
             </div>
           )}

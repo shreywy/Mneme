@@ -1,6 +1,8 @@
 import { db } from './db'
 import { hiddenFolderIds } from './repo'
-import { DEFAULT_PAPER, MAIN_BLOCK, type Paper, type SheetBlock, type SheetRow } from '../sheets/types'
+import { DEFAULT_PAPER, MAIN_BLOCK, type Paper, type SheetBlock, type SheetRow, type SheetStroke } from '../sheets/types'
+import { decodePoints, shiftPoints, strokeBounds } from '../sheets/ink'
+import { copyInk, deleteStrokes, inkFor, inkOnBlocks } from './ink'
 import { titleFrom } from '../sheets/order'
 
 // The user's own pages (Text notes). A page is a row in `sheets`; everything on it is a row in
@@ -41,9 +43,10 @@ export async function setSheetArchived(id: string, archived: boolean) {
 }
 
 export async function deleteSheet(id: string) {
-  await db.transaction('rw', db.sheets, db.sheetBlocks, async () => {
+  await db.transaction('rw', db.sheets, db.sheetBlocks, db.sheetInk, async () => {
     // Collection.delete() goes through the sync hooks, so the server gets a tombstone for every block.
     await db.sheetBlocks.where('sheetId').equals(id).delete()
+    await db.sheetInk.where('sheetId').equals(id).delete()
     await db.sheets.delete(id)
   })
 }
@@ -69,17 +72,31 @@ export async function updateBlocks(list: { id: string; patch: Partial<Omit<Sheet
   await db.sheetBlocks.bulkUpdate(list.map(({ id, patch }) => ({ key: id, changes: { ...patch, updatedAt: now } })))
 }
 
-/** Copies of these blocks just below the group, on top of everything else. */
-export async function duplicateBlocks(blocks: SheetBlock[]): Promise<SheetBlock[]> {
-  if (!blocks.length) return []
-  const top = Math.min(...blocks.map((b) => b.y)), bottom = Math.max(...blocks.map((b) => b.y + b.h))
-  const z = Math.max(...(await blocksFor(blocks[0].sheetId)).map((b) => b.z))
+/**
+ * Copies of these blocks just below the group, on top of everything else. Drawing on them goes onto the
+ * copies; `loose` strokes (on the paper, or on blocks left out) are copied the same distance down.
+ */
+export async function duplicateBlocks(blocks: SheetBlock[], loose: SheetStroke[] = [], unit = 28): Promise<{ blocks: SheetBlock[]; ink: SheetStroke[] }> {
+  const sheetId = blocks[0]?.sheetId ?? loose[0]?.sheetId
+  if (!sheetId) return { blocks: [], ink: [] }
+  const looseBox = loose.length ? strokeBounds(loose.flatMap((s) => decodePoints(s.pts))) : null
+  const top = blocks.length ? Math.min(...blocks.map((b) => b.y)) : 0, bottom = blocks.length ? Math.max(...blocks.map((b) => b.y + b.h)) : 0
+  const lines = blocks.length ? bottom - top + 1 : Math.ceil((looseBox?.h ?? 0) / unit) + 1
+  const z = Math.max(0, ...(await blocksFor(sheetId)).map((b) => b.z))
   const out: SheetBlock[] = []
+  const map = new Map<string, string>()
   for (const [i, b] of blocks.entries()) {
     const { id: _id, createdAt: _c, updatedAt: _u, role: _role, ...rest } = b
-    out.push(await addBlock({ ...rest, y: b.y + (bottom - top) + 1, z: z + 1 + i, data: structuredClone(b.data) }))
+    const copy = await addBlock({ ...rest, y: b.y + lines, z: z + 1 + i, data: structuredClone(b.data) })
+    map.set(b.id, copy.id)
+    out.push(copy)
   }
-  return out
+  const onBlocks = await copyInk(await inkOnBlocks(blocks.map((b) => b.id)), sheetId, map)
+  const now = Date.now()
+  const shifted = loose.filter((s) => !s.blockId || !map.has(s.blockId))
+    .map((s) => ({ ...structuredClone(s), id: crypto.randomUUID(), pts: shiftPoints(s.pts, 0, lines * unit), createdAt: now, updatedAt: now }))
+  if (shifted.length) await db.sheetInk.bulkAdd(shifted)
+  return { blocks: out, ink: [...onBlocks, ...shifted] }
 }
 export const getBlock = (id: string) => db.sheetBlocks.get(id)
 
@@ -114,6 +131,10 @@ export function isEmptyDoc(doc: unknown): boolean {
 export async function pruneLeftovers(sheetId: string) {
   const cutoff = Date.now() - 60_000
   for (const b of await blocksFor(sheetId)) if (b.updatedAt < cutoff) await pruneEmpty(b)
+  // Drawing left on a block deleted elsewhere (another device, an old tab) has nowhere to show.
+  const ids = new Set((await blocksFor(sheetId)).map((b) => b.id))
+  const orphans = (await inkFor(sheetId)).filter((s) => s.blockId && !ids.has(s.blockId) && s.updatedAt < cutoff)
+  await deleteStrokes(orphans.map((s) => s.id))
 }
 
 /** Removes a block left empty, unless it's the main column. Returns whether it was removed. */

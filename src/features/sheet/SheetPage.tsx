@@ -6,6 +6,7 @@ import '../../styles/sheet.css'
 import { TopBar } from '../../app/Shell'
 import { db } from '../../data/db'
 import * as sheets from '../../data/sheets'
+import { inkFor } from '../../data/ink'
 import { Icon } from '../../ui/Icons'
 import { Seg } from '../../ui/controls'
 import { DropMenu } from '../../ui/DropMenu'
@@ -29,13 +30,14 @@ export function SheetPage() {
   const nav = useNavigate()
   const sheet = useLiveQuery(() => sheets.getSheet(sheetId), [sheetId], null)
   const blocks = useLiveQuery(() => sheets.blocksFor(sheetId), [sheetId])
+  const strokes = useLiveQuery(() => inkFor(sheetId), [sheetId])
   const folders = useLiveQuery(() => db.folders.toArray(), [])
   const [mode, setMode] = useState<'canvas' | 'read'>(() => (matchMedia(PHONE).matches ? 'read' : 'canvas'))
   const [dialog, setDialog] = useState<null | 'settings'>(null)
   const [renaming, setRenaming] = useState(false)
   useEffect(() => { if (sheetId) void sheets.markOpened(sheetId) }, [sheetId])
   // useLiveQuery keeps the previous page's result until the new one arrives.
-  if (sheet === null || blocks === undefined || blocks.some((b) => b.sheetId !== sheetId)) return null
+  if (sheet === null || blocks === undefined || strokes === undefined || blocks.some((b) => b.sheetId !== sheetId) || strokes.some((s) => s.sheetId !== sheetId)) return null
   if (!sheet) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
 
   const folder = folders?.find((f) => f.id === sheet.folderId)
@@ -70,7 +72,7 @@ export function SheetPage() {
           </>}
         </DropMenu>
       </TopBar>
-      {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} />}
+      {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} />}
       {dialog === 'settings' && folders && (
         <PageSettings title={sheet.title} folders={folders} folderId={sheet.folderId} unit={sheet.unit} onClose={() => setDialog(null)}
           onFolder={(folderId) => sheets.updateSheet(sheet.id, { folderId })} onUnit={(unit) => sheets.updateSheet(sheet.id, { unit: unit || undefined })}>

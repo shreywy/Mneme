@@ -15,6 +15,7 @@ insert into public.items (id, doc) values ('deck-b|t1', '{"deckId":"deck-b","kin
 insert into public.note_marks (id, doc) values ('mark-b', '{"noteId":"n1","kind":"note","text":"B private"}');
 insert into public.sheets (id, doc) values ('sheet-b', '{"title":"B page"}');
 insert into public.sheet_blocks (id, doc) values ('block-b', '{"sheetId":"sheet-b","kind":"text"}');
+insert into public.sheet_ink (id, doc) values ('ink-b', '{"sheetId":"sheet-b","tool":"pen","pts":[4,4,32]}');
 
 do $$
 declare n int;
@@ -46,6 +47,14 @@ begin
   update public.sheet_blocks set doc = '{"kind":"pwned"}' where id = 'block-b';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: A changed B''s page block'; end if;
+  select count(*) into n from public.sheet_ink;
+  if n <> 0 then raise exception 'FAIL: A can read B''s ink'; end if;
+  update public.sheet_ink set doc = '{"tool":"pwned"}' where id = 'ink-b';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A changed B''s ink'; end if;
+  delete from public.sheet_ink where id = 'ink-b';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A deleted B''s ink'; end if;
 
   update public.decks set doc = '{"title":"pwned"}' where id = 'deck-b';
   get diagnostics n = row_count;

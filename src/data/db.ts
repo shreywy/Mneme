@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Item, Topic } from '../deck-format/types'
 import type { CardState } from '../engine/memory'
 import type { Block } from '../notes-format/types'
-import type { SheetBlock, SheetRow } from '../sheets/types'
+import type { SheetBlock, SheetRow, SheetStroke } from '../sheets/types'
 
 export type Folder = { id: string; name: string; parentId: string | null; position: number; createdAt: number; archived?: boolean; archivedAt?: number }
 export type DeckRow = {
@@ -67,7 +67,9 @@ export type NoteMark = {
   createdAt: number
   updatedAt: number
 }
-export type DeckRecord = { deckId: string; bestStreak: number; sessions: number; secondsStudied: number; answered: number; correct: number }
+/** A picture added to a page, kept on this device until it's uploaded (and as a fast local copy after). */
+export type LocalImage = { id: string; sheetId: string; blob: Blob; type: string; w: number; h: number; url?: string; deleteHash?: string; createdAt: number }
+export type DeckRecord ={ deckId: string; bestStreak: number; sessions: number; secondsStudied: number; answered: number; correct: number }
 
 class MnemeDB extends Dexie {
   folders!: Table<Folder, string>
@@ -81,6 +83,8 @@ class MnemeDB extends Dexie {
   marks!: Table<NoteMark, string>
   sheets!: Table<SheetRow, string>
   sheetBlocks!: Table<SheetBlock, string>
+  sheetInk!: Table<SheetStroke, string>
+  images!: Table<LocalImage, string>
 
   constructor() {
     super('mneme')
@@ -108,6 +112,11 @@ class MnemeDB extends Dexie {
     this.version(5).stores({
       sheets: 'id, folderId, updatedAt',
       sheetBlocks: 'id, sheetId',
+    })
+    // v6: ink on pages, and pictures waiting to upload (images never sync themselves, only their link).
+    this.version(6).stores({
+      sheetInk: 'id, sheetId, blockId',
+      images: 'id, sheetId',
     })
   }
 }

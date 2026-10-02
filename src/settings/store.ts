@@ -32,6 +32,29 @@ export const LIGHT_PALETTES = [
 ] as const
 export type LightPalette = (typeof LIGHT_PALETTES)[number]['id']
 
+export type InkPrefs = {
+  /** Three pen colours ('ink' is the theme's text colour) and which one is in use. */
+  pens: [string, string, string]
+  pen: 0 | 1 | 2
+  penSize: number
+  highlighter: string
+  highlighterSize: number
+  /** Thinner and thicker lines with pen pressure (or speed, with a mouse). */
+  pressure: boolean
+  /** 0 (exactly as drawn) to 1 (very smooth). */
+  smoothing: number
+  /** Hold still at the end of a stroke to turn it into a line, box, ellipse or triangle. */
+  shapes: boolean
+  /** Only a pen draws and fingers move the page: on, off, or on once a pen has been used here. */
+  penOnly: 'auto' | 'on' | 'off'
+  eraser: 'stroke' | 'rub'
+  eraserSize: number
+}
+export const DEFAULT_INK: InkPrefs = {
+  pens: ['ink', '#2D6CDF', '#C0392B'], pen: 0, penSize: 2.5, highlighter: '#F2CF3D', highlighterSize: 18,
+  pressure: true, smoothing: 0.5, shapes: true, penOnly: 'auto', eraser: 'stroke', eraserSize: 16,
+}
+
 type Settings = {
   theme: ThemePref
   accent: AccentId
@@ -56,6 +79,10 @@ type Settings = {
   librarySort: 'recent' | 'name' | 'progress'
   /** Paper for new pages (Text notes); null uses the default. */
   paperDefault: Paper | null
+  /** Pen, highlighter and eraser settings for drawing on pages. */
+  ink: InkPrefs
+  /** Agreed that pictures on pages are hosted on Imgur (asked the first time one is added). */
+  imgurConsent: boolean
   set: (patch: Partial<Omit<Settings, 'set'>>) => void
 }
 
@@ -81,6 +108,8 @@ export const useSettings = create<Settings>()(
       libraryView: 'grid',
       librarySort: 'recent',
       paperDefault: null,
+      ink: DEFAULT_INK,
+      imgurConsent: false,
       set: (patch) => set(patch),
     }),
     { name: 'mneme.settings' },

@@ -3,7 +3,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { InsertId } from '../../sheets/insert'
 
-export type Tool = 'text' | 'select' | 'pan'
+export type Tool = 'text' | 'select' | 'pan' | 'pen' | 'highlighter' | 'eraser' | 'lasso'
+export const INK_TOOLS: Tool[] = ['pen', 'highlighter', 'eraser', 'lasso']
+export const isInkTool = (t: Tool) => INK_TOOLS.includes(t)
 
 /** What the canvas lets the toolbar, dock and Insert panel do. Set by the canvas while it's mounted. */
 export type CanvasApi = {

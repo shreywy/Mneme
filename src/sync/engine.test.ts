@@ -4,6 +4,7 @@ import { Rating } from 'ts-fsrs'
 import { db } from '../data/db'
 import * as repo from '../data/repo'
 import * as sheets from '../data/sheets'
+import * as ink from '../data/ink'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, type Remote, type RemoteRow } from './engine'
 
 /** In-memory stand-in for Supabase: one map per table, with server-assigned timestamps. */
@@ -157,5 +158,31 @@ describe('sync engine', () => {
     await push(f.remote)
     expect(f.t('decks').size).toBe(1)
     expect(f.t('items').size).toBe(1)
+  })
+
+  it('syncs ink one stroke at a time', async () => {
+    const f = fakeRemote()
+    const id = await sheets.createSheet()
+    const s = await ink.addStroke({ sheetId: id, tool: 'pen', color: 'ink', size: 3, pts: [4, 4, 32, 1, 0, 0] })
+    await push(f.remote)
+    expect(f.t('sheet_ink').get(s.id)?.doc).toMatchObject({ sheetId: id, tool: 'pen' })
+    await sheets.deleteSheet(id)
+    await push(f.remote)
+    expect(f.t('sheet_ink').get(s.id)?.deleted).toBe(true)
+  })
+
+  it('keeps syncing everything else when the server has no table for something yet', async () => {
+    const f = fakeRemote()
+    const missing = Object.assign(new Error('relation does not exist'), { code: 'PGRST205' })
+    const remote: Remote = {
+      upsert: async (table, rows) => { if (table === 'sheet_ink') throw missing; return f.remote.upsert(table, rows) },
+      pullSince: async (table, since, limit) => { if (table === 'sheet_ink') throw missing; return f.remote.pullSince(table, since, limit) },
+    }
+    const id = await sheets.createSheet()
+    await ink.addStroke({ sheetId: id, tool: 'pen', color: 'ink', size: 3, pts: [4, 4, 32] })
+    await push(remote)
+    await pull(remote)
+    expect(f.t('sheets').size).toBe(1)
+    expect(pendingCount()).toBe(1) // the stroke waits for the table
   })
 })

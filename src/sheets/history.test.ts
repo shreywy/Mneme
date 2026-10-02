@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { applyChange, createHistory } from './history'
+import { applyChange, createHistory, type Change } from './history'
+import * as ink from '../data/ink'
 import * as sheets from '../data/sheets'
 import type { SheetBlock } from './types'
 
@@ -48,6 +49,32 @@ describe('history', () => {
     const now = (await sheets.blocksFor(id)).find((x) => x.id === b.id)
     expect(now?.x).toBe(30)
     expect(now?.data.doc).toBe('typed later')
+  })
+
+  it('undoes and redoes strokes, and a block deleted with its drawing comes back with it', async () => {
+    const id = await sheets.createSheet()
+    const blk = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: 'x' }, z: 1 })
+    const s = await ink.addStroke({ sheetId: id, blockId: blk.id, tool: 'pen', color: 'ink', size: 3, pts: [4, 4, 32] })
+    const h = createHistory()
+    h.record({ kind: 'ink-add', stroke: s })
+    await applyChange(h.undo()!)
+    expect(await ink.inkFor(id)).toEqual([])
+    await applyChange(h.redo()!)
+    expect(await ink.inkFor(id)).toHaveLength(1)
+
+    const del: Change = { kind: 'batch', changes: [{ kind: 'remove', block: blk }, { kind: 'ink-remove', stroke: s }] }
+    h.record(del)
+    await applyChange(del)
+    expect(await sheets.blocksFor(id)).toHaveLength(1)
+    expect(await ink.inkFor(id)).toEqual([])
+    await applyChange(h.undo()!)
+    expect((await ink.inkFor(id))[0]?.blockId).toBe(blk.id)
+
+    const recoloured = { ...s, color: '#C0392B' }
+    h.record({ kind: 'ink-update', before: s, after: recoloured })
+    await applyChange(recoloured && { kind: 'ink-update', before: s, after: recoloured })
+    await applyChange(h.undo()!)
+    expect((await ink.inkFor(id))[0]?.color).toBe('ink')
   })
 
   it('undo then redo of a new block brings back the text typed into it', async () => {

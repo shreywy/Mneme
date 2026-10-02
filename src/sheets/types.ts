@@ -59,3 +59,25 @@ export type SheetBlock = {
 }
 
 export const MAIN_BLOCK = { x: 3, y: 2, w: 24, h: 1 } as const
+
+/**
+ * One pen or highlighter stroke. On the paper its points are world px; anchored to a block (`blockId`)
+ * they're px from that block's top-left, so the stroke moves with the block.
+ */
+export type SheetStroke = {
+  id: string
+  sheetId: string
+  blockId?: string
+  tool: 'pen' | 'highlighter'
+  /** A colour, or 'ink' for the theme's text colour (dark on light paper, light on dark). */
+  color: string
+  size: number
+  /** Encoded points: see encodePoints in sheets/ink. */
+  pts: number[]
+  /** A shape or a straightened highlight: drawn as a clean line through its points. */
+  shape?: boolean
+  /** Drawn with a mouse: pressure is made up from the speed. */
+  sim?: boolean
+  createdAt: number
+  updatedAt: number
+}

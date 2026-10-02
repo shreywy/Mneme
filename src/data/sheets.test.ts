@@ -2,6 +2,8 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from './db'
 import * as sheets from './sheets'
+import * as ink from './ink'
+import { decodePoints, encodePoints as ink2 } from '../sheets/ink'
 import * as repo from './repo'
 import { DEFAULT_PAPER } from '../sheets/types'
 
@@ -98,10 +100,32 @@ describe('sheets', () => {
   it('duplicating blocks copies them with new ids, shifted down by their height', async () => {
     const id = await sheets.createSheet()
     const a = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 3, kind: 'text', data: { doc: para('a') }, z: 4 })
-    const [copy] = await sheets.duplicateBlocks([a])
+    const { blocks: [copy] } = await sheets.duplicateBlocks([a])
     expect(copy.id).not.toBe(a.id)
     expect(copy).toMatchObject({ sheetId: id, x: 30, y: 6, w: 10, h: 3, data: { doc: para('a') } })
     expect(copy.z).toBeGreaterThan(a.z)
+  })
+
+  it('duplicating takes the ink along: drawing on a block goes onto its copy, loose strokes shift down too', async () => {
+    const id = await sheets.createSheet()
+    const a = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 3, kind: 'text', data: { doc: para('a') }, z: 4 })
+    const on = await ink.addStroke({ sheetId: id, blockId: a.id, tool: 'pen', color: 'ink', size: 3, pts: ink2([[5, 5, 0.5], [20, 5, 0.5]]) })
+    const loose = await ink.addStroke({ sheetId: id, tool: 'pen', color: 'ink', size: 3, pts: ink2([[900, 60, 0.5], [920, 60, 0.5]]) })
+    const out = await sheets.duplicateBlocks([a], [loose], 28)
+    expect(out.ink).toHaveLength(2)
+    const copied = out.ink.find((s) => s.blockId)!
+    expect(copied.blockId).toBe(out.blocks[0].id)
+    expect(copied.pts).toEqual(on.pts)
+    const moved = decodePoints(out.ink.find((s) => !s.blockId)!.pts)
+    expect(moved[0][1]).toBe(60 + 4 * 28)
+  })
+
+  it('clears ink left on a block that no longer exists', async () => {
+    const id = await sheets.createSheet()
+    const s = await ink.addStroke({ sheetId: id, blockId: 'gone', tool: 'pen', color: 'ink', size: 3, pts: ink2([[1, 1, 0.5], [2, 2, 0.5]]) })
+    await db.sheetInk.update(s.id, { updatedAt: Date.now() - 5 * 60_000 })
+    await sheets.pruneLeftovers(id)
+    expect(await ink.inkFor(id)).toEqual([])
   })
 
   it('opening a page is not an edit', async () => {
