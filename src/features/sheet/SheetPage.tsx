@@ -14,6 +14,7 @@ import { toast } from '../../ui/toasts'
 import { PageSettings } from '../page/PageSettings'
 import { Canvas } from './Canvas'
 import { ReadView } from './ReadView'
+import { PrintView } from './Print'
 import { PaperSettings } from './PaperSettings'
 import { readingOrder } from '../../sheets/order'
 import type { SheetBlock } from '../../sheets/types'
@@ -35,7 +36,14 @@ export function SheetPage() {
   const [mode, setMode] = useState<'canvas' | 'read'>(() => (matchMedia(PHONE).matches ? 'read' : 'canvas'))
   const [dialog, setDialog] = useState<null | 'settings'>(null)
   const [renaming, setRenaming] = useState(false)
+  const [printing, setPrinting] = useState(false)
   useEffect(() => { if (sheetId) void sheets.markOpened(sheetId) }, [sheetId])
+  // Ctrl+P prints the page as a document, not the app around it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setPrinting(true) } }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   // useLiveQuery keeps the previous page's result until the new one arrives.
   if (sheet === null || blocks === undefined || strokes === undefined || blocks.some((b) => b.sheetId !== sheetId) || strokes.some((s) => s.sheetId !== sheetId)) return null
   if (!sheet) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
@@ -63,6 +71,9 @@ export function SheetPage() {
             <button role="menuitem" onClick={() => { close(); setRenaming(true) }}><Icon name="edit" size={15} />Rename</button>
             <button role="menuitem" onClick={() => { close(); setDialog('settings') }}><Icon name="gear" size={15} />Page settings…</button>
             <div className="ctx-sep" role="separator" />
+            <button role="menuitem" onClick={() => { close(); setPrinting(true) }}><Icon name="print" size={15} />Print…<span className="kbd">Ctrl P</span></button>
+            <button role="menuitem" onClick={() => { close(); toast('Choose "Save as PDF" as the printer', 'Text in the PDF stays selectable', 'down'); setPrinting(true) }}><Icon name="down" size={15} />Save as PDF…</button>
+            <div className="ctx-sep" role="separator" />
             <button role="menuitem" onClick={async () => { close(); await sheets.setSheetArchived(sheet.id, true); toast('Page archived', 'Find it under Archive in the sidebar', 'archive'); nav('/') }}><Icon name="archive" size={15} />Archive</button>
             <button role="menuitem" className="danger" onClick={async () => {
               close()
@@ -73,6 +84,7 @@ export function SheetPage() {
         </DropMenu>
       </TopBar>
       {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} />}
+      {printing && <PrintView sheet={sheet} blocks={blocks} strokes={strokes} onDone={() => setPrinting(false)} />}
       {dialog === 'settings' && folders && (
         <PageSettings title={sheet.title} folders={folders} folderId={sheet.folderId} unit={sheet.unit} onClose={() => setDialog(null)}
           onFolder={(folderId) => sheets.updateSheet(sheet.id, { folderId })} onUnit={(unit) => sheets.updateSheet(sheet.id, { unit: unit || undefined })}>

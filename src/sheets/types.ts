@@ -1,3 +1,5 @@
+import type { PageSize } from './pages'
+
 /** How a page's paper looks. Lines are drawn every `spacing` px, which is also the text line height. */
 export type Paper = {
   lines: 'none' | 'ruled' | 'dots' | 'squares'
@@ -14,6 +16,10 @@ export type Paper = {
   theme?: 'app' | 'light' | 'dark'
   /** The page's text font (a key from sheets/fonts); unset is the app's sans. */
   font?: string
+  /** Pageless (the default) or laid out on sheets of paper. */
+  layout?: 'pageless' | 'pages'
+  size?: PageSize
+  pageNumbers?: boolean
 }
 export const DEFAULT_PAPER: Paper = { lines: 'ruled', spacing: 28, strength: 0.4, color: null, margin: false, paperColor: null }
 

@@ -126,18 +126,25 @@ function useOpen(selectedProp: boolean, p: Pick<NodeViewProps, 'node' | 'updateA
   }, [open])
   const onBlur = (e: React.FocusEvent) => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as globalThis.Node)) setOpen(false) }
   const onKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false) } }
-  return { open, setOpen, onBlur, onKeyDown, box }
+  // A read-only page (print, a shared link) shows the result and never opens an editor.
+  const editable = p.editor.isEditable
+  // The rendered result works from the keyboard too: Tab to it, Enter or Space opens it.
+  const opener = editable ? {
+    tabIndex: 0, role: 'button' as const, onClick: () => setOpen(true),
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setOpen(true) } },
+  } : {}
+  return { open: open && editable, setOpen, onBlur, onKeyDown, box, opener }
 }
 
 // ---------- equation ($$) ----------
 
 function EquationView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const latex = node.attrs.latex as string
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor, getPos })
+  const { open, setOpen, onBlur, onKeyDown, box, opener } = useOpen(selected, { node, updateAttributes, editor, getPos })
   return (
     <NodeViewWrapper className={`nv nv-eq ${open ? 'is-open' : ''}`} data-drag-handle="">
       <Lines boxRef={box}>
-        <div className="nv-eq-show nv-ui" contentEditable={false} onClick={() => setOpen(true)} dangerouslySetInnerHTML={{ __html: tex(latex, true) }} />
+        <div className="nv-eq-show nv-ui" contentEditable={false} {...opener} dangerouslySetInnerHTML={{ __html: tex(latex, true) }} />
         {open && (
           <div className="nv-edit" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>
             <MathField value={latex} autoFocus onChange={(v) => updateAttributes({ latex: v })} onDone={() => setOpen(false)} />
@@ -168,11 +175,11 @@ export const Equation = Node.create({
 
 function InlineMathView({ node, updateAttributes, deleteNode, editor, getPos }: NodeViewProps) {
   const latex = node.attrs.latex as string
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(false, { node, updateAttributes, editor, getPos })
+  const { open, setOpen, onBlur, onKeyDown, box, opener } = useOpen(false, { node, updateAttributes, editor, getPos })
   return (
     <NodeViewWrapper as="span" className="nv-im">
       <span ref={box}>
-      <span contentEditable={false} className="nv-im-show nv-ui" onClick={() => setOpen(true)} dangerouslySetInnerHTML={{ __html: tex(latex, false) }} />
+      <span contentEditable={false} className="nv-im-show nv-ui" {...opener} dangerouslySetInnerHTML={{ __html: tex(latex, false) }} />
       {open && (
         <span className="nv-edit nv-pop" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>
           <MathField value={latex} autoFocus buttons={false} onChange={(v) => updateAttributes({ latex: v })} onDone={() => { setOpen(false); if (!latex) deleteNode() }} />
@@ -214,12 +221,12 @@ const TEX_REL = Object.fromEntries(Object.entries(REL_TEX).map(([k, v]) => [v, k
 
 function WorkingView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const lines = node.attrs.lines as DerivationLine[]
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor, getPos })
+  const { open, setOpen, onBlur, onKeyDown, box, opener } = useOpen(selected, { node, updateAttributes, editor, getPos })
   const set = (i: number, patch: Partial<DerivationLine>) => updateAttributes({ lines: lines.map((l, k) => (k === i ? { ...l, ...patch } : l)) })
   return (
     <NodeViewWrapper className={`nv nv-work ${open ? 'is-open' : ''}`}>
       <Lines boxRef={box}>
-        <div className="nv-ui" contentEditable={false} onClick={() => setOpen(true)}>
+        <div className="nv-ui" contentEditable={false} {...opener}>
           {lines.some((l) => l.rhs.trim()) ? <Derivation b={{ type: 'derivation', lines: lines.filter((l) => l.rhs.trim()) }} /> : <div className="nv-empty">Step-by-step working: click to add steps</div>}
         </div>
         {open && (
@@ -271,14 +278,14 @@ export const Working = Node.create({
 
 function PlotView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const spec = node.attrs.spec as PlotSpec
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor, getPos })
+  const { open, setOpen, onBlur, onKeyDown, box, opener } = useOpen(selected, { node, updateAttributes, editor, getPos })
   const block = useMemo(() => plotBlock(spec), [spec])
   const set = (patch: Partial<PlotSpec>) => updateAttributes({ spec: { ...spec, ...patch } })
   const num = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? undefined : Number(v))
   return (
     <NodeViewWrapper className={`nv nv-plot ${open ? 'is-open' : ''}`}>
       <Lines boxRef={box}>
-        <div className="nv-ui" contentEditable={false} onClick={() => setOpen(true)}><Plot b={block} /></div>
+        <div className="nv-ui" contentEditable={false} {...opener}><Plot b={block} /></div>
         {open && (
           <div className="nv-edit nv-plot-edit" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>
             {[...spec.fns, ''].slice(0, 6).map((f, i) => (

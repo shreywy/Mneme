@@ -6,6 +6,7 @@ import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
 import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
 import { titleFrom } from '../../sheets/order'
+import { pageCount, pageLines, sheetFrame } from '../../sheets/pages'
 import { fontCss } from '../../sheets/fonts'
 import type { InsertId } from '../../sheets/insert'
 import type { SheetBlock, SheetRow, SheetStroke } from '../../sheets/types'
@@ -24,7 +25,7 @@ import { INSERT_DRAG, TextBlock } from './TextBlock'
  * Redraws a text block only when its saved block, line spacing or focus changes. Its handlers are read
  * through a ref inside, so new handler functions on each canvas render don't count.
  */
-const TextBlockMemo = memo(TextBlock, (a, b) => a.block === b.block && a.unit === b.unit && a.autoFocus === b.autoFocus)
+const TextBlockMemo = memo(TextBlock, (a, b) => a.block === b.block && a.unit === b.unit && a.autoFocus === b.autoFocus && a.pages === b.pages)
 import { Toolbar } from './Toolbar'
 import { isInkTool, useSheetUI } from './store'
 import { HIGHLIGHTERS, InkLayer, inkColor, useInk, worldPoints, type Draft, type InkShift } from './Ink'
@@ -111,6 +112,10 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   live.current = { blocks, selected, view, size, shown, strokes, selInk, spots, prefs }
   const main = blocks.find((b) => b.role === 'main')
   const theme = usePaperTheme(sheet)
+  // Pages layout: sheets behind the main column, which breaks between them.
+  const pageSize = sheet.paper.size ?? 'a4'
+  const paged = sheet.paper.layout === 'pages'
+  const breaks = useMemo(() => (paged ? { perPage: pageLines(pageSize, unit), unit } : null), [paged, pageSize, unit])
 
   useEffect(() => { try { localStorage.setItem(viewKey(sheet.id), JSON.stringify(view)) } catch { /* private mode */ } }, [sheet.id, view])
   // Empty side blocks left behind (the tab closed while one was open) are cleared when the page opens.
@@ -667,6 +672,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     const sh = inkShift && !(x.blockId && inkShift.blocks.has(x.blockId)) ? inkShift : null
     return [{ x: (r.x - pad + (sh?.dx ?? 0)) / unit, y: (r.y - pad + (sh?.dy ?? 0)) / unit, w: (r.w + pad * 2) / unit, h: (r.h + pad * 2) / unit }]
   })
+  const mainShown = shown.find((b) => b.role === 'main')
   const selCount = selected.size + selInk.size
   const sel = selCount ? boundsOf([...shown.filter((b) => selected.has(b.id)), ...inkBoxes]) : null
   const many = selCount > 1
@@ -677,7 +683,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     <div className="sheet-wrap">
       <Toolbar mainBlockId={main?.id} />
       <div className={`sheet-host ${cursor} ${theme}`} ref={host}
-        style={{ ...paperStyle(sheet.paper, view), '--page-font': fontCss(sheet.paper.font) } as React.CSSProperties}
+        style={{ ...(paged ? { backgroundColor: 'var(--desk)' } : paperStyle(sheet.paper, view)), '--page-font': fontCss(sheet.paper.font) } as React.CSSProperties}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
         onPointerLeave={() => setEraserAt(null)}
@@ -685,6 +691,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
         onDragOver={onDragOver} onDragLeave={(e) => { if (e.currentTarget === e.target) setGhost(null) }} onDrop={onDrop}>
         <div className="sheet-world" style={{ transform: `translate(${-view.x * view.zoom}px, ${-view.y * view.zoom}px) scale(${view.zoom})` }}>
           <div className="sheet-origin" aria-hidden="true" />
+          {paged && mainShown && <Sheets main={mainShown} paper={sheet.paper} unit={unit} />}
           {blocks.map((b) => { const at = placed[b.id] ?? b; return b.kind === 'bookmark' ? (
             <div key={b.id} data-block-id={b.id} className={`sbookmark ${selected.has(b.id) ? 'selected' : ''}`} style={{ left: at.x * unit, top: at.y * unit, height: unit, zIndex: b.z }}
               onPointerDown={startDrag(b, 'move')} onDoubleClick={async () => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label) await sheets.updateBlock(b.id, { data: { ...b.data, label } }) }}
@@ -696,7 +703,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
               style={{ left: at.x * unit, top: at.y * unit, width: at.w * unit, zIndex: b.z }}
               onPointerDown={(e) => { if (e.button !== 1 && !space && tool !== 'pan') e.stopPropagation() }}>
               <button className="sgrip" aria-label="Move block. Click to select it." title="Drag to move · click to select (then Delete)" onPointerDown={startDrag(b, 'move')}><Icon name="grid" size={12} /></button>
-              <TextBlockMemo block={b} unit={unit} autoFocus={focusId === b.id}
+              <TextBlockMemo block={b} unit={unit} autoFocus={focusId === b.id} pages={b.role === 'main' ? breaks : null}
                 onDoc={(doc) => onDoc(b, doc)}
                 onHeight={(h) => {
                   setHeights((m) => (m[b.id] === h ? m : { ...m, [b.id]: h }))
@@ -746,6 +753,24 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       <PagePickerHost exclude={sheet.id} />
       <TableSizeHost />
     </div>
+  )
+}
+
+/** The sheets of paper behind the main column in Pages layout, each with the page's lines. */
+function Sheets({ main, paper, unit }: { main: SheetBlock; paper: SheetRow['paper']; unit: number }) {
+  const f = sheetFrame(main, paper.size ?? 'a4', unit)
+  const n = pageCount(main.h, f.perPage)
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => {
+        const top = f.top + i * f.pitch
+        return (
+          <div key={i} className="sheet-page" aria-hidden="true" style={{ left: f.left, top, width: f.width, height: f.height, ...paperStyle({ ...paper, margin: false }, { x: f.left, y: top, zoom: 1 }) }}>
+            {paper.pageNumbers && <span className="sheet-page-n">{i + 1}</span>}
+          </div>
+        )
+      })}
+    </>
   )
 }
 

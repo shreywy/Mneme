@@ -8,6 +8,7 @@ import type { SheetBlock } from '../../sheets/types'
 import { toastAction } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
 import { textExtensions } from './editor/extensions'
+import { RECALC, type BreakConfig } from './editor/pagebreaks'
 import { applyPaste, growTable, runInsert } from './editor/commands'
 import { useRecents, useSheetUI } from './store'
 
@@ -21,6 +22,9 @@ type Props = {
   onHeight: (lines: number) => void
   /** Called with the final document; the block may be removed if it's empty. */
   onBlur: (doc: unknown) => void
+  /** Pages layout (main column only): where the sheets break. */
+  pages?: BreakConfig
+  editable?: boolean
 }
 
 const LABEL = { table: 'a table', latex: 'an equation', code: 'code', link: 'a link card' } as const
@@ -29,7 +33,7 @@ const LABEL = { table: 'a table', latex: 'an equation', code: 'code', link: 'a l
  * One text block. Markdown shortcuts (#, -, 1., [ ], >, ```, ---, $$, $…$), the / menu, smart paste and
  * everything in Insert work here. While it's being edited, the toolbar acts on it.
  */
-export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: Props) {
+export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur, pages = null, editable = true }: Props) {
   // The editor keeps the handlers it was created with, so they read the latest props through a ref.
   const cb = useRef({ onDoc, onHeight, onBlur })
   cb.current = { onDoc, onHeight, onBlur }
@@ -63,8 +67,11 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   }
   const report = (e: Editor) => { useSheetUI.setState((s) => ({ tick: s.tick + 1 })); placePlus(e); placeTable(e) }
 
+  const pagesRef = useRef<BreakConfig>(pages)
+  pagesRef.current = pages
   const editor = useEditor({
-    extensions: textExtensions(main),
+    extensions: textExtensions(main, () => pagesRef.current),
+    editable,
     content: (block.data.doc as object | null) ?? '',
     // Focus is placed by the effect below, once the click that made the block is over.
     editorProps: {
@@ -132,6 +139,8 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   })
   const editorRef = useRef<Editor | null>(null)
   editorRef.current = editor
+  // Switching to or from Pages layout (or another paper size) lays the breaks out again.
+  useEffect(() => { if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(RECALC, true).setMeta('addToHistory', false)) }, [editor, pages?.perPage, pages?.unit])
 
   // A change from another device replaces the content, unless this block is being edited here (typing,
   // or using the toolbar on it) or the change is just our own save coming back.

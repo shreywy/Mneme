@@ -32,6 +32,13 @@ export function PaperSettings({ paper, onChange }: { paper: Paper; onChange: (p:
           </button>
         ))}
       </div>
+      <div className="srow"><div className="l"><b>Layout</b><span>{paper.layout === 'pages' ? 'Sheets of paper, as it will print' : 'One endless sheet'}</span></div>
+        <Seg value={paper.layout ?? 'pageless'} options={[{ value: 'pageless', label: 'Pageless' }, { value: 'pages', label: 'Pages' }]} onChange={(layout) => set({ layout })} /></div>
+      {paper.layout === 'pages' && <>
+        <div className="srow"><div className="l"><b>Paper size</b></div>
+          <Seg value={paper.size ?? 'a4'} options={[{ value: 'a4', label: 'A4' }, { value: 'letter', label: 'Letter' }]} onChange={(size) => set({ size })} /></div>
+        <div className="srow"><div className="l"><b>Page numbers</b><span>On the sheets and when printed</span></div><Toggle on={!!paper.pageNumbers} onChange={(pageNumbers) => set({ pageNumbers })} label="Page numbers" /></div>
+      </>}
       <div className="srow"><div className="l"><b>Spacing</b></div>
         <Seg value={String(paper.spacing)} options={SPACING} onChange={(v) => set({ spacing: Number(v) as Paper['spacing'] })} /></div>
       <label className="srow"><div className="l"><b>How strong the lines are</b></div>
