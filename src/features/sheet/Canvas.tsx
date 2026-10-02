@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as sheets from '../../data/sheets'
 import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
-import { blocksInRect, boundsOf, cellAt, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
+import { blocksInRect, boundsOf, cellAt, freeSpot, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
 import { titleFrom } from '../../sheets/order'
 import { fontCss } from '../../sheets/fonts'
@@ -65,7 +65,9 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   useEffect(() => {
     const el = host.current
     if (!el) return
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
@@ -101,7 +103,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     history.record(c)
     await applyChange(c)
     setSelected(new Set())
-    toast(gone.length === 1 ? 'Block deleted' : `${gone.length} blocks deleted`, 'Ctrl+Z brings it back', 'trash')
+    toast(gone.length === 1 ? 'Block deleted' : `${gone.length} blocks deleted`, gone.length === 1 ? 'Ctrl+Z brings it back' : 'Ctrl+Z brings them back', 'trash')
   }, [history])
   const addBlocks = useCallback((made: SheetBlock[]) => {
     if (made.length) history.record(made.length === 1 ? { kind: 'add', block: made[0] } : { kind: 'batch', changes: made.map((block) => ({ kind: 'add', block })) })
@@ -126,7 +128,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     useSheetUI.setState({
       canvas: {
         newBlock: async (content, at) => {
-          const c = at ?? middleCell()
+          const c = at ?? freeSpot(live.current.shown, middleCell(), 16, 4)
           const b = await sheets.addBlock({ sheetId: sheet.id, x: c.x, y: c.y, w: 16, h: 1, kind: 'text', data: { doc: { type: 'doc', content: [...content, { type: 'paragraph' }] } }, z: nextZ() })
           history.record({ kind: 'add', block: b })
           setFocusId(b.id)
@@ -135,7 +137,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         placeGroup: async (group, at) => {
           const g = (await listMyBlocks()).find((x) => x.group === group)
           if (!g) return
-          const made = await placeMyBlock(g, sheet.id, at ?? middleCell())
+          const box = boundsOf(g.blocks) ?? { w: 1, h: 1 }
+          const made = await placeMyBlock(g, sheet.id, at ?? freeSpot(live.current.shown, middleCell(), box.w, box.h))
           addBlocks(made)
           setSelected(new Set(made.map((b) => b.id)))
         },
@@ -154,6 +157,15 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     })
   }) // re-registered every render so it always sees the latest page
 
+  // A drag whose release never reached the paper (it ended over another window, say) is over all the same,
+  // so its pan cursor can't stay behind.
+  useEffect(() => {
+    const done = (e: PointerEvent) => { if (!host.current?.hasPointerCapture(e.pointerId)) { pointers.current.delete(e.pointerId); if (!pointers.current.size) setGesture(null) } }
+    window.addEventListener('pointerup', done)
+    window.addEventListener('pointercancel', done)
+    return () => { window.removeEventListener('pointerup', done); window.removeEventListener('pointercancel', done) }
+  }, [])
+
   // Keys that act on blocks. Inside a text block, the editor handles its own keys (including undo).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -168,7 +180,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       else if (e.key === 'Escape') setSelected(new Set())
     }
     const onUp = (e: KeyboardEvent) => { if (e.key === ' ') setSpace(false) }
-    const onBlur = () => setSpace(false)
+    const onBlur = () => { setSpace(false); pointers.current.clear(); setGesture(null) }
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onUp)
     window.addEventListener('blur', onBlur)
@@ -320,7 +332,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     const moving = !b ? blocks.filter((x) => selected.has(x.id)) : what === 'move' && selected.has(b.id) ? blocks.filter((x) => selected.has(x.id)) : [b]
     const sx = e.clientX, sy = e.clientY
     const el = e.currentTarget as HTMLElement
-    el.setPointerCapture(e.pointerId)
+    try { el.setPointerCapture(e.pointerId) } catch { /* a pointer the browser no longer tracks */ }
     let latest = moving
     let moved = false
     const move = (ev: PointerEvent) => {

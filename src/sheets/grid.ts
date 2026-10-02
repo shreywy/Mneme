@@ -42,6 +42,17 @@ export function blocksInRect(blocks: { id: string; x: number; y: number; w: numb
   return blocks.filter((k) => k.x < x1 && k.x + k.w > x0 && k.y < y1 && k.y + k.h > y0).map((k) => k.id)
 }
 
+/** Where a new w×h block can go: `at` if nothing is there, else the first clear spot below, a line under what's in the way. */
+export function freeSpot(blocks: { x: number; y: number; w: number; h: number }[], at: { x: number; y: number }, w: number, h: number) {
+  let y = at.y
+  for (let guard = 0; guard < 500; guard++) {
+    const hit = blocks.find((b) => b.x < at.x + w && b.x + b.w > at.x && b.y < y + h && b.y + b.h > y)
+    if (!hit) break
+    y = hit.y + hit.h + 1
+  }
+  return { x: at.x, y }
+}
+
 const MAIN_COLUMN_X = 3
 const MARGIN_RED = 'color-mix(in oklab, #C0503A 55%, transparent)'
 const lineColor = (p: Paper, boost = 1) => `color-mix(in oklab, ${p.color ?? 'var(--ink)'} ${Math.min(100, Math.round((6 + p.strength * 22) * boost))}%, transparent)`

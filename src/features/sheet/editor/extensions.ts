@@ -27,7 +27,7 @@ export function textExtensions(main: boolean) {
     Code, Equation, InlineMath, Working, PlotNode, LinkCard, EnterShortcuts, SlashCommand,
     Placeholder.configure({
       includeChildren: false,
-      placeholder: ({ node }) => (main && node.type.name === 'heading' ? 'Title' : main ? 'Start writing, or press / to insert' : 'Type, or press / to insert'),
+      placeholder: ({ node, pos }) => (node.type.name === 'heading' ? (main && pos === 0 ? 'Title' : 'Heading') : main ? 'Start writing, or press / to insert' : 'Type, or press / to insert'),
     }),
   ]
 }

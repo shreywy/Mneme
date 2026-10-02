@@ -35,6 +35,10 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   cb.current = { onDoc, onHeight, onBlur }
   const save = useRef<ReturnType<typeof setTimeout>>(undefined)
   const unsaved = useRef<unknown>(undefined)
+  // What this block has saved lately: the database echoes each save back, sometimes late, and an echo of
+  // an older save must never be mistaken for a change from another device.
+  const sent = useRef<string[]>([])
+  const remember = (doc: unknown) => { sent.current = [JSON.stringify(doc), ...sent.current].slice(0, 12); return doc }
   const box = useRef<HTMLDivElement>(null)
   const [plus, setPlus] = useState<number | null>(null)
   const main = block.role === 'main'
@@ -82,7 +86,7 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
     onUpdate: ({ editor: e }) => {
       clearTimeout(save.current)
       unsaved.current = e.getJSON()
-      save.current = setTimeout(() => { save.current = undefined; unsaved.current = undefined; cb.current.onDoc(e.getJSON()) }, 400)
+      save.current = setTimeout(() => { save.current = undefined; unsaved.current = undefined; cb.current.onDoc(remember(e.getJSON())) }, 400)
       report(e)
     },
     onSelectionUpdate: ({ editor: e }) => report(e),
@@ -93,17 +97,19 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
       if (!to?.closest?.('.sheet-toolbar, .insert-panel')) useSheetUI.setState((s) => (s.editor === e ? { editor: null } : {}))
       setPlus(null)
       clearTimeout(save.current); save.current = undefined; unsaved.current = undefined
-      cb.current.onBlur(e.getJSON())
+      cb.current.onBlur(remember(e.getJSON()))
     },
   })
   const editorRef = useRef<Editor | null>(null)
   editorRef.current = editor
 
-  // A change from another device replaces the content, unless this block is being edited here.
+  // A change from another device replaces the content, unless this block is being edited here (typing,
+  // or using the toolbar on it) or the change is just our own save coming back.
   useEffect(() => {
-    if (editor && !editor.isFocused && JSON.stringify(editor.getJSON()) !== JSON.stringify(block.data.doc)) {
-      editor.commands.setContent(block.data.doc as object, { emitUpdate: false })
-    }
+    if (!editor || editor.isFocused || useSheetUI.getState().editor === editor || unsaved.current !== undefined) return
+    const incoming = JSON.stringify(block.data.doc)
+    if (sent.current.includes(incoming) || JSON.stringify(editor.getJSON()) === incoming) return
+    editor.commands.setContent(block.data.doc as object, { emitUpdate: false })
   }, [editor, block.data.doc])
   // Focus after the click that created the block has finished, or the browser takes focus back.
   useEffect(() => {
@@ -127,7 +133,7 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   // Leaving the page within the save delay still saves what was typed.
   useEffect(() => () => {
     clearTimeout(save.current)
-    if (unsaved.current !== undefined) cb.current.onDoc(unsaved.current)
+    if (unsaved.current !== undefined) cb.current.onDoc(remember(unsaved.current))
     useSheetUI.setState((s) => (s.lastEditor === editor ? { editor: null, lastEditor: null } : {}))
   }, [editor])
   return (

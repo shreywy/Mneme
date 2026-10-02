@@ -7,13 +7,20 @@ import { Icon } from '../../ui/Icons'
 import { paperTheme } from './Canvas'
 import { PagePickerHost } from './editor/nodes'
 import { TextBlock } from './TextBlock'
+import { Toolbar } from './Toolbar'
+import { InsertPanel } from './Dock'
+import { useSheetUI } from './store'
 
 /** The page as one column (the default on phones). Tap a block to edit it there; Edit jumps to the end of the main text. */
 export function ReadView({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[] }) {
   const [editing, setEditing] = useState<string | null>(null)
   const unit = sheet.paper.spacing
   const main = blocks.find((b) => b.role === 'main')
+  const inserting = useSheetUI((st) => st.insertOpen)
   return (
+    <>
+    <div className="sheet-read-bar"><Toolbar mainBlockId={main?.id} /></div>
+    {inserting && <div className="sheet-read-insert"><InsertPanel /></div>}
     <div className={`sheet-read-host ${paperTheme(sheet)}`} style={{ '--page-font': fontCss(sheet.paper.font), background: sheet.paper.paperColor ?? undefined } as React.CSSProperties}>
     <div className="page sheet-read">
       {readingOrder(blocks.filter((b) => b.kind === 'text')).map((b) => (
@@ -26,5 +33,6 @@ export function ReadView({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBloc
       <PagePickerHost exclude={sheet.id} />
     </div>
     </div>
+    </>
   )
 }

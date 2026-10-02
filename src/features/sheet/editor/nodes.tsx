@@ -44,7 +44,7 @@ const tex = (latex: string, displayMode: boolean) => {
 const stopInside = ({ event }: { event: Event }) => !!(event.target as Element | null)?.closest?.('.nv-edit, .nv-ui')
 
 /** Rounds its content's height up to whole lines. */
-function Lines({ children, className }: { children: ReactNode; className?: string }) {
+function Lines({ children, className, boxRef }: { children: ReactNode; className?: string; boxRef?: React.Ref<HTMLDivElement> }) {
   const inner = useRef<HTMLDivElement>(null)
   const [h, setH] = useState<number>()
   useLayoutEffect(() => {
@@ -59,7 +59,7 @@ function Lines({ children, className }: { children: ReactNode; className?: strin
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  return <div className={`nv-lines ${className ?? ''}`} style={{ height: h }}><div ref={inner} className="nv-inner">{children}</div></div>
+  return <div ref={boxRef} className={`nv-lines ${className ?? ''}`} style={{ height: h }}><div ref={inner} className="nv-inner">{children}</div></div>
 }
 
 /**
@@ -90,19 +90,27 @@ function useOpen(selectedProp: boolean, p: Pick<NodeViewProps, 'node' | 'updateA
     if (t === pending) { pending = null; setOpen(true) }
     queueMicrotask(() => p.updateAttributes({ openToken: null }))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const onBlur = (e: React.FocusEvent) => { if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node | null)) setOpen(false) }
+  // A click anywhere else closes it, even if it never had focus.
+  const box = useRef<HTMLDivElement & HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as globalThis.Node)) setOpen(false) }
+    document.addEventListener('pointerdown', away, true)
+    return () => document.removeEventListener('pointerdown', away, true)
+  }, [open])
+  const onBlur = (e: React.FocusEvent) => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as globalThis.Node)) setOpen(false) }
   const onKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false) } }
-  return { open, setOpen, onBlur, onKeyDown }
+  return { open, setOpen, onBlur, onKeyDown, box }
 }
 
 // ---------- equation ($$) ----------
 
 function EquationView({ node, updateAttributes, selected, deleteNode, editor }: NodeViewProps) {
   const latex = node.attrs.latex as string
-  const { open, setOpen, onBlur, onKeyDown } = useOpen(selected, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor })
   return (
     <NodeViewWrapper className={`nv nv-eq ${open ? 'is-open' : ''}`} data-drag-handle="">
-      <Lines>
+      <Lines boxRef={box}>
         <div className="nv-eq-show nv-ui" contentEditable={false} onClick={() => setOpen(true)} dangerouslySetInnerHTML={{ __html: tex(latex, true) }} />
         {open && (
           <div className="nv-edit" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>
@@ -134,15 +142,17 @@ export const Equation = Node.create({
 
 function InlineMathView({ node, updateAttributes, deleteNode, editor }: NodeViewProps) {
   const latex = node.attrs.latex as string
-  const { open, setOpen, onBlur, onKeyDown } = useOpen(false, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(false, { node, updateAttributes, editor })
   return (
     <NodeViewWrapper as="span" className="nv-im">
+      <span ref={box}>
       <span contentEditable={false} className="nv-im-show nv-ui" onClick={() => setOpen(true)} dangerouslySetInnerHTML={{ __html: tex(latex, false) }} />
       {open && (
         <span className="nv-edit nv-pop" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>
           <MathField value={latex} autoFocus buttons={false} onChange={(v) => updateAttributes({ latex: v })} onDone={() => { setOpen(false); if (!latex) deleteNode() }} />
         </span>
       )}
+      </span>
     </NodeViewWrapper>
   )
 }
@@ -178,11 +188,11 @@ const TEX_REL = Object.fromEntries(Object.entries(REL_TEX).map(([k, v]) => [v, k
 
 function WorkingView({ node, updateAttributes, selected, deleteNode, editor }: NodeViewProps) {
   const lines = node.attrs.lines as DerivationLine[]
-  const { open, setOpen, onBlur, onKeyDown } = useOpen(selected, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor })
   const set = (i: number, patch: Partial<DerivationLine>) => updateAttributes({ lines: lines.map((l, k) => (k === i ? { ...l, ...patch } : l)) })
   return (
     <NodeViewWrapper className={`nv nv-work ${open ? 'is-open' : ''}`}>
-      <Lines>
+      <Lines boxRef={box}>
         <div className="nv-ui" contentEditable={false} onClick={() => setOpen(true)}>
           {lines.some((l) => l.rhs.trim()) ? <Derivation b={{ type: 'derivation', lines: lines.filter((l) => l.rhs.trim()) }} /> : <div className="nv-empty">Step-by-step working: click to add steps</div>}
         </div>
@@ -235,13 +245,13 @@ export const Working = Node.create({
 
 function PlotView({ node, updateAttributes, selected, deleteNode, editor }: NodeViewProps) {
   const spec = node.attrs.spec as PlotSpec
-  const { open, setOpen, onBlur, onKeyDown } = useOpen(selected, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor })
   const block = useMemo(() => plotBlock(spec), [spec])
   const set = (patch: Partial<PlotSpec>) => updateAttributes({ spec: { ...spec, ...patch } })
   const num = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? undefined : Number(v))
   return (
     <NodeViewWrapper className={`nv nv-plot ${open ? 'is-open' : ''}`}>
-      <Lines>
+      <Lines boxRef={box}>
         <div className="nv-ui" contentEditable={false} onClick={() => setOpen(true)}><Plot b={block} /></div>
         {open && (
           <div className="nv-edit nv-plot-edit" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>

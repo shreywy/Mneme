@@ -76,7 +76,7 @@ function Tile({ it, onPick }: { it: InsertItem; onPick: () => void }) {
 }
 
 /** Insert: a letter or a click puts it at the cursor, a number repeats a recent one, dragging puts it anywhere. */
-function InsertPanel() {
+export function InsertPanel() {
   const [q, setQ] = useState('')
   const search = useRef<HTMLInputElement>(null)
   const recents = useRecents((s) => s.recents)

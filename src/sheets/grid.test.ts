@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAPER } from './types'
-import { blocksInRect, boundsOf, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
+import { blocksInRect, boundsOf, freeSpot, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
 
 const v = { x: -100, y: 50, zoom: 2 }
 
@@ -65,5 +65,12 @@ describe('grid', () => {
     const m = paperStyle({ ...DEFAULT_PAPER, lines: 'none', margin: true }, { x: 0, y: 0, zoom: 1 })
     expect(m.backgroundImage).toContain('linear-gradient')
     expect(m.backgroundPosition).toBe('70px 0px')
+  })
+
+  it('a new block goes where asked if that spot is clear, else to the first clear spot below it', () => {
+    const bs = [{ x: 0, y: 0, w: 10, h: 3 }, { x: 0, y: 5, w: 10, h: 2 }]
+    expect(freeSpot(bs, { x: 20, y: 0 }, 10, 2)).toEqual({ x: 20, y: 0 })
+    expect(freeSpot(bs, { x: 2, y: 1 }, 10, 2)).toEqual({ x: 2, y: 8 })
+    expect(freeSpot(bs, { x: 2, y: -6 }, 10, 2)).toEqual({ x: 2, y: -6 })
   })
 })
