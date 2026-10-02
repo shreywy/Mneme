@@ -38,7 +38,7 @@ export function Shell() {
   const newPage = async () => {
     const folderId = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : null
     setDrawer(false)
-    nav(`/write/${await createSheet({ folderId })}`)
+    nav(`/write/${await createSheet({ folderId, paper: useSettings.getState().paperDefault ?? undefined })}`)
   }
   const peekT = useRef<number>(0)
   const unpeekT = useRef<number>(0)

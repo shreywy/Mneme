@@ -19,7 +19,7 @@ const OWNER_KEY = 'mneme.sync.owner'
 const SETTINGS_DIRTY = 'mneme.settings.dirty'
 const SETTINGS_SEEN = 'mneme.settings.remoteAt'
 // Settings that follow the account. Sidebar layout and open folders stay per device.
-const SYNCED_SETTINGS = ['theme', 'accent', 'darkPalette', 'lightPalette', 'customBg', 'customAccent', 'sound', 'correctSound', 'reduceMotion', 'learnShuffle', 'learnPanel', 'learnMatch', 'hiddenHints', 'libraryView', 'librarySort'] as const
+const SYNCED_SETTINGS = ['theme', 'accent', 'darkPalette', 'lightPalette', 'customBg', 'customAccent', 'sound', 'correctSound', 'reduceMotion', 'learnShuffle', 'learnPanel', 'learnMatch', 'hiddenHints', 'libraryView', 'librarySort', 'paperDefault'] as const
 
 let currentId: string | null = null
 let channel: RealtimeChannel | null = null

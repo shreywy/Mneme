@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Paper } from '../sheets/types'
 
 export type ThemePref = 'light' | 'dark' | 'system'
 export type CorrectSound = 'chime' | 'pop' | 'wood' | 'bell' | 'marimba' | 'pluck'
@@ -53,6 +54,8 @@ type Settings = {
   openFolders: string[]
   libraryView: 'grid' | 'list'
   librarySort: 'recent' | 'name' | 'progress'
+  /** Paper for new pages (Text notes); null uses the default. */
+  paperDefault: Paper | null
   set: (patch: Partial<Omit<Settings, 'set'>>) => void
 }
 
@@ -77,6 +80,7 @@ export const useSettings = create<Settings>()(
       openFolders: [],
       libraryView: 'grid',
       librarySort: 'recent',
+      paperDefault: null,
       set: (patch) => set(patch),
     }),
     { name: 'mneme.settings' },
