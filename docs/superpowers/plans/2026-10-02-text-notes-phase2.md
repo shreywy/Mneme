@@ -24,3 +24,9 @@
 10. Read view keeps up (bookmarks hidden, nodes render), tests, build, browser pass, feedback checklist file.
 
 ## Ledger
+- Tasks 1–10: built 2026-10-02 (commits 0b0c… to the branch head), tests 221/221, build green, checked in the browser (desktop and phone sizes).
+- Ruling: a just-inserted maths/plot/working opens through a one-off token on the node, not a node selection. A node selection made ProseMirror take focus back from the maths field and let a key press replace the node. Cost if wrong: the token attribute is briefly in the doc (cleared on mount).
+- Ruling: a node only opens from a selection made while its block has focus. TipTap marks atom nodes selected whenever the selection covers them, even unfocused (a block starting with an equation opened it on load).
+- Ruling: a block ignores database echoes of its own recent saves and never takes outside changes while the toolbar is acting on it. A late echo of an older save was replacing text and moving the cursor while a toolbar dropdown had focus.
+- Ruling: Read view gets the toolbar and Insert, so phone edits aren't limited to markdown shortcuts (spec: "the Edit button opens the keyboard toolbar").
+- Note: the stuck hand cursor couldn't be reproduced; drags now always end (explicit capture release, window-level pointerup and blur fallbacks).
