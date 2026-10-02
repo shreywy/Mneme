@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
-import { TextSelection } from '@tiptap/pm/state'
+import { TextSelection, type Transaction } from '@tiptap/pm/state'
 import { linesFor } from '../../sheets/grid'
 import { classifyPaste } from '../../sheets/paste'
 import type { InsertId } from '../../sheets/insert'
@@ -62,12 +62,28 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
         if (!data || data.files.length || view.state.selection.$from.parent.type.spec.code) return false
         let lang: string | undefined
         try { lang = JSON.parse(data.getData('vscode-editor-data') || '{}').mode } catch { lang = undefined }
-        const text = data.getData('text/plain')
+        const text = data.getData('text/plain').replace(/\r\n?/g, '\n')
         const hit = classifyPaste({ text, origin: location.origin, editorLanguage: lang })
         const ed = editorRef.current
         if (!hit || !ed) return false
+        // Remember what the paste made, and keep that range current through later typing, so "Paste as
+        // plain text" swaps exactly that and nothing typed since.
+        const start = ed.state.selection.from
         applyPaste(ed, hit)
-        toastAction(`Pasted as ${LABEL[hit.kind]}`, { label: 'Paste as plain text', run: () => { ed.chain().focus().undo().insertContent(text.split('\n').map((line) => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] }))).run() } })
+        let range = { from: Math.min(start, ed.state.selection.from), to: ed.state.selection.from }
+        const track = ({ transaction }: { transaction: Transaction }) => {
+          range = { from: transaction.mapping.map(range.from, -1), to: transaction.mapping.map(range.to, 1) }
+        }
+        ed.on('transaction', track)
+        setTimeout(() => ed.off('transaction', track), 7000)
+        toastAction(`Pasted as ${LABEL[hit.kind]}`, {
+          label: 'Paste as plain text',
+          run: () => {
+            ed.off('transaction', track)
+            if (ed.isDestroyed) return
+            ed.chain().focus().insertContentAt(range, text.split('\n').map((line) => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] }))).run()
+          },
+        })
         return true
       },
       handleDrop: (view, event) => {

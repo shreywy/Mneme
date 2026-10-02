@@ -115,7 +115,7 @@ export function Toolbar({ mainBlockId }: { mainBlockId?: string }) {
       </>}
       <span className="grow" />
       <B label="Insert" kbd="I or /" onClick={() => useSheetUI.setState({ insertOpen: true })}><Icon name="plus" size={16} /><span className="tb-t">Insert</span></B>
-      <B label={blockId === mainBlockId ? "The main column can't be deleted" : 'Delete this block'} disabled={off || !blockId || blockId === mainBlockId}
+      <B label={blockId === mainBlockId ? "The main column can't be deleted" : 'Delete this block'} disabled={off || !canvas || !blockId || blockId === mainBlockId}
         onClick={() => { if (blockId) void canvas?.removeBlock(blockId) }}><Icon name="trash" size={16} /></B>
     </div>
   )

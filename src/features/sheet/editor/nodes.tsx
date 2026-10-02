@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import katex from 'katex'
 import { create } from 'zustand'
 import { Extension, InputRule, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, mergeAttributes, type NodeViewProps } from '@tiptap/react'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
+import { TextSelection } from '@tiptap/pm/state'
 import { createLowlight } from 'lowlight'
 import bash from 'highlight.js/lib/languages/bash'
 import c from 'highlight.js/lib/languages/c'
@@ -29,6 +29,7 @@ import { listNotes } from '../../../data/notes'
 import { listSheets } from '../../../data/sheets'
 import { Derivation, Plot } from '../../notes/figures'
 import { plotBlock, type PlotSpec } from '../../../sheets/plot'
+import { texHtml } from '../../../sheets/tex'
 import type { DerivationLine } from '../../../notes-format/types'
 import { Icon } from '../../../ui/Icons'
 import { Sheet } from '../../../ui/controls'
@@ -37,9 +38,7 @@ import { MathField } from './MathField'
 // The things you can insert into a text block. Each is a node in the block's document, drawn by a React
 // view, and each takes a whole number of lines so the text after it stays on the paper's lines.
 
-const tex = (latex: string, displayMode: boolean) => {
-  try { return katex.renderToString(latex || '\\square', { throwOnError: false, displayMode }) } catch { return latex }
-}
+const tex = texHtml
 /** Events inside an open editor (inputs, the maths field) belong to it, not to the text around it. */
 const stopInside = ({ event }: { event: Event }) => !!(event.target as Element | null)?.closest?.('.nv-edit, .nv-ui')
 
@@ -74,14 +73,20 @@ export function opening<T extends { type: string; attrs?: Record<string, unknown
 const openToken = { openToken: { default: null, rendered: false } }
 
 /** Open when just inserted or clicked; closes on Escape, Done, or when focus leaves it. */
-function useOpen(selectedProp: boolean, p: Pick<NodeViewProps, 'node' | 'updateAttributes' | 'editor'>) {
+function useOpen(selectedProp: boolean, p: Pick<NodeViewProps, 'node' | 'updateAttributes' | 'editor' | 'getPos'>) {
   // TipTap marks a node selected whenever the selection covers it, focused or not (a block that starts
   // with an equation selects it on load). Only a selection you made while typing here opens it.
   const selected = selectedProp && p.editor.isFocused
   const [open, setOpen] = useState(false)
-  // Follows the selection only when it changes (not on mount, not on React's development re-run).
+  const box = useRef<HTMLDivElement & HTMLSpanElement>(null)
+  // Selecting it while typing (arrow keys) opens it. Only selecting: closing is a click elsewhere, Escape,
+  // Done or focus leaving, because focus moving into its own editor also reads as "deselected".
   const was = useRef(selected)
-  useEffect(() => { if (was.current === selected) return; was.current = selected; setOpen(selected) }, [selected])
+  useEffect(() => {
+    if (was.current === selected) return
+    was.current = selected
+    if (selected) setOpen(true)
+  }, [selected])
   // Claim the token once mounted (an effect, so React's double render in development can't lose it),
   // then drop it so it isn't saved with the page.
   useEffect(() => {
@@ -90,8 +95,17 @@ function useOpen(selectedProp: boolean, p: Pick<NodeViewProps, 'node' | 'updateA
     if (t === pending) { pending = null; setOpen(true) }
     queueMicrotask(() => p.updateAttributes({ openToken: null }))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // While its editor is open, the text's own cursor sits just after the node, not on it. A node selection
+  // makes the text take focus back from the maths field (and a key press would replace the node).
+  useEffect(() => {
+    if (!open) return
+    const { state, view } = p.editor
+    const pos = p.getPos()
+    const sel = state.selection as { node?: unknown; from: number }
+    if (typeof pos !== 'number' || !sel.node || sel.from !== pos) return
+    view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(pos + p.node.nodeSize))))
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   // A click anywhere else closes it, even if it never had focus.
-  const box = useRef<HTMLDivElement & HTMLSpanElement>(null)
   useEffect(() => {
     if (!open) return
     const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as globalThis.Node)) setOpen(false) }
@@ -105,9 +119,9 @@ function useOpen(selectedProp: boolean, p: Pick<NodeViewProps, 'node' | 'updateA
 
 // ---------- equation ($$) ----------
 
-function EquationView({ node, updateAttributes, selected, deleteNode, editor }: NodeViewProps) {
+function EquationView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const latex = node.attrs.latex as string
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor, getPos })
   return (
     <NodeViewWrapper className={`nv nv-eq ${open ? 'is-open' : ''}`} data-drag-handle="">
       <Lines boxRef={box}>
@@ -140,9 +154,9 @@ export const Equation = Node.create({
 
 // ---------- maths in a sentence ($…$) ----------
 
-function InlineMathView({ node, updateAttributes, deleteNode, editor }: NodeViewProps) {
+function InlineMathView({ node, updateAttributes, deleteNode, editor, getPos }: NodeViewProps) {
   const latex = node.attrs.latex as string
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(false, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(false, { node, updateAttributes, editor, getPos })
   return (
     <NodeViewWrapper as="span" className="nv-im">
       <span ref={box}>
@@ -186,9 +200,9 @@ const RELS = ['=', '≈', '<', '>', '≤', '≥', '⇒']
 const REL_TEX: Record<string, string> = { '=': '=', '≈': '\\approx', '<': '<', '>': '>', '≤': '\\le', '≥': '\\ge', '⇒': '\\Rightarrow' }
 const TEX_REL = Object.fromEntries(Object.entries(REL_TEX).map(([k, v]) => [v, k]))
 
-function WorkingView({ node, updateAttributes, selected, deleteNode, editor }: NodeViewProps) {
+function WorkingView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const lines = node.attrs.lines as DerivationLine[]
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor, getPos })
   const set = (i: number, patch: Partial<DerivationLine>) => updateAttributes({ lines: lines.map((l, k) => (k === i ? { ...l, ...patch } : l)) })
   return (
     <NodeViewWrapper className={`nv nv-work ${open ? 'is-open' : ''}`}>
@@ -243,9 +257,9 @@ export const Working = Node.create({
 
 // ---------- plot and axes ----------
 
-function PlotView({ node, updateAttributes, selected, deleteNode, editor }: NodeViewProps) {
+function PlotView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const spec = node.attrs.spec as PlotSpec
-  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor })
+  const { open, setOpen, onBlur, onKeyDown, box } = useOpen(selected, { node, updateAttributes, editor, getPos })
   const block = useMemo(() => plotBlock(spec), [spec])
   const set = (patch: Partial<PlotSpec>) => updateAttributes({ spec: { ...spec, ...patch } })
   const num = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? undefined : Number(v))

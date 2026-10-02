@@ -30,3 +30,16 @@
 - Ruling: a block ignores database echoes of its own recent saves and never takes outside changes while the toolbar is acting on it. A late echo of an older save was replacing text and moving the cursor while a toolbar dropdown had focus.
 - Ruling: Read view gets the toolbar and Insert, so phone edits aren't limited to markdown shortcuts (spec: "the Edit button opens the keyboard toolbar").
 - Note: the stuck hand cursor couldn't be reproduced; drags now always end (explicit capture release, window-level pointerup and blur fallbacks).
+- Final review (fresh reviewer, Sonnet): fixed 5 Important + 3 Minor.
+  - Fixed: an inserted equation closed after the first key. Selection now only opens editors, and the text cursor moves off the node while its editor is open.
+  - Fixed: HTML injection when KaTeX threw. The fallback is now escaped, with KaTeX limits set (src/sheets/tex.ts, tex.test.ts RED→GREEN).
+  - Fixed: the Insert panel ate keys after you clicked back into text. It now closes on an outside click and leaves fields and dialogs alone.
+  - Fixed: Space no longer pressed focused buttons. Space-pan now skips buttons and dialogs.
+  - Fixed: "Paste as plain text" undid newer typing. It now replaces the tracked pasted range, and strips \r.
+  - Fixed: Insert silently did nothing in Read view. It now asks you to tap a line, and delete-block is disabled there.
+  - Fixed: / opened the menu inside code blocks.
+  - Fixed: niceTicks looped forever on tiny or huge ranges, and plot y ranges weren't validated (plot.test.ts RED→GREEN).
+- Final: minor (deferred): grips, bookmarks and the rendered equation aren't keyboard-operable; the slash menu has no aria-activedescendant.
+- Final: minor (deferred): a selected link card is replaced by a key press (ProseMirror default; undo restores it).
+- Final: minor (deferred): focusId clears when focus moves into the maths field, so height changes made while editing maths are only written on the next edit.
+- Final: minor (deferred): /write/my-blocks opened by URL shows the hidden page, and its cleanup could drop empty saved blocks.

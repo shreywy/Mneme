@@ -5,6 +5,7 @@ import { deleteMyBlock, listMyBlocks, MY_BLOCKS_ID } from '../../data/myblocks'
 import { db } from '../../data/db'
 import { byLetter, INSERTS, searchInserts, type InsertId, type InsertItem } from '../../sheets/insert'
 import { confirmAction } from '../../ui/confirm'
+import { toast } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
 import { nodeFor, opensItself, runInsert } from './editor/commands'
 import { INSERT_DRAG } from './TextBlock'
@@ -21,8 +22,9 @@ export async function insertNow(id: InsertId, at?: { x: number; y: number }) {
   useRecents.getState().push(id)
   useSheetUI.setState({ insertOpen: false })
   if (editor && !editor.isDestroyed && !at) return runInsert(editor, id)
+  if (!canvas) { toast('Tap the line where it should go, then Insert'); return }
   const node = await nodeFor(id)
-  if (!node || !canvas) return
+  if (!node) return
   await canvas.newBlock([opensItself(node)], at)
 }
 
@@ -91,10 +93,20 @@ export function InsertPanel() {
     else if (r?.my) { useRecents.getState().push(`my:${r.my.group}`); close(); void canvas?.placeGroup(r.my.group) }
   }
 
+  const panel = useRef<HTMLDivElement>(null)
+  // A click anywhere else (back into the text, say) closes it.
+  useEffect(() => {
+    const away = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) close() }
+    document.addEventListener('pointerdown', away, true)
+    return () => document.removeEventListener('pointerdown', away, true)
+  }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); close(); return }
-      if (document.activeElement === search.current || e.ctrlKey || e.metaKey || e.altKey) return
+      // Keys in a field or another dialog are theirs. The text you were writing in is fine: that's where it inserts.
+      const at = document.activeElement
+      const field = at instanceof HTMLInputElement || at instanceof HTMLTextAreaElement || at instanceof HTMLSelectElement || at?.tagName === 'MATH-FIELD'
+      if (at === search.current || field || at?.closest('[role=dialog]:not(.insert-panel)') || e.ctrlKey || e.metaKey || e.altKey) return
       if (/^[1-4]$/.test(e.key)) { e.preventDefault(); pickRecent(Number(e.key) - 1); return }
       if (e.key === '/') { e.preventDefault(); search.current?.focus(); return }
       const hit = e.key.length === 1 ? byLetter(e.key) : undefined
@@ -106,7 +118,7 @@ export function InsertPanel() {
 
   const results = q ? searchInserts(q) : INSERTS.filter((i) => i.letter)
   return (
-    <div className="insert-panel" role="dialog" aria-label="Insert" onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={panel} className="insert-panel" role="dialog" aria-label="Insert" onPointerDown={(e) => e.stopPropagation()}>
       <div className="ins-search">
         <Icon name="search" size={15} />
         <input ref={search} placeholder="Search, or press a letter" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search what to insert"

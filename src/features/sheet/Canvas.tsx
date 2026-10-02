@@ -169,8 +169,9 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   // Keys that act on blocks. Inside a text block, the editor handles its own keys (including undo).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === ' ' && !isTyping(e) && !e.repeat) { setSpace(true); e.preventDefault() }
       if (isTyping(e) || document.querySelector('[role=dialog]')) return
+      // Space held over the paper pans, unless it's pressing a focused button or link.
+      if (e.key === ' ' && !e.repeat && !(e.target as Element | null)?.closest?.('button, a, select, summary, [role=button], [role=menuitem]')) { setSpace(true); e.preventDefault() }
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo() }
       else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo() }

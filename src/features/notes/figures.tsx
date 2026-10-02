@@ -35,11 +35,13 @@ export function Derivation({ b }: { b: B<'derivation'> }) {
 
 /** About `n` round tick values between min and max (1, 2 or 5 times a power of ten apart). */
 export function niceTicks(min: number, max: number, n = 6): number[] {
+  // An empty range, or one too fine for floating point to step through (1e16..1e16+4), gets its ends only.
+  if (!(max > min) || !Number.isFinite(max - min) || (max - min) / Math.max(Math.abs(min), Math.abs(max)) < 1e-12) return [min, max]
   const raw = (max - min) / n
   const mag = 10 ** Math.floor(Math.log10(raw))
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw
   const out: number[] = []
-  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) out.push(Math.round(v / step) * step)
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9 && out.length < 200; v += step) out.push(Math.round(v / step) * step)
   return out
 }
 const fmt = (v: number, unit?: string) => {

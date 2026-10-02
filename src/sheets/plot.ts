@@ -31,10 +31,13 @@ export function autoRange(fns: string[], xMin: number, xMax: number): { min: num
 export function plotBlock(s: PlotSpec): Extract<Block, { type: 'plot' }> {
   const fns = s.fns.map((f) => f.trim()).filter(Boolean)
   const auto = autoRange(fns, s.xMin, s.xMax)
+  // A y range typed the wrong way round (or with no height) falls back to the automatic one.
+  const own = s.yMin !== undefined && s.yMax !== undefined && !(s.yMax > s.yMin)
+  const yMin = own ? undefined : s.yMin, yMax = own ? undefined : s.yMax
   return {
     type: 'plot',
     x: { min: s.xMin, max: s.xMax, ...(s.xLabel ? { label: s.xLabel } : {}) },
-    y: { min: s.yMin ?? auto.min, max: s.yMax ?? auto.max, ...(s.yLabel ? { label: s.yLabel } : {}) },
+    y: { min: yMin ?? Math.min(auto.min, (yMax ?? auto.max) - 1), max: yMax ?? Math.max(auto.max, (yMin ?? auto.min) + 1), ...(s.yLabel ? { label: s.yLabel } : {}) },
     lines: fns.map((fn) => ({ fn })),
   }
 }

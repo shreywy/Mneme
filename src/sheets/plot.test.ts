@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { autoRange, plotBlock } from './plot'
+import { niceTicks } from '../features/notes/figures'
 
 describe('plot helpers', () => {
   it('fits the y range to the formulas, with a little room, on round numbers', () => {
@@ -25,5 +26,18 @@ describe('plot helpers', () => {
     expect(b.lines).toEqual([{ fn: '100 / x' }])
     expect(b.x).toEqual({ min: 1, max: 20, label: 'r' })
     expect(b.y.label).toBe('a')
+  })
+
+  it('a y range set the wrong way round (or empty) is ignored in favour of the automatic one', () => {
+    const b = plotBlock({ fns: ['x'], xMin: 0, xMax: 10, yMin: 5, yMax: 5 })
+    expect(b.y.max).toBeGreaterThan(b.y.min)
+    const c = plotBlock({ fns: ['x'], xMin: 0, xMax: 10, yMin: 8, yMax: 2 })
+    expect(c.y.max).toBeGreaterThan(c.y.min)
+  })
+
+  it('tick marks stop even for ranges too fine to divide (huge numbers)', () => {
+    const t = niceTicks(1e16, 1e16 + 4)
+    expect(t.length).toBeLessThan(1000)
+    expect(niceTicks(3, 3).length).toBeLessThan(1000)
   })
 })

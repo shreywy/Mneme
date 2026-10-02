@@ -47,6 +47,8 @@ export const SlashCommand = Extension.create({
       editor: this.editor,
       char: '/',
       allowSpaces: false,
+      // In code a / is just a slash.
+      allow: ({ state, range }) => !state.doc.resolve(range.from).parent.type.spec.code,
       items: ({ query }) => searchInserts(query).slice(0, 14),
       command: ({ editor, range, props }) => {
         editor.chain().focus().deleteRange(range).run()
