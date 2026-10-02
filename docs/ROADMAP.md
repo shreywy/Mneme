@@ -124,7 +124,6 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Playwright end-to-end tests, and component tests for study screens
 - [ ] Code-split KaTeX and Markdown (the bundle is about 1 MB)
 - [ ] CI workflow: lint, typecheck, unit, e2e, database tests
-- [ ] Offline-first PWA: service worker, installable, works with no network
 - [ ] CRDT sync (Yjs) for Pages so edits from two devices merge instead of last-write-wins
 - [ ] Performance budget in CI (bundle size, Lighthouse) and Web Vitals reporting
 - [ ] Architecture write-up with diagrams for the README (local-first sync, RLS, storage cap)
