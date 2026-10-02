@@ -9,6 +9,8 @@ import { toastAction } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
 import { textExtensions } from './editor/extensions'
 import { RECALC, type BreakConfig } from './editor/pagebreaks'
+import { insertImages } from './editor/image'
+import { imageFiles } from '../../sheets/image'
 import { applyPaste, growTable, runInsert } from './editor/commands'
 import { useRecents, useSheetUI } from './store'
 
@@ -77,6 +79,12 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur, pag
     editorProps: {
       handlePaste: (view, event) => {
         const data = event.clipboardData
+        if (data?.files.length && editorRef.current && !view.state.selection.$from.parent.type.spec.code) {
+          const pics = imageFiles(data.files)
+          if (!pics.length) return false
+          void insertImages(editorRef.current, pics, block.sheetId)
+          return true
+        }
         if (!data || data.files.length || view.state.selection.$from.parent.type.spec.code) return false
         let lang: string | undefined
         try { lang = JSON.parse(data.getData('vscode-editor-data') || '{}').mode } catch { lang = undefined }
@@ -105,6 +113,15 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur, pag
         return true
       },
       handleDrop: (view, event) => {
+        const pics = imageFiles(event.dataTransfer?.files ?? [])
+        if (pics.length && editorRef.current) {
+          event.preventDefault()
+          event.stopPropagation()
+          const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
+          if (at) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at.pos))))
+          void insertImages(editorRef.current, pics, block.sheetId)
+          return true
+        }
         const id = event.dataTransfer?.getData(INSERT_DRAG) as InsertId | undefined
         const ed = editorRef.current
         if (!id || !ed) return false

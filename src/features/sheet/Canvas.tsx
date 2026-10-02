@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as sheets from '../../data/sheets'
 import * as inkData from '../../data/ink'
+import { forgetLater, imagesIn } from '../../data/images'
+import { imageNodes } from './editor/image'
 import { anchorFor, distToStroke, encodePoints, insidePolygon, lassoPicks, recogniseShape, rubOut, shiftPoints, straightenHighlight, strokeBounds, type Pt } from '../../sheets/ink'
 import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
 import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
@@ -167,6 +169,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     history.record(c)
     await applyChange(c)
     select([])
+    for (const b of gone) for (const i of imagesIn(b.data.doc)) forgetLater(sheet.id, i.local, i.hash)
     const what = gone.length === 1 ? 'Block deleted' : gone.length ? `${gone.length} blocks deleted` : 'Drawing deleted'
     toast(what, list.length === 1 ? 'Ctrl+Z brings it back' : 'Ctrl+Z brings them back', 'trash')
   }, [history])
@@ -276,6 +279,24 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     await saveMyBlock(name, list)
     toast('Saved to My blocks', 'Find it in Insert on any page', 'star')
   }
+  /** Moves a block along the grid from the keyboard (its grip or bookmark focused): arrows a line, Shift+arrows four. */
+  const keyMove = (b: SheetBlock, rename?: () => void) => (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 4 : 1
+    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key]
+    if (d) {
+      e.preventDefault(); e.stopPropagation()
+      const after = { ...b, x: b.x + d[0], y: b.y + d[1] }
+      history.record({ kind: 'update', before: b, after })
+      void sheets.updateBlock(b.id, { x: after.x, y: after.y })
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); e.stopPropagation()
+      if (rename) rename(); else select([b.id])
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault(); e.stopPropagation()
+      void removeSelection(new Set([b.id]))
+    }
+  }
+  const renameMark = async (b: SheetBlock) => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label) await sheets.updateBlock(b.id, { data: { ...b.data, label } }) }
   const toFront = (b: SheetBlock) => sheets.updateBlock(b.id, { z: nextZ() })
   const toBack = (b: SheetBlock) => sheets.updateBlock(b.id, { z: Math.min(0, ...live.current.blocks.map((x) => x.z)) - 1 })
 
@@ -642,7 +663,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   }
 
   // Insert tiles and My blocks dropped on the paper land in the cell under the pointer.
-  const dragKind = (e: React.DragEvent) => (e.dataTransfer.types.includes(INSERT_DRAG) ? INSERT_DRAG : e.dataTransfer.types.includes(MYBLOCK_DRAG) ? MYBLOCK_DRAG : null)
+  const dragKind = (e: React.DragEvent) => (e.dataTransfer.types.includes(INSERT_DRAG) ? INSERT_DRAG : e.dataTransfer.types.includes(MYBLOCK_DRAG) ? MYBLOCK_DRAG : e.dataTransfer.types.includes('Files') ? 'Files' : null)
   const onDragOver = (e: React.DragEvent) => {
     if (!dragKind(e)) return
     e.preventDefault()
@@ -659,6 +680,11 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     const p = local(e)
     const { gx, gy } = cellAt(view, p.x, p.y, unit)
     if (kind === MYBLOCK_DRAG) { useSheetUI.setState({ insertOpen: false }); await useSheetUI.getState().canvas?.placeGroup(e.dataTransfer.getData(MYBLOCK_DRAG), { x: gx, y: gy }); return }
+    if (kind === 'Files') {
+      const nodes = await imageNodes(Array.from(e.dataTransfer.files), sheet.id)
+      if (nodes.length) await useSheetUI.getState().canvas?.newBlock(nodes, { x: gx, y: gy })
+      return
+    }
     await insertNow(e.dataTransfer.getData(INSERT_DRAG) as InsertId, { x: gx, y: gy })
   }
 
@@ -694,7 +720,8 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
           {paged && mainShown && <Sheets main={mainShown} paper={sheet.paper} unit={unit} />}
           {blocks.map((b) => { const at = placed[b.id] ?? b; return b.kind === 'bookmark' ? (
             <div key={b.id} data-block-id={b.id} className={`sbookmark ${selected.has(b.id) ? 'selected' : ''}`} style={{ left: at.x * unit, top: at.y * unit, height: unit, zIndex: b.z }}
-              onPointerDown={startDrag(b, 'move')} onDoubleClick={async () => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label) await sheets.updateBlock(b.id, { data: { ...b.data, label } }) }}
+              onPointerDown={startDrag(b, 'move')} onDoubleClick={() => void renameMark(b)}
+              tabIndex={0} role="button" aria-label={`Bookmark: ${b.data.label}. Enter renames, arrows move it, Delete removes it.`} onKeyDown={keyMove(b, () => void renameMark(b))}
               title="Drag to move, double-click to rename">
               <Icon name="flag" size={14} /><span>{b.data.label}</span>
             </div>
@@ -702,7 +729,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
             <div key={b.id} data-block-id={b.id} className={`sblock ${focusId === b.id ? 'focus' : ''} ${selected.has(b.id) ? 'selected' : ''} ${many && selected.has(b.id) ? 'in-group' : ''}`}
               style={{ left: at.x * unit, top: at.y * unit, width: at.w * unit, zIndex: b.z }}
               onPointerDown={(e) => { if (e.button !== 1 && !space && tool !== 'pan') e.stopPropagation() }}>
-              <button className="sgrip" aria-label="Move block. Click to select it." title="Drag to move · click to select (then Delete)" onPointerDown={startDrag(b, 'move')}><Icon name="grid" size={12} /></button>
+              <button className="sgrip" aria-label="Move block: arrow keys move it, Enter selects it, Delete removes it" title="Drag to move · click to select (then Delete)" onPointerDown={startDrag(b, 'move')} onKeyDown={keyMove(b)}><Icon name="grid" size={12} /></button>
               <TextBlockMemo block={b} unit={unit} autoFocus={focusId === b.id} pages={b.role === 'main' ? breaks : null}
                 onDoc={(doc) => onDoc(b, doc)}
                 onHeight={(h) => {

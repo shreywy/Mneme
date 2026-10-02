@@ -14,7 +14,7 @@ import { InkBar } from './Ink'
 
 export const MYBLOCK_DRAG = 'application/x-mneme-myblock'
 
-const TILE_ICON: Partial<Record<InsertId, string>> = { plot: 'chart', table: 'table', code: 'code', checklist: 'task', link: 'link', quote: 'quote', working: 'list' }
+const TILE_ICON: Partial<Record<InsertId, string>> = { image: 'image', plot: 'chart', table: 'table', code: 'code', checklist: 'task', link: 'link', quote: 'quote', working: 'list' }
 const TILE_GLYPH: Partial<Record<InsertId, string>> = { equation: '∑', axes: '┼' }
 
 /** Puts an insert where it belongs: at the cursor of the block being edited, or in a new block mid-view. */
@@ -26,7 +26,7 @@ export async function insertNow(id: InsertId, at?: { x: number; y: number }) {
   if (!canvas) { toast('Tap the line where it should go, then Insert'); return }
   const node = await nodeFor(id)
   if (!node) return
-  await canvas.newBlock([opensItself(node)], at)
+  await canvas.newBlock(Array.isArray(node) ? node : [opensItself(node)], at)
 }
 
 const TOOLS: { id: Tool; label: string; icon: string; key: string; ink?: boolean }[] = [

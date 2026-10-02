@@ -69,9 +69,10 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
     const ids = repo.descendants(lib.folders, f.id)
     const ds = lib.decks.filter((d) => d.folderId && ids.has(d.folderId))
     const ns = lib.notes.filter((n) => n.folderId && ids.has(n.folderId))
+    const ss = lib.sheets.filter((s) => s.folderId && ids.has(s.folderId))
     const items = ds.reduce((n, d) => n + d.termCount + d.questionCount, 0)
     const learned = ds.reduce((n, d) => { const m = lib.mastery.get(d.id); return n + (m ? m.familiar + m.mastered : 0) }, 0)
-    return { decks: ds.length, notes: ns.length, sub: ids.size - 1, items, pct: items ? learned / items : 0 }
+    return { decks: ds.length, notes: ns.length, sheets: ss.length, sub: ids.size - 1, items, pct: items ? learned / items : 0 }
   }
   const path: Folder[] = []
   for (let f = folder; f; f = lib.folders.find((x) => x.id === f!.parentId)) path.unshift(f)
@@ -92,7 +93,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
         {folder ? <FolderHeader key={folder.id} folder={folder} folders={lib.folders} /> : (
           <>
             <h1 className="title">Library</h1>
-            <div className="meta"><span>{plural(lib.decks.length, 'deck')}</span>{lib.notes.length > 0 && <><i>/</i><span>{plural(lib.notes.length, 'notes page')}</span></>}<i>/</i><span>{plural(lib.folders.length, 'folder')}</span><i>/</i><span>{plural(lib.decks.reduce((n, d) => n + d.termCount + d.questionCount, 0), 'card')}</span></div>
+            <div className="meta"><span>{plural(lib.decks.length, 'deck')}</span>{lib.notes.length > 0 && <><i>/</i><span>{plural(lib.notes.length, 'notes page')}</span></>}{lib.sheets.length > 0 && <><i>/</i><span>{plural(lib.sheets.length, 'page')}</span></>}<i>/</i><span>{plural(lib.folders.length, 'folder')}</span><i>/</i><span>{plural(lib.decks.reduce((n, d) => n + d.termCount + d.questionCount, 0), 'card')}</span></div>
           </>
         )}
 
@@ -126,7 +127,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
                     <Link key={f.id} className="dcard fcard" to={`/folder/${f.id}`} style={{ '--i': i } as React.CSSProperties}>
                       <span className="fico"><Icon name="folder" size={18} /></span>
                       <b>{f.name}</b>
-                      <div className="sub">{plural(s.decks, 'deck')}{s.notes ? ` · ${plural(s.notes, 'notes page')}` : ''}{s.sub ? ` · ${plural(s.sub, 'subfolder')}` : ''} · {plural(s.items, 'card')}</div>
+                      <div className="sub">{plural(s.decks, 'deck')}{s.notes ? ` · ${plural(s.notes, 'notes page')}` : ''}{s.sheets ? ` · ${plural(s.sheets, 'page')}` : ''}{s.sub ? ` · ${plural(s.sub, 'subfolder')}` : ''} · {plural(s.items, 'card')}</div>
                       <div className="mbar"><i style={{ flexGrow: s.pct, background: 'var(--seg4)' }} /><i style={{ flexGrow: 1 - s.pct, background: 'var(--seg1)' }} /></div>
                     </Link>
                   ) })}

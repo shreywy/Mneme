@@ -9,7 +9,7 @@ import { confirmAction } from '../../ui/confirm'
 import { toast } from '../../ui/toasts'
 
 /** Make a public, read-only link to a deck or notes page. `payload` builds the copy (a deck or notes file). */
-export function ShareDialog({ kind, sourceId, title, payload, onClose }: { kind: ShareKind; sourceId: string; title: string; payload: () => Promise<unknown> | unknown; onClose: () => void }) {
+export function ShareDialog({ kind, sourceId, title, payload, onClose, children }: { kind: ShareKind; sourceId: string; title: string; payload: () => Promise<unknown> | unknown; onClose: () => void; children?: React.ReactNode }) {
   const { user } = useAccount()
   const nav = useNavigate()
   const [share, setShare] = useState<ShareRow | null | undefined>(undefined)
@@ -24,12 +24,15 @@ export function ShareDialog({ kind, sourceId, title, payload, onClose }: { kind:
     finally { setBusy(false) }
   }
   const copy = async () => { if (share) { await navigator.clipboard.writeText(shareUrl(share.id)).catch(() => {}); toast('Link copied') } }
-  const noun = kind === 'deck' ? 'deck' : 'notes page'
+  const noun = kind === 'deck' ? 'deck' : kind === 'note' ? 'notes page' : 'page'
 
   return (
     <Sheet onClose={onClose} label="Share" width={500} top>
       <h2>Share this {noun}</h2>
-      <p className="lede">Anyone with the link can view a clean copy. Your progress, highlights and annotations stay private. To keep it, they sign in and it's copied into their own library.</p>
+      <p className="lede">{kind === 'sheet'
+        ? 'Anyone with the link can view a read-only copy. To keep it, they sign in and it\'s copied into their own library.'
+        : 'Anyone with the link can view a clean copy. Your progress, highlights and annotations stay private. To keep it, they sign in and it\'s copied into their own library.'}</p>
+      {children}
       {!accountsEnabled ? <p className="muted" style={{ marginTop: 16 }}>Sharing needs accounts, which aren't set up in this build.</p>
         : !user ? (
           <div className="actions"><button className="btn primary" onClick={() => { onClose(); nav('/account') }}>Sign in to share</button></div>

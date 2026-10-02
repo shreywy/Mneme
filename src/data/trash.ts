@@ -3,6 +3,7 @@ import type { SheetRow } from '../sheets/types'
 import { deleteDeck } from './repo'
 import { deleteNote } from './notes'
 import { deleteSheet } from './sheets'
+import { forgetPageImages } from './images'
 
 // Recently deleted. Deleting a deck, notes page or page hides it straight away (it's archived and marked
 // deleted, so every list already leaves it out) and keeps it for a few days in case it was a mistake.
@@ -37,7 +38,10 @@ export async function restorePage(kind: TrashKind, id: string) {
 export async function deleteForGood(kind: TrashKind, id: string) {
   if (kind === 'deck') await deleteDeck(id)
   else if (kind === 'note') await deleteNote(id)
-  else await deleteSheet(id)
+  else {
+    await forgetPageImages(id, (await db.sheetBlocks.where('sheetId').equals(id).toArray()).map((b) => b.data.doc))
+    await deleteSheet(id)
+  }
 }
 
 /** What's waiting in Recently deleted, newest first. */

@@ -2,10 +2,13 @@ import type { Editor } from '@tiptap/react'
 import type { InsertId } from '../../../sheets/insert'
 import type { PasteResult } from '../../../sheets/paste'
 import { codeLang, opening, pickPage, pickTableSize } from './nodes'
+import { imageNodes, pickFiles } from './image'
+import { useSheetUI } from '../store'
 
-/** The node (as JSON) an insert makes when it lands in a new block of its own; null for text styles. */
-export async function nodeFor(id: InsertId): Promise<object | null> {
+/** The node (as JSON) an insert makes when it lands in a new block of its own; null for text styles. Pictures can be several. */
+export async function nodeFor(id: InsertId): Promise<object | object[] | null> {
   switch (id) {
+    case 'image': { const nodes = await imageNodes(await pickFiles(), useSheetUI.getState().sheetId ?? ''); return nodes.length ? nodes : null }
     case 'equation': return { type: 'equation', attrs: { latex: '' } }
     case 'working': return { type: 'working', attrs: { lines: [{ rel: '=', rhs: '', why: '' }] } }
     case 'plot': return { type: 'plot', attrs: { spec: { fns: [''], xMin: -5, xMax: 5 } } }
@@ -48,7 +51,7 @@ export async function runInsert(editor: Editor, id: InsertId) {
   }
   const node = await nodeFor(id)
   if (!node) return
-  chain().insertContent(opensItself(node)).run()
+  chain().insertContent(Array.isArray(node) ? node : opensItself(node)).run()
 }
 
 /** Maths, plots and working open their editor as soon as they land. */

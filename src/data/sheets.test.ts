@@ -86,6 +86,10 @@ describe('sheets', () => {
     expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'heading', attrs: { level: 1 } }] })).toBe(true)
     expect(sheets.isEmptyDoc(para('x'))).toBe(false)
     expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }] }] })).toBe(false)
+    // An empty quote or code block left behind is as empty as a blank line.
+    expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'blockquote', content: [{ type: 'paragraph' }] }] })).toBe(true)
+    expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'codeBlock', attrs: { language: null } }] })).toBe(true)
+    expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'codeBlock', content: [{ type: 'text', text: 'x = 1' }] }] })).toBe(false)
   })
 
   it('a bookmark is never cleared as an empty block', async () => {

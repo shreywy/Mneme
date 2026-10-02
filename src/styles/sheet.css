@@ -333,3 +333,21 @@
   .print-root h1, .print-root h2, .print-root h3 { break-after: avoid; }
   .print-root .tplus, .print-root .tgrow, .print-root .nv-edit, .print-root .is-empty::before { display: none !important; }
 }
+
+/* Pictures */
+.nv-img .nv-img-box { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
+.nv-img .nv-img-frame { position: relative; display: flex; align-items: center; max-width: 100%; }
+.nv-img img { display: block; object-fit: contain; border-radius: 6px; user-select: none; }
+.nv-img.is-sel img, .nv-img.is-sel .nv-img-missing { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: 2px; }
+.nv-img-missing { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 12px; text-align: center; border: 1.5px dashed var(--line); border-radius: 8px; color: var(--muted); font: 500 13px/1.4 var(--sans); }
+.nv-img-resize { position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px; border-radius: 4px; background: var(--accent); border: 2px solid var(--surface); cursor: nwse-resize; opacity: 0; transition: opacity .15s var(--ease); }
+.nv-img-bar { position: absolute; right: 6px; top: 6px; display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: color-mix(in oklab, var(--surface) 94%, transparent); border: 1px solid var(--line); box-shadow: var(--shadow); opacity: 0; transform: translateY(-3px); transition: opacity .15s var(--ease), transform .15s var(--ease); }
+.nv-img:hover .nv-img-resize, .nv-img.is-sel .nv-img-resize, .nv-img:hover .nv-img-bar, .nv-img.is-sel .nv-img-bar { opacity: 1; transform: none; }
+.nv-img-bar button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: 500 12px var(--sans); cursor: pointer; }
+.nv-img-bar button:hover { background: var(--surface2); }
+.nv-img-bar button.danger { color: var(--bad); }
+.nv-img-note { display: inline-flex; align-items: center; padding: 0 8px; font: 500 12px var(--sans); color: var(--muted); }
+.nv-img-cap { border: 0; background: transparent; padding: 0; height: var(--ln); line-height: var(--ln); font: italic calc(var(--ln) * .5) var(--sans); color: var(--muted); text-align: center; outline: none; max-width: 100%; }
+.sblock .sgrip:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
+.sbookmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nv-ui[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }

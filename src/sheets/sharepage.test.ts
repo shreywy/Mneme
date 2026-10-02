@@ -1,0 +1,56 @@
+import 'fake-indexeddb/auto'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { db } from '../data/db'
+import * as sheets from '../data/sheets'
+import * as ink from '../data/ink'
+import { pagePayload, parsePagePayload } from './sharepage'
+
+beforeEach(async () => { await Promise.all(db.tables.map((t) => t.clear())) })
+
+const para = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
+
+describe('sharing a page', () => {
+  it('copies the page without ids, delete codes or (unless asked) the drawing', async () => {
+    const id = await sheets.createSheet()
+    const side = await sheets.addBlock({ sheetId: id, x: 30, y: 4, w: 8, h: 2, kind: 'text', data: { doc: { type: 'doc', content: [{ type: 'image', attrs: { local: 'L', src: 'https://i.imgur.com/a.webp', hash: 'DELETE-ME' } }] } }, z: 1 })
+    await ink.addStroke({ sheetId: id, blockId: side.id, tool: 'pen', color: 'ink', size: 3, pts: [4, 4, 32] })
+    await ink.addStroke({ sheetId: id, tool: 'highlighter', color: '#F2CF3D', size: 18, pts: [400, 40, 32, 80, 0, 0], shape: true })
+    const sheet = (await sheets.getSheet(id))!
+    const blocks = await sheets.blocksFor(id), strokes = await ink.inkFor(id)
+
+    const plain = pagePayload(sheet, blocks, strokes, false)
+    const text = JSON.stringify(plain)
+    expect(text).not.toContain('DELETE-ME')
+    expect(text).not.toContain(side.id)
+    expect(plain.ink).toEqual([])
+    expect(plain.blocks).toHaveLength(2)
+
+    const drawn = pagePayload(sheet, blocks, strokes, true)
+    expect(drawn.ink).toHaveLength(2)
+    const onBlock = drawn.ink.find((s) => s.block !== null)!
+    expect(drawn.blocks[onBlock.block!]).toMatchObject({ x: 30, y: 4 })
+  })
+
+  it('only opens payloads that look like a page', () => {
+    expect(parsePagePayload({ format: 'mneme.page', version: 1, title: 'T', paper: {}, blocks: 'nope', ink: [] })).toBeNull()
+    expect(parsePagePayload(null)).toBeNull()
+    const ok = parsePagePayload({ format: 'mneme.page', version: 1, title: 'T', paper: { lines: 'dots', spacing: 24, strength: 0.5, color: null, margin: false, paperColor: null }, blocks: [{ x: 3, y: 2, w: 24, h: 1, kind: 'text', role: 'main', data: { doc: para('hi') } }], ink: [] })
+    expect(ok?.blocks[0].role).toBe('main')
+  })
+
+  it('saving a shared page makes a fresh copy in the library, drawing and all', async () => {
+    const id = await sheets.createSheet()
+    const [main] = await sheets.blocksFor(id)
+    await sheets.saveBlockDoc(main.id, para('Shared notes'))
+    await ink.addStroke({ sheetId: id, blockId: main.id, tool: 'pen', color: '#2D6CDF', size: 3, pts: [4, 4, 32, 8, 0, 0] })
+    const p = pagePayload((await sheets.getSheet(id))!, await sheets.blocksFor(id), await ink.inkFor(id), true)
+    const copy = await sheets.importPage(p)
+    expect(copy).not.toBe(id)
+    const blocks = await sheets.blocksFor(copy)
+    expect(blocks[0]).toMatchObject({ role: 'main', data: { doc: para('Shared notes') } })
+    const strokes = await ink.inkFor(copy)
+    expect(strokes).toHaveLength(1)
+    expect(strokes[0].blockId).toBe(blocks[0].id)
+    expect((await sheets.getSheet(copy))?.title).toBe('Untitled page')
+  })
+})

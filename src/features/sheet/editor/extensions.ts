@@ -7,6 +7,7 @@ import { TableKit } from '@tiptap/extension-table'
 import { Code, Equation, EnterShortcuts, InlineMath, LinkCard, PlotNode, Working } from './nodes'
 import { SlashCommand } from './slash'
 import { PageBreaks, type BreakConfig } from './pagebreaks'
+import { ImageNode } from './image'
 import '@fontsource/lora/400.css'
 import '@fontsource/lora/600.css'
 import '@fontsource/nunito/400.css'
@@ -26,7 +27,7 @@ export function textExtensions(main: boolean, pages?: () => BreakConfig) {
     TaskList, TaskItem.configure({ nested: true }),
     TextStyle, FontFamily, FontSize, Color, Highlight.configure({ multicolor: true }),
     TableKit.configure({ table: { resizable: false } }),
-    Code, Equation, InlineMath, Working, PlotNode, LinkCard, EnterShortcuts, SlashCommand,
+    Code, Equation, InlineMath, Working, PlotNode, LinkCard, ImageNode, EnterShortcuts, SlashCommand,
     Placeholder.configure({
       includeChildren: false,
       placeholder: ({ node, pos }) => (node.type.name === 'heading' ? (main && pos === 0 ? 'Title' : 'Heading') : main ? 'Start writing, or press / to insert' : 'Type, or press / to insert'),

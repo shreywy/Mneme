@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { create } from 'zustand'
 import { Extension, InputRule, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, mergeAttributes, type NodeViewProps } from '@tiptap/react'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
-import { TextSelection } from '@tiptap/pm/state'
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { createLowlight } from 'lowlight'
 import bash from 'highlight.js/lib/languages/bash'
 import c from 'highlight.js/lib/languages/c'
@@ -358,6 +358,21 @@ export const LinkCard = Node.create({
   addAttributes: () => ({ kind: { default: 'deck' }, id: { default: '' } }),
   parseHTML: () => [{ tag: 'div[data-link-card]' }],
   renderHTML: ({ HTMLAttributes }) => ['div', mergeAttributes(HTMLAttributes, { 'data-link-card': '' })],
+  // A selected card stays put when a key is pressed: typing goes after it instead of replacing it.
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      key: new PluginKey('linkCardKeep'),
+      props: {
+        handleTextInput: (view, _from, _to, text) => {
+          const sel = view.state.selection
+          if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'linkCard') return false
+          const after = TextSelection.near(view.state.doc.resolve(sel.to))
+          view.dispatch(view.state.tr.setSelection(after).insertText(text))
+          return true
+        },
+      },
+    })]
+  },
   addNodeView() { return ReactNodeViewRenderer(LinkCardView, { stopEvent: stopInside }) },
 })
 

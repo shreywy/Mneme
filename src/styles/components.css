@@ -439,3 +439,5 @@ a.drow:hover { background: var(--surface2); }
 .page-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 .page-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 @media (max-width: 760px) { .page-settings { grid-template-columns: 1fr; } .share-link { flex-direction: column; } }
+.confirm-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface2); font-size: 14px; line-height: 1.45; cursor: pointer; }
+.confirm-check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }

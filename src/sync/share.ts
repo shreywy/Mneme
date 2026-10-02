@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
 
-// Share links: a read-only snapshot of a deck or notes page that anyone with the link can open.
+// Share links: a read-only snapshot of a deck, notes page or page that anyone with the link can open.
 // Progress, highlights and annotations are never part of it.
 
-export type ShareKind = 'deck' | 'note'
+export type ShareKind = 'deck' | 'note' | 'sheet'
 export type ShareRow = { id: string; kind: ShareKind; source_id: string; title: string; updated_at: string }
 
 const MAX_BYTES = 2_500_000

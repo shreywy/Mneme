@@ -15,6 +15,8 @@ import { PageSettings } from '../page/PageSettings'
 import { Canvas } from './Canvas'
 import { ReadView } from './ReadView'
 import { PrintView } from './Print'
+import { ShareDialog } from '../page/ShareDialog'
+import { pagePayload } from '../../sheets/sharepage'
 import { PaperSettings } from './PaperSettings'
 import { readingOrder } from '../../sheets/order'
 import type { SheetBlock } from '../../sheets/types'
@@ -34,10 +36,12 @@ export function SheetPage() {
   const strokes = useLiveQuery(() => inkFor(sheetId), [sheetId])
   const folders = useLiveQuery(() => db.folders.toArray(), [])
   const [mode, setMode] = useState<'canvas' | 'read'>(() => (matchMedia(PHONE).matches ? 'read' : 'canvas'))
-  const [dialog, setDialog] = useState<null | 'settings'>(null)
+  const [dialog, setDialog] = useState<null | 'settings' | 'share'>(null)
+  const [withInk, setWithInk] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [printing, setPrinting] = useState(false)
   useEffect(() => { if (sheetId) void sheets.markOpened(sheetId) }, [sheetId])
+  useEffect(() => { useSheetUI.setState({ sheetId }); return () => useSheetUI.setState({ sheetId: null }) }, [sheetId])
   // Ctrl+P prints the page as a document, not the app around it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setPrinting(true) } }
@@ -46,7 +50,7 @@ export function SheetPage() {
   }, [])
   // useLiveQuery keeps the previous page's result until the new one arrives.
   if (sheet === null || blocks === undefined || strokes === undefined || blocks.some((b) => b.sheetId !== sheetId) || strokes.some((s) => s.sheetId !== sheetId)) return null
-  if (!sheet) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
+  if (!sheet || sheet.hidden) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
 
   const folder = folders?.find((f) => f.id === sheet.folderId)
   const rename = (title: string) => {
@@ -70,6 +74,7 @@ export function SheetPage() {
           {(close) => <>
             <button role="menuitem" onClick={() => { close(); setRenaming(true) }}><Icon name="edit" size={15} />Rename</button>
             <button role="menuitem" onClick={() => { close(); setDialog('settings') }}><Icon name="gear" size={15} />Page settings…</button>
+            <button role="menuitem" onClick={() => { close(); setDialog('share') }}><Icon name="link" size={15} />Share…</button>
             <div className="ctx-sep" role="separator" />
             <button role="menuitem" onClick={() => { close(); setPrinting(true) }}><Icon name="print" size={15} />Print…<span className="kbd">Ctrl P</span></button>
             <button role="menuitem" onClick={() => { close(); toast('Choose "Save as PDF" as the printer', 'Text in the PDF stays selectable', 'down'); setPrinting(true) }}><Icon name="down" size={15} />Save as PDF…</button>
@@ -84,6 +89,16 @@ export function SheetPage() {
         </DropMenu>
       </TopBar>
       {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} />}
+      {dialog === 'share' && (
+        <ShareDialog kind="sheet" sourceId={sheet.id} title={sheet.title} onClose={() => setDialog(null)} payload={() => pagePayload(sheet, blocks, strokes, withInk)}>
+          {strokes.length > 0 && (
+            <label className="confirm-check" style={{ marginTop: 14 }}>
+              <input type="checkbox" checked={withInk} onChange={(e) => setWithInk(e.target.checked)} />
+              <span>Include my drawing<br /><span className="muted small">Pen and highlighter on the page. Update the link after changing this.</span></span>
+            </label>
+          )}
+        </ShareDialog>
+      )}
       {printing && <PrintView sheet={sheet} blocks={blocks} strokes={strokes} onDone={() => setPrinting(false)} />}
       {dialog === 'settings' && folders && (
         <PageSettings title={sheet.title} folders={folders} folderId={sheet.folderId} unit={sheet.unit} onClose={() => setDialog(null)}

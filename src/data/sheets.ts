@@ -3,6 +3,7 @@ import { hiddenFolderIds } from './repo'
 import { DEFAULT_PAPER, MAIN_BLOCK, type Paper, type SheetBlock, type SheetRow, type SheetStroke } from '../sheets/types'
 import { decodePoints, shiftPoints, strokeBounds } from '../sheets/ink'
 import { copyInk, deleteStrokes, inkFor, inkOnBlocks } from './ink'
+import type { PagePayload } from '../sheets/sharepage'
 import { titleFrom } from '../sheets/order'
 
 // The user's own pages (Text notes). A page is a row in `sheets`; everything on it is a row in
@@ -22,6 +23,24 @@ export async function createSheet(opts: { folderId?: string | null; unit?: strin
 }
 
 export const getSheet = (id: string) => db.sheets.get(id)
+
+/** A shared page saved into this library: a new page with fresh ids, its drawing pinned to the copied blocks. */
+export async function importPage(p: PagePayload, folderId: string | null = null): Promise<string> {
+  const now = Date.now()
+  const id = uid()
+  const ids = p.blocks.map(() => uid())
+  await db.transaction('rw', db.sheets, db.sheetBlocks, db.sheetInk, async () => {
+    await db.sheets.add({ id, folderId, title: p.title, titleAuto: false, paper: p.paper, createdAt: now, updatedAt: now, lastOpenedAt: now })
+    await db.sheetBlocks.bulkAdd(p.blocks.map((b, i) => ({ id: ids[i], sheetId: id, x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind, ...(b.role ? { role: b.role } : {}), data: b.data, z: i, createdAt: now, updatedAt: now })))
+    // A page needs its main column.
+    if (!p.blocks.some((b) => b.role === 'main')) await db.sheetBlocks.add({ id: uid(), sheetId: id, ...MAIN_BLOCK, kind: 'text', role: 'main', data: { doc: EMPTY_DOC }, z: 0, createdAt: now, updatedAt: now })
+    await db.sheetInk.bulkAdd(p.ink.filter((s) => s.block === null || ids[s.block]).map((s) => ({
+      id: uid(), sheetId: id, ...(s.block !== null ? { blockId: ids[s.block] } : {}), tool: s.tool, color: s.color, size: s.size, pts: s.pts,
+      ...(s.shape ? { shape: true } : {}), ...(s.sim ? { sim: true } : {}), createdAt: now, updatedAt: now,
+    })))
+  })
+  return id
+}
 
 export async function listSheets(): Promise<SheetRow[]> {
   const [folders, all] = await Promise.all([db.folders.toArray(), db.sheets.toArray()])
@@ -114,11 +133,11 @@ export async function saveBlockDoc(id: string, doc: unknown) {
 }
 
 type Node = { type?: string; text?: string; content?: Node[] }
-/** True when a TipTap document has no text and no structure beyond empty paragraphs and headings. */
+/** True when a TipTap document has no text and nothing but empty paragraphs, headings, quotes and code blocks. */
 export function isEmptyDoc(doc: unknown): boolean {
   const walk = (n: Node): boolean => {
     if (n.text) return false
-    if (n.type && !['doc', 'paragraph', 'heading'].includes(n.type)) return false
+    if (n.type && !['doc', 'paragraph', 'heading', 'blockquote', 'codeBlock'].includes(n.type)) return false
     return (n.content ?? []).every(walk)
   }
   return walk((doc ?? {}) as Node)

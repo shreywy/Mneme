@@ -32,12 +32,14 @@ type State = {
   tick: number
   tool: Tool
   insertOpen: boolean
+  /** The page that's open (pictures are kept per page). */
+  sheetId: string | null
   canvas: CanvasApi | null
   set: (p: Partial<State>) => void
 }
 
 export const useSheetUI = create<State>((set) => ({
-  editor: null, blockId: null, lastEditor: null, tick: 0, tool: 'text', insertOpen: false, canvas: null,
+  editor: null, blockId: null, lastEditor: null, tick: 0, tool: 'text', insertOpen: false, canvas: null, sheetId: null,
   set: (p) => set(p),
 }))
 

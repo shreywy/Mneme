@@ -12,6 +12,10 @@ import { openShare } from '../../sync/share'
 import { Icon } from '../../ui/Icons'
 import { toast } from '../../ui/toasts'
 import { BlockView } from '../notes/blocks'
+import { importPage } from '../../data/sheets'
+import { parsePagePayload } from '../../sheets/sharepage'
+import type { ShareKind } from '../../sync/share'
+import { SharedSheet } from '../sheet/SharedSheet'
 
 export const AFTER_SIGN_IN = 'mneme.afterSignIn'
 
@@ -21,13 +25,20 @@ export function SharedPage() {
   const nav = useNavigate()
   const { user, ready } = useAccount()
   const [state, setState] = useState<'loading' | 'missing' | 'ok'>('loading')
-  const [share, setShare] = useState<{ kind: 'deck' | 'note'; title: string; payload: unknown; updated_at: string } | null>(null)
+  const [share, setShare] = useState<{ kind: ShareKind; title: string; payload: unknown; updated_at: string } | null>(null)
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     openShare(shareId).then((s) => { setShare(s); setState(s ? 'ok' : 'missing') }).catch(() => setState('missing'))
   }, [shareId])
   // The copy is someone else's data: it goes through the same parser as any import.
-  const parsed = useMemo(() => (share ? parseAnyText(JSON.stringify(share.payload)) : null), [share])
+  const parsed = useMemo(() => (share && share.kind !== 'sheet' ? parseAnyText(JSON.stringify(share.payload)) : null), [share])
+  const page = useMemo(() => (share?.kind === 'sheet' ? parsePagePayload(share.payload) : null), [share])
+  const savePage = async () => {
+    if (!page) return
+    if (!user) { try { sessionStorage.setItem(AFTER_SIGN_IN, `/s/${shareId}`) } catch { /* private mode */ } nav('/account'); return }
+    setSaving(true)
+    try { const id = await importPage(page); toast('Saved to your library'); nav(`/write/${id}`) } finally { setSaving(false) }
+  }
 
   const save = async () => {
     if (!parsed || !parsed.result.ok) return
@@ -40,6 +51,19 @@ export function SharedPage() {
   }
 
   if (state === 'loading') return <><TopBar crumbs={<b>Shared</b>} /><div className="page"><p className="muted">Opening the link…</p></div></>
+  if (state === 'ok' && share && page) {
+    return (
+      <>
+        <TopBar crumbs={<><b>Shared</b> / {share.title}</>}>
+          {accountsEnabled && <button className="btn sm primary" disabled={saving || !ready} onClick={savePage}><Icon name="plus" />{user ? (saving ? 'Saving…' : 'Save to my library') : 'Sign in to save'}</button>}
+        </TopBar>
+        <div className="page shared-page">
+          <div className="shared-banner"><Icon name="link" size={14} />A shared page, updated {relTime(Date.parse(share.updated_at))}. Read-only here; save it to write in it and make it yours.</div>
+          <SharedSheet page={page} />
+        </div>
+      </>
+    )
+  }
   if (state === 'missing' || !share || !parsed?.result.ok) {
     return (
       <>

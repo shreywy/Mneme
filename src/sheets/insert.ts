@@ -3,7 +3,7 @@
 
 export type InsertId =
   | 'equation' | 'plot' | 'table' | 'working' | 'code' | 'checklist' | 'axes' | 'link' | 'quote'
-  | 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'numbered' | 'divider' | 'inlineMath'
+  | 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'numbered' | 'divider' | 'inlineMath' | 'image'
 
 export type InsertItem = { id: InsertId; label: string; letter?: string; group: 'Text' | 'Maths' | 'Pictures' | 'Other'; hint?: string; words: string[] }
 
@@ -20,6 +20,7 @@ export const INSERTS: InsertItem[] = [
   { id: 'inlineMath', label: 'Maths in a sentence', group: 'Maths', hint: '$…$', words: ['inline', 'maths', 'math', 'latex'] },
   { id: 'working', label: 'Step-by-step working', letter: 'W', group: 'Maths', words: ['derivation', 'steps', 'solve', 'proof'] },
   { id: 'plot', label: 'Plot a formula', letter: 'P', group: 'Pictures', hint: 'y = …', words: ['graph', 'chart', 'function'] },
+  { id: 'image', label: 'Picture', letter: 'M', group: 'Pictures', words: ['image', 'photo', 'screenshot', 'upload', 'img'] },
   { id: 'axes', label: 'Axes', letter: 'A', group: 'Pictures', words: ['graph', 'blank', 'sketch', 'free-body'] },
   { id: 'table', label: 'Table', letter: 'T', group: 'Other', hint: '|a|b|', words: ['grid', 'rows', 'columns', 'spreadsheet'] },
   { id: 'code', label: 'Code', letter: 'C', group: 'Other', hint: '```', words: ['snippet', 'program', 'syntax'] },
