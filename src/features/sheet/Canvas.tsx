@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as sheets from '../../data/sheets'
 import { blocksInRect, boundsOf, cellAt, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
-import { titleFrom } from '../../sheets/order'
 import type { SheetBlock, SheetRow } from '../../sheets/types'
 import { isTyping } from '../../app/ui'
 import { Icon } from '../../ui/Icons'
@@ -145,15 +144,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     setFocusId(block.id)
   }
 
-  const onDoc = useCallback(async (b: SheetBlock, doc: unknown) => {
-    const fresh = await sheets.blocksFor(sheet.id).then((all) => all.find((x) => x.id === b.id))
-    if (!fresh) return
-    await sheets.updateBlock(b.id, { data: { doc } })
-    if (b.role === 'main' && sheet.titleAuto) {
-      const t = titleFrom(doc) ?? 'Untitled page'
-      if (t !== sheet.title) await sheets.updateSheet(sheet.id, { title: t })
-    }
-  }, [sheet.id, sheet.title, sheet.titleAuto])
+  const onDoc = useCallback((b: SheetBlock, doc: unknown) => sheets.saveBlockDoc(b.id, doc), [])
 
   /** Leaving a block saves it; a side block left empty goes away (one undo brings it back). */
   const onBlockBlur = useCallback(async (b: SheetBlock, doc: unknown) => {

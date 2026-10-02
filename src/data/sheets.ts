@@ -1,6 +1,7 @@
 import { db } from './db'
 import { hiddenFolderIds } from './repo'
 import { DEFAULT_PAPER, MAIN_BLOCK, type Paper, type SheetBlock, type SheetRow } from '../sheets/types'
+import { titleFrom } from '../sheets/order'
 
 // The user's own pages (Text notes). A page is a row in `sheets`; everything on it is a row in
 // `sheetBlocks`, so two devices editing different blocks never overwrite each other.
@@ -55,6 +56,19 @@ export async function updateBlock(id: string, patch: Partial<Omit<SheetBlock, 'i
   await db.sheetBlocks.update(id, { ...patch, updatedAt: Date.now() })
 }
 export const deleteBlock = (id: string) => db.sheetBlocks.delete(id)
+
+/** Saves a block's text. The main block also names the page (its first heading) until the user renames it. */
+export async function saveBlockDoc(id: string, doc: unknown) {
+  await db.transaction('rw', db.sheets, db.sheetBlocks, async () => {
+    const b = await db.sheetBlocks.get(id)
+    if (!b) return // deleted meanwhile (here or on another device)
+    await db.sheetBlocks.update(id, { data: { doc }, updatedAt: Date.now() })
+    if (b.role !== 'main') return
+    const s = await db.sheets.get(b.sheetId)
+    const title = titleFrom(doc) ?? 'Untitled page'
+    if (s?.titleAuto && s.title !== title) await db.sheets.update(s.id, { title, updatedAt: Date.now() })
+  })
+}
 
 type Node = { type?: string; text?: string; content?: Node[] }
 /** True when a TipTap document has no text and no structure beyond empty paragraphs and headings. */

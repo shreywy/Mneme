@@ -42,6 +42,18 @@ describe('sheets', () => {
     expect((await sheets.blocksFor(id)).map((b) => b.id)).toEqual([main.id])
   })
 
+  it('saving the main block names the page from its first heading, until the user renames it', async () => {
+    const id = await sheets.createSheet()
+    const [main] = await sheets.blocksFor(id)
+    const doc = { type: 'doc', content: [{ type: 'heading', content: [{ type: 'text', text: 'Circular motion' }] }] }
+    await sheets.saveBlockDoc(main.id, doc)
+    expect((await sheets.getSheet(id))?.title).toBe('Circular motion')
+    await sheets.updateSheet(id, { title: 'My name', titleAuto: false })
+    await sheets.saveBlockDoc(main.id, { type: 'doc', content: [{ type: 'heading', content: [{ type: 'text', text: 'Other' }] }] })
+    expect((await sheets.getSheet(id))?.title).toBe('My name')
+    expect(((await sheets.blocksFor(id))[0].data.doc as typeof doc).content[0].content[0].text).toBe('Other')
+  })
+
   it('knows an empty document from one with text, headings or list items', () => {
     expect(sheets.isEmptyDoc(para(''))).toBe(true)
     expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'heading', attrs: { level: 1 } }] })).toBe(true)
