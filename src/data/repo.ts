@@ -3,6 +3,7 @@ import type { Item, NormalizedDeck } from '../deck-format/types'
 import { mergeParts } from '../deck-format/parse'
 import { applyAnswer, type CardState } from '../engine/memory'
 import { db, type DeckRecord, type DeckRow, type Folder, type ItemRow, type StudyMode, type NoteRow } from './db'
+import type { SheetRow } from '../sheets/types'
 
 // Guest-mode repository backed by IndexedDB. The Supabase repository (M1) will implement the same functions.
 
@@ -66,10 +67,10 @@ export async function setArchived(kind: 'deck' | 'folder', id: string, archived:
 }
 
 /** Archived decks and folders, newest first. */
-export async function listArchive(): Promise<{ folders: Folder[]; decks: DeckRow[]; notes: NoteRow[] }> {
-  const [folders, decks, notes] = await Promise.all([db.folders.toArray(), db.decks.toArray(), db.notes.toArray()])
+export async function listArchive(): Promise<{ folders: Folder[]; decks: DeckRow[]; notes: NoteRow[]; sheets: SheetRow[] }> {
+  const [folders, decks, notes, sheets] = await Promise.all([db.folders.toArray(), db.decks.toArray(), db.notes.toArray(), db.sheets.toArray()])
   const by = (a: { archivedAt?: number }, b: { archivedAt?: number }) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0)
-  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter((d) => d.archived).sort(by), notes: notes.filter((n) => n.archived).sort(by) }
+  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter((d) => d.archived).sort(by), notes: notes.filter((n) => n.archived).sort(by), sheets: sheets.filter((s) => s.archived).sort(by) }
 }
 
 /** Folders hidden because they, or a parent, are archived. */

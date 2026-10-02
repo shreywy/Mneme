@@ -3,7 +3,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
 import { listNotes } from '../data/notes'
-import { groupByUnit, pagesOf, pageUrl, type Page } from '../data/pages'
+import { groupByUnit, pageIcon, pagesOf, pageUrl, type Page, type PageKind } from '../data/pages'
+import { createSheet, deleteSheet, listSheets, setSheetArchived } from '../data/sheets'
 import { createFolder, descendants, listArchive, listLibrary } from '../data/repo'
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
@@ -33,6 +34,12 @@ export function Shell() {
     toast('Your cloud space is full', "Delete pages or decks you don't need. New changes stay on this device until then.", 'x')
   }, [syncStatus])
   const rail = sidebar === 'rail'
+  const nav = useNavigate()
+  const newPage = async () => {
+    const folderId = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : null
+    setDrawer(false)
+    nav(`/write/${await createSheet({ folderId })}`)
+  }
   const peekT = useRef<number>(0)
   const unpeekT = useRef<number>(0)
   const hotT = useRef<number>(0)
@@ -75,6 +82,7 @@ export function Shell() {
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="lib" /><span className="lbl">Library</span></NavLink>
             <button onClick={() => open('prompt')}><Icon name="prompt" /><span className="lbl">Get the LLM prompt</span></button>
             <button onClick={() => open('import')}><Icon name="upload" /><span className="lbl">Import</span></button>
+            <button onClick={newPage}><Icon name="page" /><span className="lbl">New page</span></button>
           </nav>
           <FolderTree />
           <PageMenu />
@@ -96,14 +104,14 @@ export function Shell() {
 const DRAG_TYPE = 'application/x-mneme-page'
 
 function FolderTree() {
-  const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), archived: (await listArchive()) }), [])
+  const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), sheets: await listSheets(), archived: (await listArchive()) }), [])
   const loc = useLocation()
   const nav = useNavigate()
   const { openFolders, set } = useSettings()
   if (!data) return <div className="tree" />
   const { folders, decks, notes } = data
-  const pages = pagesOf(decks, notes)
-  const archivedCount = data.archived.folders.length + data.archived.decks.length + data.archived.notes.length
+  const pages = pagesOf(decks, notes, data.sheets)
+  const archivedCount = data.archived.folders.length + data.archived.decks.length + data.archived.notes.length + data.archived.sheets.length
   const isActive = (p: Page) => loc.pathname.startsWith(pageUrl(p))
   // Keep the path to the open page or folder expanded.
   const activePage = pages.find(isActive)
@@ -120,7 +128,7 @@ function FolderTree() {
   const dragged = (e: React.DragEvent) => {
     const raw = e.dataTransfer.getData(DRAG_TYPE)
     if (!raw) return null
-    const { kind, id } = JSON.parse(raw) as { kind: 'deck' | 'note'; id: string }
+    const { kind, id } = JSON.parse(raw) as { kind: PageKind; id: string }
     return pages.find((x) => x.kind === kind && x.id === id) ?? null
   }
   const settle = async (page: Page, folderId: string | null, unit: string | null, list: Page[]) => {
@@ -175,7 +183,7 @@ function FolderTree() {
     <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
       draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}
       {...dropOnPage(p)}>
-      <Icon name={p.kind === 'note' ? 'notes' : 'cards'} size={13} /><span className="t">{p.title}</span>
+      <Icon name={pageIcon(p.kind)} size={13} /><span className="t">{p.title}</span>
     </Link>
   )
   const PageList = ({ list, pad, folderId }: { list: Page[]; pad: number; folderId: string | null }) => {
@@ -215,7 +223,7 @@ function FolderTree() {
     <>
       <div className="sec" {...drop({ folderId: null })} title="Drop a page here to take it out of its folder">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
       <div className="tree">
-        {folders.length === 0 && loose.length === 0 && <div className="empty">Imported decks and notes show up here, grouped by course.</div>}
+        {folders.length === 0 && loose.length === 0 && <div className="empty">Decks, notes and pages you write show up here, grouped by course.</div>}
         {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
         {loose.map((p) => <PageLink key={p.id} p={p} pad={12} />)}
         {archivedCount > 0 && (
@@ -268,10 +276,11 @@ export function PageMenu() {
   useContextItems((_e, { target }) => {
     const el = target.closest<HTMLElement>('[data-page-id]')
     if (!el) return null
-    const kind = el.dataset.pageKind as 'deck' | 'note', id = el.dataset.pageId!, title = el.dataset.pageTitle ?? ''
-    const url = kind === 'deck' ? `/deck/${id}` : `/notes/${id}`
+    const kind = el.dataset.pageKind as PageKind, id = el.dataset.pageId!, title = el.dataset.pageTitle ?? ''
+    const url = pageUrl({ kind, id })
+    const noun = kind === 'deck' ? 'Deck' : kind === 'note' ? 'Notes' : 'Page'
     return [
-      { label: 'Open', icon: kind === 'deck' ? 'cards' : 'notes', onSelect: () => nav(url) },
+      { label: 'Open', icon: pageIcon(kind), onSelect: () => nav(url) },
       { label: 'Open in a new tab', icon: 'external', onSelect: () => { window.open(url, '_blank', 'noopener') } },
       ...(kind === 'deck' ? [
         { sep: true as const },
@@ -279,17 +288,18 @@ export function PageMenu() {
         { label: 'Flashcards', icon: 'flip', onSelect: () => nav(`${url}/flashcards`) },
         { label: 'Test', icon: 'check', onSelect: () => nav(`${url}/test`) },
       ] : []),
-      { label: 'Make a cheat sheet', icon: 'list', onSelect: () => nav(`/cheatsheet?${kind === 'deck' ? 'd' : 'n'}=${id}`) },
+      ...(kind !== 'sheet' ? [{ label: 'Make a cheat sheet', icon: 'list', onSelect: () => nav(`/cheatsheet?${kind === 'deck' ? 'd' : 'n'}=${id}`) }] : []),
       { sep: true as const },
-      { label: 'Archive', icon: 'archive', onSelect: async () => { await (kind === 'deck' ? setArchived('deck', id, true) : setNoteArchived(id, true)); toast(`${kind === 'deck' ? 'Deck' : 'Notes'} archived`, 'Find it under Archive in the sidebar', 'archive') } },
+      { label: 'Archive', icon: 'archive', onSelect: async () => { await (kind === 'deck' ? setArchived('deck', id, true) : kind === 'note' ? setNoteArchived(id, true) : setSheetArchived(id, true)); toast(`${noun} archived`, 'Find it under Archive in the sidebar', 'archive') } },
       {
         label: 'Delete…', icon: 'trash', danger: true, onSelect: async () => {
           const ok = await confirmAction(kind === 'deck'
             ? { title: `Delete "${title}"?`, body: 'Its cards and progress are removed for good. Archiving keeps them instead.', confirm: 'Delete deck', danger: true }
-            : { title: `Delete "${title}"?`, body: 'The notes page, its highlights and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true })
+            : kind === 'note' ? { title: `Delete "${title}"?`, body: 'The notes page, its highlights and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true }
+              : { title: `Delete "${title}"?`, body: 'The page and everything on it are removed for good. Archiving keeps it instead.', confirm: 'Delete page', danger: true })
           if (!ok) return
-          if (kind === 'deck') await deleteDeck(id); else await deleteNote(id)
-          toast(kind === 'deck' ? 'Deck deleted' : 'Notes deleted')
+          if (kind === 'deck') await deleteDeck(id); else if (kind === 'note') await deleteNote(id); else await deleteSheet(id)
+          toast(`${noun} deleted`)
           if (location.pathname.startsWith(url)) nav('/')
         },
       },

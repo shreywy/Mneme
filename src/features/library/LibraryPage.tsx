@@ -4,7 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import template from '../../../deck-format/mneme-deck-prompt.md?raw'
 import { db, type DeckRow, type Folder, type NoteRow } from '../../data/db'
 import * as notesRepo from '../../data/notes'
-import { groupByUnit, pagesOf, pageTime, pageUrl, type Page } from '../../data/pages'
+import * as sheetsRepo from '../../data/sheets'
+import type { SheetRow } from '../../sheets/types'
+import { groupByUnit, pageIcon, pagesOf, pageTime, pageUrl, type Page } from '../../data/pages'
 import * as repo from '../../data/repo'
 import { allDeckMastery, plural, relTime, type MasteryCounts } from '../../data/stats'
 import { extractPromptExample } from '../../deck-format/example'
@@ -19,18 +21,18 @@ import { confirmAction } from '../../ui/confirm'
 import { FolderSelect } from './FolderSelect'
 import { accountsEnabled, displayName, useAccount } from '../../sync/account'
 
-type Lib = { folders: Folder[]; decks: DeckRow[]; notes: NoteRow[]; mastery: Map<string, MasteryCounts> }
+type Lib = { folders: Folder[]; decks: DeckRow[]; notes: NoteRow[]; sheets: SheetRow[]; mastery: Map<string, MasteryCounts> }
 
 export function LibraryPage() {
   const { folderId } = useParams()
   const data = useLiveQuery(async (): Promise<Lib> => {
-    const [{ folders, decks }, notes] = await Promise.all([repo.listLibrary(), notesRepo.listNotes()])
-    return { folders, decks, notes, mastery: await allDeckMastery() }
+    const [{ folders, decks }, notes, sheets] = await Promise.all([repo.listLibrary(), notesRepo.listNotes(), sheetsRepo.listSheets()])
+    return { folders, decks, notes, sheets, mastery: await allDeckMastery() }
   }, [])
   if (!data) return null
   const folder = folderId ? data.folders.find((f) => f.id === folderId) : undefined
   if (folderId && !folder) return <div className="page"><h1 className="title">Folder not found</h1><p className="empty-note" style={{ marginTop: 12 }}>It may be archived. <Link to="/archive">Open the archive</Link></p></div>
-  if (data.decks.length === 0 && data.notes.length === 0 && data.folders.length === 0 && !folder) return <Empty />
+  if (data.decks.length === 0 && data.notes.length === 0 && data.sheets.length === 0 && data.folders.length === 0 && !folder) return <Empty />
   return <Browser lib={data} folder={folder} />
 }
 
@@ -43,8 +45,8 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
   const nav = useNavigate()
   const parentId = folder?.id ?? null
   const subfolders = lib.folders.filter((f) => f.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-  const pages = pagesOf(lib.decks, lib.notes)
-  const progressOf = (p: Page) => (p.kind === 'deck' ? learnedPct(p.deck, lib.mastery.get(p.id)) : readPct(p.note))
+  const pages = pagesOf(lib.decks, lib.notes, lib.sheets)
+  const progressOf = (p: Page) => (p.kind === 'deck' ? learnedPct(p.deck, lib.mastery.get(p.id)) : p.kind === 'note' ? readPct(p.note) : 0)
   const byChosenSort = (a: Page, b: Page) =>
     librarySort === 'name' ? a.title.localeCompare(b.title, undefined, { numeric: true })
       : librarySort === 'progress' ? progressOf(a) - progressOf(b)
@@ -53,12 +55,13 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
   const inScope = folder ? repo.descendants(lib.folders, folder.id) : null
   const haystack = (p: Page) => p.kind === 'deck'
     ? `${p.title} ${p.unit ?? ''} ${p.deck.course ?? ''} ${p.deck.description ?? ''}`
-    : `${p.title} ${p.unit ?? ''} ${p.note.course ?? ''} ${p.note.summary ?? ''} ${notesText(p.note)}`
+    : p.kind === 'note' ? `${p.title} ${p.unit ?? ''} ${p.note.course ?? ''} ${p.note.summary ?? ''} ${notesText(p.note)}`
+      : `${p.title} ${p.unit ?? ''}`
   const searchHits = needle ? pages.filter((p) => (!inScope || (p.folderId && inScope.has(p.folderId))) && haystack(p).toLowerCase().includes(needle)).sort(byChosenSort) : []
   const here = pages.filter((p) => p.folderId === parentId)
   const groups = groupByUnit(here, librarySort === 'recent' ? undefined : byChosenSort)
   const recent = !folder && !needle
-    ? pages.filter((p) => (p.kind === 'deck' ? p.deck.lastStudiedAt : p.note.lastOpenedAt)).sort((a, b) => pageTime(b) - pageTime(a)).slice(0, 4)
+    ? pages.filter((p) => (p.kind === 'deck' ? p.deck.lastStudiedAt : p.kind === 'note' ? p.note.lastOpenedAt : p.sheet.lastOpenedAt)).sort((a, b) => pageTime(b) - pageTime(a)).slice(0, 4)
     : []
   const stats = (f: Folder) => {
     const ids = repo.descendants(lib.folders, f.id)
@@ -153,15 +156,15 @@ function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view
     return (
       <div className="dlist">
         {pages.map((p, i) => {
-          const pct = p.kind === 'deck' ? learnedPct(p.deck, lib.mastery.get(p.id)) : readPct(p.note)
-          const what = p.kind === 'deck' ? plural(p.deck.termCount + p.deck.questionCount, 'card') : `Notes · ${plural(notesRepo.readingProgress(p.note).total, 'section')}`
+          const pct = p.kind === 'deck' ? learnedPct(p.deck, lib.mastery.get(p.id)) : p.kind === 'note' ? readPct(p.note) : null
+          const what = p.kind === 'deck' ? plural(p.deck.termCount + p.deck.questionCount, 'card') : p.kind === 'note' ? `Notes · ${plural(notesRepo.readingProgress(p.note).total, 'section')}` : 'Page'
           return (
             <Link key={p.id} className={`drow ${p.kind}`} to={pageUrl(p)} style={{ '--i': i } as React.CSSProperties} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}>
-              <b><Icon name={p.kind === 'deck' ? 'cards' : 'notes'} size={14} />{p.title}</b>
+              <b><Icon name={pageIcon(p.kind)} size={14} />{p.title}</b>
               <span className="muted">{showFolder && folderName(p.folderId) ? `${folderName(p.folderId)} · ` : ''}{what}</span>
-              <span className="mbar"><i style={{ flexGrow: pct, background: p.kind === 'deck' ? 'var(--seg4)' : 'var(--read)' }} /><i style={{ flexGrow: 1 - pct, background: 'var(--seg1)' }} /></span>
-              <span className="muted pct">{Math.round(pct * 100)}%</span>
-              <span className="muted when">{relTime(p.kind === 'deck' ? p.deck.lastStudiedAt : p.note.lastOpenedAt)}</span>
+              {pct === null ? <span /> : <span className="mbar"><i style={{ flexGrow: pct, background: p.kind === 'deck' ? 'var(--seg4)' : 'var(--read)' }} /><i style={{ flexGrow: 1 - pct, background: 'var(--seg1)' }} /></span>}
+              <span className="muted pct">{pct === null ? '' : `${Math.round(pct * 100)}%`}</span>
+              <span className="muted when">{relTime(p.kind === 'deck' ? p.deck.lastStudiedAt : p.kind === 'note' ? p.note.lastOpenedAt : p.sheet.lastOpenedAt)}</span>
             </Link>
           )
         })}
@@ -172,8 +175,19 @@ function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view
     <div className="cards">
       {pages.map((p, i) => p.kind === 'deck'
         ? <DeckCard key={p.id} i={i} d={p.deck} m={lib.mastery.get(p.id)} folder={showFolder ? folderName(p.folderId) : undefined} />
-        : <NoteCard key={p.id} i={i} n={p.note} folder={showFolder ? folderName(p.folderId) : undefined} />)}
+        : p.kind === 'note' ? <NoteCard key={p.id} i={i} n={p.note} folder={showFolder ? folderName(p.folderId) : undefined} />
+          : <SheetCard key={p.id} i={i} s={p.sheet} folder={showFolder ? folderName(p.folderId) : undefined} />)}
     </div>
+  )
+}
+
+function SheetCard({ s, folder, i = 0 }: { s: SheetRow; folder?: string; i?: number }) {
+  return (
+    <Link className="dcard scard" to={`/write/${s.id}`} style={{ '--i': i } as React.CSSProperties} data-page-kind="sheet" data-page-id={s.id} data-page-title={s.title}>
+      <span className="kind"><Icon name="page" size={13} />Page{folder ? ` · ${folder}` : ''}</span>
+      <b>{s.title}</b>
+      <div className="sub">{s.unit ? `${s.unit} · ` : ''}edited {relTime(s.updatedAt)}</div>
+    </Link>
   )
 }
 
@@ -290,13 +304,13 @@ export function ArchivePage() {
   const data = useLiveQuery(() => repo.listArchive(), [])
   const all = useLiveQuery(() => db.folders.toArray(), [])
   if (!data || !all) return null
-  const empty = !data.folders.length && !data.decks.length && !data.notes.length
+  const empty = !data.folders.length && !data.decks.length && !data.notes.length && !data.sheets.length
   return (
     <>
       <TopBar crumbs={<><Link to="/">Library</Link> / <b>Archive</b></>} />
       <div className="page">
         <h1 className="title">Archive</h1>
-        <p className="muted" style={{ marginTop: 10 }}>Archived decks, notes and folders keep their cards and progress. Restore puts them back where they were.</p>
+        <p className="muted" style={{ marginTop: 10 }}>Archived decks, notes, pages and folders keep everything in them. Restore puts them back where they were.</p>
         {empty && <p className="empty-note" style={{ marginTop: 26 }}>Nothing archived.</p>}
         {data.folders.length > 0 && (
           <section className="group"><h2>Folders<span>{data.folders.length}</span></h2>
@@ -306,6 +320,23 @@ export function ArchivePage() {
                   <b><Icon name="folder" /> {f.name}</b><span className="muted">archived {relTime(f.archivedAt)}</span><span /><span />
                   <span className="acts">
                     <button className="btn sm" onClick={async () => { await repo.setArchived('folder', f.id, false); toast('Folder restored') }}>Restore</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        {data.sheets.length > 0 && (
+          <section className="group"><h2>Pages<span>{data.sheets.length}</span></h2>
+            <div className="dlist">
+              {data.sheets.map((s) => (
+                <div className="drow static" key={s.id}>
+                  <b><Icon name="page" size={14} />{s.title}</b><span className="muted">{all.find((f) => f.id === s.folderId)?.name ?? 'No folder'}{s.unit ? ` · ${s.unit}` : ''}</span><span /><span className="muted">archived {relTime(s.archivedAt)}</span>
+                  <span className="acts">
+                    <button className="btn sm" onClick={async () => { await sheetsRepo.setSheetArchived(s.id, false); toast('Page restored') }}>Restore</button>
+                    <button className="btn sm ghost danger" onClick={async () => {
+                      if (await confirmAction({ title: `Delete "${s.title}" for good?`, body: 'The page and everything on it are removed. This can\'t be undone.', confirm: 'Delete page', danger: true })) { await sheetsRepo.deleteSheet(s.id); toast('Page deleted') }
+                    }}>Delete</button>
                   </span>
                 </div>
               ))}

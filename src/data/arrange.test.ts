@@ -4,6 +4,7 @@ import { db } from './db'
 import { placePage } from './arrange'
 import * as repo from './repo'
 import * as notes from './notes'
+import * as sheets from './sheets'
 
 const deck = (title: string) => repo.importDeck({ title, sources: [], topics: [{ id: 'a', name: 'A' }], items: [{ kind: 'term', key: 't', topic: 'a', term: 'T', definition: 'D', aliases: [] }] }).then((r) => r.deckId)
 
@@ -20,6 +21,14 @@ describe('placePage', () => {
     expect((await repo.getDeck(b))?.rank).toBe(0)
     expect((await repo.getDeck(a))?.rank).toBe(2)
   })
+  it('places one of your own pages like any other page', async () => {
+    const f = await repo.createFolder('Physics')
+    const s = await sheets.createSheet()
+    const a = await deck('A')
+    await placePage({ kind: 'sheet', id: s }, { folderId: f, unit: 'Week 2' }, [{ kind: 'sheet', id: s }, { kind: 'deck', id: a }])
+    expect(await sheets.getSheet(s)).toMatchObject({ folderId: f, unit: 'Week 2', rank: 0 })
+  })
+
   it('clears the unit when dropped among pages with no unit', async () => {
     const a = await deck('A')
     await repo.setDeckUnit(a, 'Week 1')

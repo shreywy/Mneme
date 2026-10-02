@@ -1,23 +1,28 @@
 import type { DeckRow, NoteRow } from './db'
 import { compareUnits } from './notes'
+import type { SheetRow } from '../sheets/types'
 
-// A "page" is either a deck or a notes page. The library, sidebar and search show them together.
+// A "page" is a deck, a notes page, or a page the user writes (a sheet). The library, sidebar and search show them together.
 
 export type Page =
   | { kind: 'deck'; id: string; title: string; unit?: string; folderId: string | null; deck: DeckRow }
   | { kind: 'note'; id: string; title: string; unit?: string; folderId: string | null; note: NoteRow }
+  | { kind: 'sheet'; id: string; title: string; unit?: string; folderId: string | null; sheet: SheetRow }
+export type PageKind = Page['kind']
 
-export function pagesOf(decks: DeckRow[], notes: NoteRow[]): Page[] {
+export function pagesOf(decks: DeckRow[], notes: NoteRow[], sheets: SheetRow[] = []): Page[] {
   return [
     ...decks.map((d): Page => ({ kind: 'deck', id: d.id, title: d.title, unit: d.unit, folderId: d.folderId, deck: d })),
     ...notes.map((n): Page => ({ kind: 'note', id: n.id, title: n.title, unit: n.unit, folderId: n.folderId, note: n })),
+    ...sheets.map((s): Page => ({ kind: 'sheet', id: s.id, title: s.title, unit: s.unit, folderId: s.folderId, sheet: s })),
   ]
 }
 
-export const pageUrl = (p: Pick<Page, 'kind' | 'id'>) => (p.kind === 'deck' ? `/deck/${p.id}` : `/notes/${p.id}`)
+export const pageUrl = (p: Pick<Page, 'kind' | 'id'>) => (p.kind === 'deck' ? `/deck/${p.id}` : p.kind === 'note' ? `/notes/${p.id}` : `/write/${p.id}`)
+export const pageIcon = (k: PageKind) => (k === 'deck' ? 'cards' : k === 'note' ? 'notes' : 'page')
 
-/** When the page was last used: studied for decks, opened for notes. */
-export const pageTime = (p: Page) => (p.kind === 'deck' ? p.deck.lastStudiedAt ?? p.deck.updatedAt : p.note.lastOpenedAt ?? p.note.updatedAt)
+/** When the page was last used: studied for decks, opened for notes and pages. */
+export const pageTime = (p: Page) => (p.kind === 'deck' ? p.deck.lastStudiedAt ?? p.deck.updatedAt : p.kind === 'note' ? p.note.lastOpenedAt ?? p.note.updatedAt : p.sheet.lastOpenedAt ?? p.sheet.updatedAt)
 
 /**
  * Group pages by unit label ("Chapter 2" before "Chapter 10", case-insensitive), pages without a unit last.
@@ -36,7 +41,7 @@ export function groupByUnit(pages: Page[], sort?: (a: Page, b: Page) => number):
   return [...groups.values()].sort((a, b) => compareUnits(a.unit, b.unit)).map((g) => ({ ...g, pages: g.pages.sort(within) }))
 }
 
-const rankOf = (p: Page) => (p.kind === 'deck' ? p.deck.rank : p.note.rank)
+const rankOf = (p: Page) => (p.kind === 'deck' ? p.deck.rank : p.kind === 'note' ? p.note.rank : p.sheet.rank)
 /** Hand-ordered pages first, in their order; the rest alphabetically, notes before a deck of the same title. */
 export function byHandThenTitle(a: Page, b: Page): number {
   const ra = rankOf(a), rb = rankOf(b)

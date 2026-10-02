@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { DeckRow, NoteRow } from './db'
 import { groupByUnit, pagesOf, pageUrl } from './pages'
+import { DEFAULT_PAPER, type SheetRow } from '../sheets/types'
 
 const deck = (id: string, title: string, unit?: string): DeckRow => ({ id, title, unit, folderId: 'f', sources: [], topics: [], termCount: 1, questionCount: 0, createdAt: 1, updatedAt: 1 })
+const sheet = (id: string, title: string, unit?: string): SheetRow => ({ id, title, unit, folderId: 'f', titleAuto: false, paper: DEFAULT_PAPER, createdAt: 1, updatedAt: 1 })
 const note = (id: string, title: string, unit?: string): NoteRow => ({ id, title, unit, folderId: 'f', topics: [], blocks: [], position: 0, createdAt: 1, updatedAt: 1 })
 
 describe('pages', () => {
   it('turns decks and notes into pages with their own links', () => {
     const ps = pagesOf([deck('d', 'D')], [note('n', 'N')])
     expect(ps.map((p) => `${p.kind}:${pageUrl(p)}`)).toEqual(['deck:/deck/d', 'note:/notes/n'])
+  })
+
+  it('pages of your own get /write links and sort with the rest', () => {
+    const ps = pagesOf([deck('d', 'B')], [note('n', 'C')], [sheet('s', 'A', 'Week 1')])
+    expect(ps.map((p) => `${p.kind}:${pageUrl(p)}`)).toContain('sheet:/write/s')
+    expect(groupByUnit(ps)[0]).toMatchObject({ unit: 'Week 1' })
   })
 
   it('groups by unit in natural order, alphabetical inside a unit, no unit last', () => {
