@@ -40,7 +40,8 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 1. ~~**Account page and menu**~~ done 2026-10-01
 2. ~~**Guest end-to-end pass**~~ done 2026-10-01; Shrey confirmed sync works from his phone ([results](testing/e2e-2026-10-01.md))
 3. **Notes**: design approved 2026-10-01 ([spec](superpowers/specs/2026-10-01-notes-design.md), [preview](https://claude.ai/artifact/SjxNTc6KryekgCXGwbJsuW)). Phases: (1) core pages, import, linking, prompt; (2) find, key-term hovers, right-click menu, highlights, annotations, bookmarks; (3) derivation, plot and figure blocks; (4) cheat sheet builder. Parked: slide images on a free image host.
-4. **Text notes** (the user's own writing pages): draft 1 is up for Shrey's critique ([draft](https://claude.ai/artifact/CxCD9ntPzai9YCrkPrjdco)). Nothing gets built until a draft is approved.
+4. **Text notes** (the user's own writing pages): draft approved 2026-10-01 ([spec](superpowers/specs/2026-10-01-text-notes-design.md), [draft](https://claude.ai/artifact/CxCD9ntPzai9YCrkPrjdco)). Five phases; QC with Shrey after each.
+4b. **Security and engineering for the portfolio** (straight after Text notes, Shrey's call 2026-10-01): the Security and Engineering lists below.
 5. **AI** (Gemini, bring your own key)
 6. **Full end-to-end pass**: everything, signed in, phone and PC, including sync and the account page ([checklist](testing/e2e-2026-10-01.md#part-2-signed-in-to-do-needs-shrey-to-sign-in))
 7. **Preview site, GitHub polish, v1 release**
@@ -67,6 +68,10 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] `SECURITY.md` threat model
 - [ ] CodeQL and Dependabot in CI
 - [ ] Rate-limit triggers for publishing and search
+- [ ] Subresource Integrity and a strict `script-src` with no inline scripts; Trusted Types for the few places that write HTML
+- [ ] Fuzz the importers and the formula/SVG sanitisers with property-based tests (fast-check)
+- [ ] Session list on the Account page (see and sign out other devices)
+- [ ] Audit log of account events (sign-ins, deletions, share links) the user can read
 
 ## AI (bring your own Gemini key; Shrey's test key is in `.env.local`, which git ignores)
 - [ ] Key storage: encrypted in IndexedDB and sent only to Google
@@ -119,3 +124,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Playwright end-to-end tests, and component tests for study screens
 - [ ] Code-split KaTeX and Markdown (the bundle is about 1 MB)
 - [ ] CI workflow: lint, typecheck, unit, e2e, database tests
+- [ ] Offline-first PWA: service worker, installable, works with no network
+- [ ] CRDT sync (Yjs) for Pages so edits from two devices merge instead of last-write-wins
+- [ ] Performance budget in CI (bundle size, Lighthouse) and Web Vitals reporting
+- [ ] Architecture write-up with diagrams for the README (local-first sync, RLS, storage cap)
