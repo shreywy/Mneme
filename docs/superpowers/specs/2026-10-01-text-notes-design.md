@@ -26,6 +26,7 @@ Desktop is the main way people will use it. Phones get a good reading view and q
 - **One grid.** Every block's top-left sits on a grid point; its height is a whole number of lines. Text inside blocks uses the line spacing as its line height, so text in two blocks side by side shares baselines. Hold Alt while dragging to place freely.
 - **Main column.** A new page opens with one text block at (3, 2), 24 units wide. It grows downwards like a Google Doc. Click anywhere empty to start another text block there (OneNote style), snapped to the grid.
 - **Margin notes** aren't a separate feature: any block placed beside another is attached to the line it starts on, so Read view and Pages layout can put it right after that line.
+- **Selecting several things.** Shift+drag on empty paper draws a selection box; Shift+click a block's grip adds or removes it. Drag any selected block's grip and they all move together, keeping their spacing on the grid. Delete removes them, Esc clears the selection, and one undo puts them all back. (With the Select tool from phase 2, a plain drag on empty paper selects instead of panning; once ink exists, the box takes strokes too.)
 - Blocks never overlap automatically; a block that grows into another pushes nothing but shows a faint outline where they touch. (Revisit after use.)
 
 ## Paper
