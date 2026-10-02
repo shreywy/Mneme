@@ -112,4 +112,14 @@ describe('sheets', () => {
     expect(s?.updatedAt).toBe(1000)
     expect(s?.lastOpenedAt).toBeGreaterThan(1000)
   })
+
+  it('moves many blocks in one write', async () => {
+    const id = await sheets.createSheet()
+    const a = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: para('a') }, z: 1 })
+    const b = await sheets.addBlock({ sheetId: id, x: 30, y: 6, w: 10, h: 1, kind: 'text', data: { doc: para('b') }, z: 2 })
+    await sheets.updateBlocks([{ id: a.id, patch: { x: 31, y: 4 } }, { id: b.id, patch: { x: 31, y: 8 } }])
+    const got = Object.fromEntries((await sheets.blocksFor(id)).map((x) => [x.id, [x.x, x.y]]))
+    expect(got[a.id]).toEqual([31, 4])
+    expect(got[b.id]).toEqual([31, 8])
+  })
 })

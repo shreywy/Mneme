@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as sheets from '../../data/sheets'
 import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
-import { blocksInRect, boundsOf, cellAt, freeSpot, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
+import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
 import { titleFrom } from '../../sheets/order'
 import { fontCss } from '../../sheets/fonts'
@@ -17,6 +17,12 @@ import { Icon } from '../../ui/Icons'
 import { PagePickerHost, TableSizeHost } from './editor/nodes'
 import { Dock, MYBLOCK_DRAG, insertNow } from './Dock'
 import { INSERT_DRAG, TextBlock } from './TextBlock'
+
+/**
+ * Redraws a text block only when its saved block, line spacing or focus changes. Its handlers are read
+ * through a ref inside, so new handler functions on each canvas render don't count.
+ */
+const TextBlockMemo = memo(TextBlock, (a, b) => a.block === b.block && a.unit === b.unit && a.autoFocus === b.autoFocus)
 import { Toolbar } from './Toolbar'
 import { useSheetUI } from './store'
 
@@ -57,7 +63,14 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   // Heights as measured here. Only the block being edited writes its height, so a device that measures
   // slightly differently never marks a block changed (which would push its copy over newer text).
   const [heights, setHeights] = useState<Record<string, number>>({})
-  const shown = useMemo(() => blocks.map((b) => (heights[b.id] ? { ...b, h: heights[b.id] } : b)), [blocks, heights])
+  // Where dragged blocks are drawn. A drag only moves these (no saving, no redrawing the text); the
+  // drop saves once, and each entry goes when the saved block matches it.
+  const [placed, setPlaced] = useState<Record<string, Place>>({})
+  useEffect(() => { setPlaced((p) => (Object.keys(p).length ? settle(p, blocks) : p)) }, [blocks])
+  const shown = useMemo(() => blocks.map((b) => {
+    const p = placed[b.id], h = heights[b.id]
+    return p || h ? { ...b, ...(p ?? {}), ...(h ? { h } : {}) } : b
+  }), [blocks, heights, placed])
   const [gesture, setGesture] = useState<Gesture | null>(null)
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null)
   const [space, setSpace] = useState(false)
@@ -360,16 +373,30 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     try { el.setPointerCapture(e.pointerId) } catch { /* a pointer the browser no longer tracks */ }
     let latest = moving
     let moved = false
-    const move = (ev: PointerEvent) => {
-      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return
-      moved = true
+    let frame = 0
+    let last: PointerEvent | null = null
+    // At most once a frame: work out where everything lands and draw it there. Nothing is saved yet.
+    const place = () => {
+      frame = 0
+      const ev = last
+      if (!ev) return
       const step = (px: number) => (ev.altKey ? px / unit : snapUnits(px, unit))
       const dx = step((ev.clientX - sx) / view.zoom), dy = step((ev.clientY - sy) / view.zoom)
       latest = moving.map((m) => (what === 'move' ? { ...m, x: m.x + dx, y: m.y + dy } : { ...m, w: Math.max(4, m.w + dx) }))
-      // Patches, not whole rows: text and height may change during the drag (reflow, another device).
-      for (const m of latest) void sheets.updateBlock(m.id, what === 'move' ? { x: m.x, y: m.y } : { w: m.w })
+      setPlaced((p) => {
+        const n = { ...p }
+        for (const m of latest) n[m.id] = { x: m.x, y: m.y, w: m.w }
+        return n
+      })
+    }
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return
+      moved = true
+      last = ev
+      if (!frame) frame = requestAnimationFrame(place)
     }
     const up = (ev: PointerEvent) => {
+      if (frame) { cancelAnimationFrame(frame); place() }
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', up)
       el.removeEventListener('pointercancel', up)
@@ -392,10 +419,13 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         if (ed && at) ed.chain().focus().setTextSelection(at.pos).run()
         return
       }
-      const changes: Change[] = moving
+      const changes: Extract<Change, { kind: 'update' }>[] = moving
         .map((before, i) => ({ kind: 'update' as const, before, after: latest[i] }))
         .filter((c) => c.before.x !== c.after.x || c.before.y !== c.after.y || c.before.w !== c.after.w)
-      if (changes.length) history.record(changes.length === 1 ? changes[0] : { kind: 'batch', changes })
+      if (!changes.length) { setPlaced((p) => settle(p, blocks)); return }
+      history.record(changes.length === 1 ? changes[0] : { kind: 'batch', changes })
+      // One write for the whole drop. Patches, not whole rows: text may have changed meanwhile.
+      void sheets.updateBlocks(changes.map((c) => ({ id: c.after.id, patch: what === 'move' ? { x: c.after.x, y: c.after.y } : { w: c.after.w } })))
     }
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
@@ -440,18 +470,18 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         onDragOver={onDragOver} onDragLeave={(e) => { if (e.currentTarget === e.target) setGhost(null) }} onDrop={onDrop}>
         <div className="sheet-world" style={{ transform: `translate(${-view.x * view.zoom}px, ${-view.y * view.zoom}px) scale(${view.zoom})` }}>
           <div className="sheet-origin" aria-hidden="true" />
-          {blocks.map((b) => b.kind === 'bookmark' ? (
-            <div key={b.id} data-block-id={b.id} className={`sbookmark ${selected.has(b.id) ? 'selected' : ''}`} style={{ left: b.x * unit, top: b.y * unit, height: unit, zIndex: b.z }}
+          {blocks.map((b) => { const at = placed[b.id] ?? b; return b.kind === 'bookmark' ? (
+            <div key={b.id} data-block-id={b.id} className={`sbookmark ${selected.has(b.id) ? 'selected' : ''}`} style={{ left: at.x * unit, top: at.y * unit, height: unit, zIndex: b.z }}
               onPointerDown={startDrag(b, 'move')} onDoubleClick={async () => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label) await sheets.updateBlock(b.id, { data: { ...b.data, label } }) }}
               title="Drag to move, double-click to rename">
               <Icon name="flag" size={14} /><span>{b.data.label}</span>
             </div>
           ) : (
             <div key={b.id} data-block-id={b.id} className={`sblock ${focusId === b.id ? 'focus' : ''} ${selected.has(b.id) ? 'selected' : ''} ${many && selected.has(b.id) ? 'in-group' : ''}`}
-              style={{ left: b.x * unit, top: b.y * unit, width: b.w * unit, zIndex: b.z }}
+              style={{ left: at.x * unit, top: at.y * unit, width: at.w * unit, zIndex: b.z }}
               onPointerDown={(e) => { if (e.button !== 1 && !space && tool !== 'pan') e.stopPropagation() }}>
               <button className="sgrip" aria-label="Move block. Click to select it." title="Drag to move · click to select (then Delete)" onPointerDown={startDrag(b, 'move')}><Icon name="grid" size={12} /></button>
-              <TextBlock block={b} unit={unit} autoFocus={focusId === b.id}
+              <TextBlockMemo block={b} unit={unit} autoFocus={focusId === b.id}
                 onDoc={(doc) => onDoc(b, doc)}
                 onHeight={(h) => {
                   setHeights((m) => (m[b.id] === h ? m : { ...m, [b.id]: h }))
@@ -460,7 +490,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
                 onBlur={(doc) => onBlockBlur(b, doc)} />
               <span className="swidth" aria-hidden="true" onPointerDown={startDrag(b, 'width')} />
             </div>
-          ))}
+          ) })}
           {sel && (
             <div className={`sheet-sel ${many ? 'many' : ''}`} style={{ left: sel.x * unit - 6, top: sel.y * unit - 6, width: sel.w * unit + 12, height: sel.h * unit + 12 }}
               onPointerDown={startDrag(null, 'move')} title="Drag to move · click to edit">

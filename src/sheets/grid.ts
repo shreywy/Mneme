@@ -53,6 +53,17 @@ export function freeSpot(blocks: { x: number; y: number; w: number; h: number }[
   return { x: at.x, y }
 }
 
+export type Place = { x: number; y: number; w: number }
+/** Positions shown while dragging, minus those the saved blocks now match (the drag has landed). */
+export function settle(over: Record<string, Place>, blocks: { id: string; x: number; y: number; w: number }[]): Record<string, Place> {
+  const left: Record<string, Place> = {}
+  for (const b of blocks) {
+    const o = over[b.id]
+    if (o && (o.x !== b.x || o.y !== b.y || o.w !== b.w)) left[b.id] = o
+  }
+  return left
+}
+
 const MAIN_COLUMN_X = 3
 const MARGIN_RED = 'color-mix(in oklab, #C0503A 55%, transparent)'
 const lineColor = (p: Paper, boost = 1) => `color-mix(in oklab, ${p.color ?? 'var(--ink)'} ${Math.min(100, Math.round((6 + p.strength * 22) * boost))}%, transparent)`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAPER } from './types'
-import { blocksInRect, boundsOf, freeSpot, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
+import { blocksInRect, boundsOf, freeSpot, settle, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
 
 const v = { x: -100, y: 50, zoom: 2 }
 
@@ -72,5 +72,12 @@ describe('grid', () => {
     expect(freeSpot(bs, { x: 20, y: 0 }, 10, 2)).toEqual({ x: 20, y: 0 })
     expect(freeSpot(bs, { x: 2, y: 1 }, 10, 2)).toEqual({ x: 2, y: 8 })
     expect(freeSpot(bs, { x: 2, y: -6 }, 10, 2)).toEqual({ x: 2, y: -6 })
+  })
+
+  it('positions shown during a drag are dropped once the saved blocks have caught up', () => {
+    const over = { a: { x: 5, y: 6, w: 10 }, b: { x: 1, y: 1, w: 4 } }
+    const blocks = [{ id: 'a', x: 5, y: 6, w: 10 }, { id: 'b', x: 0, y: 1, w: 4 }]
+    expect(settle(over, blocks)).toEqual({ b: { x: 1, y: 1, w: 4 } })
+    expect(settle({}, blocks)).toEqual({})
   })
 })

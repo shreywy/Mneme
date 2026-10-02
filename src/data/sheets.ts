@@ -62,6 +62,13 @@ export async function updateBlock(id: string, patch: Partial<Omit<SheetBlock, 'i
 }
 export const deleteBlock = (id: string) => db.sheetBlocks.delete(id)
 
+/** Patches many blocks in one write (the end of a drag), so the page redraws once, not once per block. */
+export async function updateBlocks(list: { id: string; patch: Partial<Omit<SheetBlock, 'id' | 'sheetId' | 'createdAt'>> }[]) {
+  if (!list.length) return
+  const now = Date.now()
+  await db.sheetBlocks.bulkUpdate(list.map(({ id, patch }) => ({ key: id, changes: { ...patch, updatedAt: now } })))
+}
+
 /** Copies of these blocks just below the group, on top of everything else. */
 export async function duplicateBlocks(blocks: SheetBlock[]): Promise<SheetBlock[]> {
   if (!blocks.length) return []
