@@ -230,7 +230,15 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   // A drag whose release never reached the paper (it ended over another window, say) is over all the same,
   // so its pan cursor can't stay behind.
   useEffect(() => {
-    const done = (e: PointerEvent) => { if (!host.current?.hasPointerCapture(e.pointerId)) { pointers.current.delete(e.pointerId); if (!pointers.current.size) setGesture(null) } }
+    const done = (e: PointerEvent) => {
+      if (host.current?.hasPointerCapture(e.pointerId) || !pointers.current.has(e.pointerId)) return
+      pointers.current.delete(e.pointerId)
+      if (pointers.current.size) return
+      setGesture(null)
+      // A stroke whose end never reached the paper isn't kept half-drawn.
+      if (draftRef.current) { clearTimeout(hold.current.timer); draftRef.current = null; setDraft(null) }
+      setLasso(null)
+    }
     window.addEventListener('pointerup', done)
     window.addEventListener('pointercancel', done)
     return () => { window.removeEventListener('pointerup', done); window.removeEventListener('pointercancel', done) }
