@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Item, Topic } from '../deck-format/types'
 import type { CardState } from '../engine/memory'
 import type { Block } from '../notes-format/types'
+import type { SheetBlock, SheetRow } from '../sheets/types'
 
 export type Folder = { id: string; name: string; parentId: string | null; position: number; createdAt: number; archived?: boolean; archivedAt?: number }
 export type DeckRow = {
@@ -74,6 +75,8 @@ class MnemeDB extends Dexie {
   notes!: Table<NoteRow, string>
   links!: Table<Link, [string, string]>
   marks!: Table<NoteMark, string>
+  sheets!: Table<SheetRow, string>
+  sheetBlocks!: Table<SheetBlock, string>
 
   constructor() {
     super('mneme')
@@ -96,6 +99,11 @@ class MnemeDB extends Dexie {
     // v4: highlights, annotations and bookmarks on notes pages.
     this.version(4).stores({
       marks: 'id, noteId',
+    })
+    // v5: the user's own pages (Text notes) and their blocks.
+    this.version(5).stores({
+      sheets: 'id, folderId, updatedAt',
+      sheetBlocks: 'id, sheetId',
     })
   }
 }
