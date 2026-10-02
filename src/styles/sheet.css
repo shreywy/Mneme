@@ -1,0 +1,21 @@
+/* Pages (Text notes). Loaded with the page's own chunk. */
+
+/* Text sits on the paper's lines: every line box is one grid unit tall. */
+.tblock { font-size: 16px; line-height: var(--ln); color: var(--ink); }
+.tblock .ProseMirror { outline: none; min-height: var(--ln); white-space: pre-wrap; word-break: break-word; }
+.tblock .ProseMirror > * { margin: 0; }
+.tblock h1 { font-family: var(--serif); font-weight: 400; font-size: calc(var(--ln) * 1.2); line-height: calc(var(--ln) * 2); letter-spacing: -.01em; }
+.tblock h2 { font-family: var(--serif); font-weight: 600; font-size: calc(var(--ln) * .82); line-height: var(--ln); }
+.tblock h3 { font-weight: 600; font-size: 16px; line-height: var(--ln); }
+.tblock ul, .tblock ol { padding-left: calc(var(--ln) * .9); margin: 0; }
+.tblock li > p { margin: 0; }
+.tblock ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+.tblock ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
+.tblock ul[data-type="taskList"] li > label { line-height: var(--ln); }
+.tblock ul[data-type="taskList"] li > div { flex: 1; }
+.tblock blockquote { border-left: 2px solid var(--line); padding-left: 12px; color: var(--muted); }
+.tblock pre { font: 13.5px/var(--ln) ui-monospace, 'JetBrains Mono', Consolas, monospace; background: var(--surface2); border-radius: 8px; padding: 0 12px; }
+.tblock code { font-family: ui-monospace, 'JetBrains Mono', Consolas, monospace; font-size: .9em; background: var(--surface2); border-radius: 4px; padding: 0 3px; }
+.tblock pre code { background: none; padding: 0; }
+.tblock hr { border: 0; height: var(--ln); background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat; }
+.tblock .is-empty::before { content: attr(data-placeholder); color: var(--muted); opacity: .7; pointer-events: none; float: left; height: 0; }
