@@ -27,15 +27,16 @@ export async function createFolder(name: string, parentId: string | null = null)
 
 export async function renameFolder(id: string, name: string) { await db.folders.update(id, { name: name.trim() || 'Untitled' }) }
 
-/** Delete a folder; its decks and subfolders move up to the folder's parent. */
+/** Delete a folder; its decks, notes, pages and subfolders move up to the folder's parent. */
 export async function deleteFolder(id: string) {
-  await db.transaction('rw', db.folders, db.decks, db.notes, async () => {
+  await db.transaction('rw', [db.folders, db.decks, db.notes, db.sheets], async () => {
     const f = await db.folders.get(id)
     const parent = f?.parentId ?? null
     await db.decks.where('folderId').equals(id).modify({ folderId: parent })
     await db.folders.where('parentId').equals(id).modify({ parentId: parent })
     const notes = await db.notes.where('folderId').equals(id).toArray()
     for (const n of notes) await db.notes.put({ ...n, folderId: parent })
+    await db.sheets.where('folderId').equals(id).modify({ folderId: parent })
     await db.folders.delete(id)
   })
 }

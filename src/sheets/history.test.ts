@@ -1,5 +1,7 @@
+import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { createHistory } from './history'
+import { applyChange, createHistory } from './history'
+import * as sheets from '../data/sheets'
 import type { SheetBlock } from './types'
 
 const b = (x: number): SheetBlock => ({ id: 'a', sheetId: 's', x, y: 0, w: 4, h: 1, kind: 'text', data: { doc: null }, z: 0, createdAt: 0, updatedAt: 0 })
@@ -32,5 +34,31 @@ describe('history', () => {
     h.record({ kind: 'add', block: b(4) })
     h.undo(); h.undo()
     expect(h.canUndo()).toBe(false)
+  })
+
+  it('undoing a move keeps text typed after the move', async () => {
+    const id = await sheets.createSheet()
+    const b = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: 'old' }, z: 1 })
+    const h = createHistory()
+    const moved = { ...b, x: 34 }
+    await sheets.putBlock(moved)
+    h.record({ kind: 'update', before: b, after: moved })
+    await sheets.saveBlockDoc(b.id, 'typed later')
+    await applyChange(h.undo()!)
+    const now = (await sheets.blocksFor(id)).find((x) => x.id === b.id)
+    expect(now?.x).toBe(30)
+    expect(now?.data.doc).toBe('typed later')
+  })
+
+  it('undo then redo of a new block brings back the text typed into it', async () => {
+    const id = await sheets.createSheet()
+    const b = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: 'empty' }, z: 1 })
+    const h = createHistory()
+    h.record({ kind: 'add', block: b })
+    await sheets.saveBlockDoc(b.id, 'my notes')
+    await applyChange(h.undo()!)
+    expect((await sheets.blocksFor(id)).some((x) => x.id === b.id)).toBe(false)
+    await applyChange(h.redo()!)
+    expect((await sheets.blocksFor(id)).find((x) => x.id === b.id)?.data.doc).toBe('my notes')
   })
 })

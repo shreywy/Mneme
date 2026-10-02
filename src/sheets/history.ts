@@ -1,4 +1,4 @@
-import { deleteBlock, putBlock } from '../data/sheets'
+import { deleteBlock, getBlock, putBlock, updateBlock } from '../data/sheets'
 import type { SheetBlock } from './types'
 
 export type Change =
@@ -27,8 +27,17 @@ export function createHistory(limit = 200) {
   }
 }
 
+/**
+ * Applies a change from undo or redo. Moves and resizes only touch position and width, so text typed
+ * since is kept. Removing a block first copies what it holds now into the change, which the matching
+ * redo or undo shares, so bringing it back restores its latest text.
+ */
 export async function applyChange(c: Change): Promise<void> {
   if (c.kind === 'batch') { for (const x of c.changes) await applyChange(x); return }
-  if (c.kind === 'remove') await deleteBlock(c.block.id)
-  else await putBlock(c.kind === 'add' ? c.block : { ...c.after, updatedAt: Date.now() })
+  if (c.kind === 'remove') {
+    const now = await getBlock(c.block.id)
+    if (now) Object.assign(c.block, now)
+    await deleteBlock(c.block.id)
+  } else if (c.kind === 'add') await putBlock({ ...c.block, updatedAt: Date.now() })
+  else await updateBlock(c.after.id, { x: c.after.x, y: c.after.y, w: c.after.w })
 }

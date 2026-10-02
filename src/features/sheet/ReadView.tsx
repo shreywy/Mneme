@@ -15,7 +15,7 @@ export function ReadView({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBloc
       {readingOrder(blocks).map((b) => (
         <div key={b.id} className={`rblock ${b.role === 'main' ? '' : 'rside'}`} onClick={() => setEditing(b.id)}>
           <TextBlock block={b} unit={unit} autoFocus={editing === b.id}
-            onDoc={(doc) => sheets.saveBlockDoc(b.id, doc)} onHeight={() => {}} onBlur={(doc) => { setEditing((e) => (e === b.id ? null : e)); void sheets.saveBlockDoc(b.id, doc) }} />
+            onDoc={(doc) => sheets.saveBlockDoc(b.id, doc)} onHeight={() => {}} onBlur={(doc) => { setEditing((e) => (e === b.id ? null : e)); void (b.role !== 'main' && sheets.isEmptyDoc(doc) ? sheets.deleteBlock(b.id) : sheets.saveBlockDoc(b.id, doc)) }} />
         </div>
       ))}
       {main && editing === null && <button className="sheet-edit" onClick={() => setEditing(main.id)}><Icon name="edit" size={18} />Edit</button>}

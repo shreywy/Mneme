@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from './db'
 import * as sheets from './sheets'
+import * as repo from './repo'
 import { DEFAULT_PAPER } from '../sheets/types'
 
 beforeEach(async () => { await Promise.all(db.tables.map((t) => t.clear())) })
@@ -52,6 +53,25 @@ describe('sheets', () => {
     await sheets.saveBlockDoc(main.id, { type: 'doc', content: [{ type: 'heading', content: [{ type: 'text', text: 'Other' }] }] })
     expect((await sheets.getSheet(id))?.title).toBe('My name')
     expect(((await sheets.blocksFor(id))[0].data.doc as typeof doc).content[0].content[0].text).toBe('Other')
+  })
+
+  it('deleting a folder moves its pages up to the parent folder', async () => {
+    const parent = await repo.createFolder('Physics')
+    const child = await repo.createFolder('Week 1', parent)
+    const id = await sheets.createSheet({ folderId: child })
+    await repo.deleteFolder(child)
+    expect((await sheets.getSheet(id))?.folderId).toBe(parent)
+  })
+
+  it('the cleanup on open leaves recent empty blocks alone (another device may be typing in one)', async () => {
+    const id = await sheets.createSheet()
+    const fresh = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: para('') }, z: 1 })
+    const old = await sheets.addBlock({ sheetId: id, x: 30, y: 6, w: 10, h: 1, kind: 'text', data: { doc: para('') }, z: 2 })
+    await db.sheetBlocks.update(old.id, { updatedAt: Date.now() - 5 * 60_000 })
+    await sheets.pruneLeftovers(id)
+    const left = (await sheets.blocksFor(id)).map((b) => b.id)
+    expect(left).toContain(fresh.id)
+    expect(left).not.toContain(old.id)
   })
 
   it('knows an empty document from one with text, headings or list items', () => {

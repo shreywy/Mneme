@@ -26,6 +26,10 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [focusId, setFocusId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  // Heights as measured here. Only the block being edited writes its height, so a device that measures
+  // slightly differently never marks a block changed (which would push its copy over newer text).
+  const [heights, setHeights] = useState<Record<string, number>>({})
+  const shown = useMemo(() => blocks.map((b) => (heights[b.id] ? { ...b, h: heights[b.id] } : b)), [blocks, heights])
   const [gesture, setGesture] = useState<Gesture | null>(null)
   const history = useMemo(() => createHistory(), [sheet.id])
   const host = useRef<HTMLDivElement>(null)
@@ -36,7 +40,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
 
   useEffect(() => { try { localStorage.setItem(viewKey(sheet.id), JSON.stringify(view)) } catch { /* private mode */ } }, [sheet.id, view])
   // Empty side blocks left behind (the tab closed while one was open) are cleared when the page opens.
-  useEffect(() => { void sheets.blocksFor(sheet.id).then((all) => Promise.all(all.map((b) => sheets.pruneEmpty(b)))) }, [sheet.id])
+  useEffect(() => { void sheets.pruneLeftovers(sheet.id) }, [sheet.id])
   useEffect(() => {
     const el = host.current
     if (!el) return
@@ -92,6 +96,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   // Empty paper: drag pans (one finger on touch), Shift + drag draws a selection box, two fingers pinch,
   // a click starts a text block (or, while something is selected or being edited, just lets go of it).
   const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return // right-click opens the menu; middle-click is the browser's
     try { host.current!.setPointerCapture(e.pointerId) } catch { /* a pointer the browser no longer tracks */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 2) {
@@ -129,9 +134,9 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     if (pointers.current.size) return
     const g = gesture
     setGesture(null)
-    if (!g) return
+    if (!g || e.type === 'pointercancel') return
     if (g.kind === 'box') {
-      setSelected(new Set(blocksInRect(blocks, { x: g.a.x / unit, y: g.a.y / unit }, { x: g.b.x / unit, y: g.b.y / unit })))
+      setSelected(new Set(blocksInRect(shown, { x: g.a.x / unit, y: g.a.y / unit }, { x: g.b.x / unit, y: g.b.y / unit })))
       return
     }
     if (g.kind !== 'pan' || g.moved) return
@@ -177,7 +182,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
       const step = (px: number) => (ev.altKey ? px / unit : snapUnits(px, unit))
       const dx = step((ev.clientX - sx) / view.zoom), dy = step((ev.clientY - sy) / view.zoom)
       latest = moving.map((m) => (what === 'move' ? { ...m, x: m.x + dx, y: m.y + dy } : { ...m, w: Math.max(4, m.w + dx) }))
-      for (const m of latest) void sheets.putBlock(m)
+      // Patches, not whole rows: text and height may change during the drag (reflow, another device).
+      for (const m of latest) void sheets.updateBlock(m.id, what === 'move' ? { x: m.x, y: m.y } : { w: m.w })
     }
     const up = () => {
       el.removeEventListener('pointermove', move)
@@ -197,7 +203,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   const box = gesture?.kind === 'box' ? { a: toScreen(view, gesture.a.x, gesture.a.y), b: toScreen(view, gesture.b.x, gesture.b.y) } : null
   return (
     <div className={`sheet-host ${gesture?.kind === 'pan' && gesture.moved ? 'panning' : ''}`} ref={host} style={paperStyle(sheet.paper, view)}
-      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+      onLostPointerCapture={(e) => { pointers.current.delete(e.pointerId); if (!pointers.current.size) setGesture(null) }}>
       <div className="sheet-world" style={{ transform: `translate(${-view.x * view.zoom}px, ${-view.y * view.zoom}px) scale(${view.zoom})` }}>
         <div className="sheet-origin" aria-hidden="true" />
         {blocks.map((b) => (
@@ -207,7 +214,10 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
             <button className="sgrip" aria-label="Move block (Shift + click to select)" onPointerDown={startDrag(b, 'move')}><Icon name="grid" size={12} /></button>
             <TextBlock block={b} unit={unit} autoFocus={focusId === b.id}
               onDoc={(doc) => onDoc(b, doc)}
-              onHeight={(h) => { if (h !== b.h) void sheets.updateBlock(b.id, { h }) }}
+              onHeight={(h) => {
+                setHeights((m) => (m[b.id] === h ? m : { ...m, [b.id]: h }))
+                if (h !== b.h && focusId === b.id) void sheets.updateBlock(b.id, { h })
+              }}
               onBlur={(doc) => onBlockBlur(b, doc)} />
             <span className="swidth" aria-hidden="true" onPointerDown={startDrag(b, 'width')} />
           </div>
@@ -223,7 +233,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         </div>
       </div>
       {blocks.length > 0 && size.w > 0 && (
-        <Minimap blocks={blocks} unit={unit} view={view} size={size}
+        <Minimap blocks={shown} unit={unit} view={view} size={size}
           onJump={(wx, wy) => setView((v) => ({ ...v, x: wx - size.w / 2 / v.zoom, y: wy - size.h / 2 / v.zoom }))} />
       )}
     </div>

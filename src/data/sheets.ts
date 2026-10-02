@@ -56,6 +56,7 @@ export async function updateBlock(id: string, patch: Partial<Omit<SheetBlock, 'i
   await db.sheetBlocks.update(id, { ...patch, updatedAt: Date.now() })
 }
 export const deleteBlock = (id: string) => db.sheetBlocks.delete(id)
+export const getBlock = (id: string) => db.sheetBlocks.get(id)
 
 /** Saves a block's text. The main block also names the page (its first heading) until the user renames it. */
 export async function saveBlockDoc(id: string, doc: unknown) {
@@ -79,6 +80,15 @@ export function isEmptyDoc(doc: unknown): boolean {
     return (n.content ?? []).every(walk)
   }
   return walk((doc ?? {}) as Node)
+}
+
+/**
+ * Clears empty side blocks left behind (a tab closed while one was open). Only blocks untouched for a
+ * minute: a fresh one may be one another device has just made and is about to type in.
+ */
+export async function pruneLeftovers(sheetId: string) {
+  const cutoff = Date.now() - 60_000
+  for (const b of await blocksFor(sheetId)) if (b.updatedAt < cutoff) await pruneEmpty(b)
 }
 
 /** Removes a block left empty, unless it's the main column. Returns whether it was removed. */

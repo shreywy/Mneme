@@ -22,6 +22,7 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   const cb = useRef({ onDoc, onHeight, onBlur })
   cb.current = { onDoc, onHeight, onBlur }
   const save = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const unsaved = useRef<unknown>(undefined)
   const main = block.role === 'main'
   const editor = useEditor({
     extensions: [
@@ -31,8 +32,12 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
     ],
     content: (block.data.doc as object | null) ?? '',
     autofocus: autoFocus ? 'end' : false,
-    onUpdate: ({ editor: e }) => { clearTimeout(save.current); save.current = setTimeout(() => cb.current.onDoc(e.getJSON()), 400) },
-    onBlur: ({ editor: e }) => { clearTimeout(save.current); cb.current.onBlur(e.getJSON()) },
+    onUpdate: ({ editor: e }) => {
+      clearTimeout(save.current)
+      unsaved.current = e.getJSON()
+      save.current = setTimeout(() => { save.current = undefined; unsaved.current = undefined; cb.current.onDoc(e.getJSON()) }, 400)
+    },
+    onBlur: ({ editor: e }) => { clearTimeout(save.current); save.current = undefined; unsaved.current = undefined; cb.current.onBlur(e.getJSON()) },
   })
   // A change from another device replaces the content, unless this block is being edited here.
   useEffect(() => {
@@ -55,6 +60,10 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
     ro.observe(el)
     return () => ro.disconnect()
   }, [unit])
-  useEffect(() => () => clearTimeout(save.current), [])
+  // Leaving the page within the save delay still saves what was typed.
+  useEffect(() => () => {
+    clearTimeout(save.current)
+    if (unsaved.current !== undefined) cb.current.onDoc(unsaved.current)
+  }, [])
   return <div ref={box} className="tblock" style={{ '--ln': `${unit}px` } as React.CSSProperties}><EditorContent editor={editor} /></div>
 }

@@ -28,7 +28,8 @@ export function SheetPage() {
   const [dialog, setDialog] = useState<null | 'settings'>(null)
   const [renaming, setRenaming] = useState(false)
   useEffect(() => { if (sheetId) void sheets.updateSheet(sheetId, { lastOpenedAt: Date.now() }) }, [sheetId])
-  if (sheet === null || blocks === undefined) return null
+  // useLiveQuery keeps the previous page's result until the new one arrives.
+  if (sheet === null || blocks === undefined || blocks.some((b) => b.sheetId !== sheetId)) return null
   if (!sheet) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
 
   const folder = folders?.find((f) => f.id === sheet.folderId)
@@ -63,7 +64,7 @@ export function SheetPage() {
           </>}
         </DropMenu>
       </TopBar>
-      {mode === 'canvas' ? <Canvas sheet={sheet} blocks={blocks} /> : <ReadView sheet={sheet} blocks={blocks} />}
+      {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} />}
       {dialog === 'settings' && folders && (
         <PageSettings title={sheet.title} folders={folders} folderId={sheet.folderId} unit={sheet.unit} onClose={() => setDialog(null)}
           onFolder={(folderId) => sheets.updateSheet(sheet.id, { folderId })} onUnit={(unit) => sheets.updateSheet(sheet.id, { unit: unit || undefined })}>
