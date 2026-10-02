@@ -2,25 +2,29 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-02._
+_Last updated 2026-10-02 (phases 3 and 4)._
 
 ## Where we are
 
 - **Live:** https://mnemee.pages.dev, auto-deployed from `main` (Cloudflare Pages). Everything below is merged and deployed.
-- **Current feature:** Text notes ("Pages"), the user's own writing pages. Phases 1 and 2 are built, plus two rounds of Shrey's feedback.
-- **Waiting on:** Shrey's QC of [feedback/2026-10-02-pages-round-2.md](feedback/2026-10-02-pages-round-2.md), 39 items. He fills in notes under each one and sends the file back. Item 39 is an open question about what "double header" meant.
-- **Then:** act on that feedback, then phase 3 (ink).
+- **Current feature:** Text notes ("Pages"), the user's own writing pages. Phases 1–4 are built: everything but AI, which is phase 5. Plus two rounds of Shrey's feedback.
+- **Shrey needs to run `npx supabase db push`.** Migration `20261008000000_sheet_ink.sql` adds `sheet_ink` and lets `shares.kind` be `sheet`. Until then:
+  - ink stays on the device (the sync engine skips tables the server doesn't have)
+  - sharing a page fails
+- **Optional:** an Imgur client id in `.env.local` and in the Cloudflare env as `VITE_IMGUR_CLIENT_ID`. Without it, pictures stay in the browser they were added in.
+- **Waiting on:** Shrey's QC of [round 2](feedback/2026-10-02-pages-round-2.md) (39 items) and [round 3](feedback/2026-10-02-pages-round-3.md) (20 items, phases 3–4).
+- **Then:** act on that feedback. After that comes the security and engineering list, then AI. The preview site (`/about`, `/docs`) and the README were done early at Shrey's request on 2026-10-02.
 
 ## Text notes: what's built
 
-Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026-10-01-text-notes-design.md). Plans and rulings: [phase 1](superpowers/plans/2026-10-01-text-notes-phase1.md) and [phase 2](superpowers/plans/2026-10-02-text-notes-phase2.md). The ledgers at the bottom of each plan list every judgement call and the deferred minors.
+Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026-10-01-text-notes-design.md). Plans and rulings: [phase 1](superpowers/plans/2026-10-01-text-notes-phase1.md), [phase 2](superpowers/plans/2026-10-02-text-notes-phase2.md) and [phases 3–4](superpowers/plans/2026-10-02-text-notes-phase3-4.md). The ledgers at the bottom of each plan list every judgement call and the deferred minors.
 
 | Phase | State |
 |---|---|
 | 1. Canvas and text | Done. QC round 1 done. |
 | 2. Blocks and Insert | Done. QC round 2 in progress. |
-| 3. Ink (pen, highlighter, eraser, lasso, shapes, palm rejection) | Next |
-| 4. Images (Imgur, first-use consent popup), Pages layout, Print/PDF, share links | Later |
+| 3. Ink (pen, highlighter, eraser, lasso, shapes, palm rejection) | Done. QC round 3 waiting. |
+| 4. Images (Imgur, first-use consent popup), Pages layout, Print/PDF, share links | Done. QC round 3 waiting. |
 | 5. AI (lasso → Gemini, handwriting/maths to text) | Later |
 
 ### Where the code is
@@ -32,6 +36,11 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
     - Selection frame, block and paper right-click menus, drop targets, minimap.
     - Undo history for moves, adds and deletes.
     - Drags draw from local `placed` positions and save once on drop.
+  - `Ink.tsx`: the two SVG ink layers (highlighter behind blocks, pen in front), `BlockInk` for Read view and print, and the pen/highlighter/eraser bar.
+    - The canvas runs the ink gestures (`startInk`, `extendDraft`, `finishDraw`, `eraseAt`, `finishLasso`).
+    - Strokes on a block are stored relative to it, so they move with it (`worldPoints`).
+  - `Print.tsx`: Print / Save as PDF. Read-only editors in an off-screen portal, plus an `@page` rule.
+  - `SharedSheet.tsx`: a shared page, read-only.
   - `TextBlock.tsx`: one TipTap editor per block.
     - Debounced save.
     - Ignores database echoes of its own saves (the `sent` ring).
@@ -48,6 +57,10 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
     - `commands.ts`: inserts, paste, `growTable`.
     - `slash.tsx`: the / menu.
     - `MathField.tsx`: MathLive, lazy-loaded, using the KaTeX fonts.
+    - `image.tsx`: the picture node.
+      - Consent dialog, file picker, upload on view.
+      - A cleanup plugin deletes a removed picture from Imgur after 15 s.
+    - `pagebreaks.ts`: Pages layout. Widget decorations push the next node onto the next sheet, never saved.
   - `store.ts`: shared UI state (active editor, tool, Insert open, canvas API) and recent inserts.
 - `src/sheets/`: pure logic, all unit-tested.
   - `grid.ts`: view maths, paper CSS, `freeSpot`, `settle`.
@@ -55,11 +68,17 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - `paste.ts`: smart-paste detection.
   - `plot.ts`: auto y range.
   - `tex.ts`: escaped KaTeX output.
+  - `ink.ts`: stroke encoding (0.25 px, delta), anchoring, highlighter straightening, shape recognition, rub-out, lasso, perfect-freehand paths.
+  - `pages.ts`: sheet sizes and `paginate`.
+  - `image.ts`: shrink sizes, accepted files, `publicDoc` (strips delete codes).
+  - `sharepage.ts`: the share payload for a page, and its zod check (hex colours only, Imgur-only image src).
   - `fonts.ts`, `history.ts`, `order.ts`, `types.ts`.
 - `src/data/`
   - `sheets.ts`: pages and blocks.
   - `myblocks.ts`: My blocks, kept on a hidden page with id `my-blocks`.
-  - `trash.ts`: Recently deleted. Deletes are soft for 5 days, then purged on app start.
+  - `trash.ts`: Recently deleted. Deletes are soft for 5 days, then purged on app start. A purged page also deletes its pictures from Imgur.
+  - `ink.ts`: strokes (`sheetInk`, synced as `sheet_ink`).
+  - `images.ts`: pictures. Kept locally in `images` (Dexie, never synced), uploaded to Imgur, deleted from Imgur when gone.
 - `src/styles/sheet.css`: all Pages styles. A page's light/dark override uses `.paper-light` / `.paper-dark` plus `.pal-*` classes.
 
 ### Decisions worth knowing
@@ -70,10 +89,16 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 - **New inserts:** a just-inserted equation, plot or working opens its editor through a one-off `openToken` on the node, not through node selection. Node selection made ProseMirror steal focus back.
 - **Toolbar focus:** the toolbar keeps its block when focus goes "nowhere", which is what happens when a dropdown opens. It lets go when you click the paper or another block.
 - **Deleting:** deleting any deck, notes page or page goes to Recently deleted (Archive page) with an Undo toast. It's purged after 5 days.
+- **Ink:**
+  - One row per stroke.
+  - Pen sizes are world px.
+  - A stroke with 60% of its points over a text block is anchored to it.
+  - Undo is one history for blocks and ink (`sheets/history.ts`).
+- **Pictures:** Mneme never stores picture bytes on its servers. The Imgur delete hash lives in the synced doc but is stripped from share links and from clipboard HTML.
 
 ## How to work on it
 
-- `npm run dev` (Vite), `npm test` (Vitest, 233 tests), `npm run build`, `npm run test:db` (RLS tests against local Supabase).
+- `npm run dev` (Vite), `npm test` (Vitest, 274 tests), `npm run build`, `npm run test:db` (RLS tests against local Supabase).
 - **Database migrations:** Shrey runs `npx supabase db push` himself. Phase 2 needed none.
 - **Installing packages:** use `npx npm@10.9.2 install …`. Cloudflare builds with `npm ci` on npm 10.9.2. A lockfile written by npm 11 failed there, and phase 1 silently never deployed until that was fixed.
 - **After every push,** check the "Cloudflare Pages" check run, not just the local build:
@@ -107,11 +132,10 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - "Like the app" snapping back to Light when signed in (now stored explicitly as "app")
 
   Watch for any of these in his feedback.
-- **Deferred minors:**
-  - Grips, bookmarks and the rendered equation aren't keyboard-operable.
-  - The / menu has no `aria-activedescendant`.
-  - A selected link card can be replaced by a key press (undo restores it).
-  - Opening `/write/my-blocks` by URL shows the hidden page.
-  - Empty quote/code blocks aren't cleared.
-  - Folder counts ignore pages.
+- **Deferred minors from phase 2:** all done 2026-10-02.
+- **Known limits:**
+  - A paragraph taller than a sheet runs across the page gap in Pages layout.
+  - Page numbers in print need Chrome 131+.
+  - Pictures without an Imgur client id don't reach other devices.
+  - The dev server goes stale often after many quick file writes; restart it (see Gotchas).
 - **After Text notes:** security and engineering items for the portfolio (CSP, fuzz tests, audit log, threat model, CodeQL, E2E-encrypted decks, Yjs, performance budget). Then AI (Gemini), a full end-to-end pass, v1, and the desktop app. See the roadmap.

@@ -89,3 +89,31 @@
 12. **Docs:** HANDOFF, ROADMAP, and a QC checklist `docs/feedback/2026-10-0x-pages-round-3.md`.
 
 ## Ledger
+- Task 1: complete (6abe316). Stroke maths in `sheets/ink.ts`, 23 tests.
+  - Ruling: a line is any stroke that stays within 8% of its chord, rather than going by chord/length. A shaky hand made the length test reject straight lines. Cost if wrong: an S-curve that is nearly straight snaps to a line; hold-to-shape is opt-in per stroke.
+- Task 2: complete (6abe316). `sheet_ink` (Dexie v6, Supabase migration, RLS checks).
+  - Ruling: the sync engine skips a table the server doesn't have yet (PGRST205/42P01) and keeps its rows queued. Shipping the app before Shrey runs the migration then doesn't break sync. Cost if wrong: a typo'd table name would also be skipped silently, though tests cover every SPECS entry.
+- Task 3: complete (6abe316). Undo covers ink. Deleting blocks takes their anchored ink in the same batch.
+- Task 4: complete (6abe316).
+  - Ruling: pen sizes are world px, so zooming in makes lines look thicker, like paper. Cost if wrong: one multiplier.
+  - Ruling: a selection holding only strokes moves freely; one with blocks snaps to the grid.
+  - Ruling: My blocks keeps ink drawn on the saved blocks, not loose ink nearby.
+  - Ruling: the minimap doesn't show ink.
+  - Ruling: rub-out database writes are chained within a gesture. Unchained, a piece could be deleted before it was saved and then reappear (found in the browser).
+- Task 5: complete. Read view draws block ink.
+- Task 6: complete (b00446f). `sheets/pages.ts`, 6 tests.
+  - Ruling: pagination also runs in px (the gap passed in px), so sheets stay aligned when a node isn't whole lines.
+  - Ruling: a paragraph moves to the next sheet whole, rather than splitting across sheets. It's simpler, and a paragraph taller than a sheet runs on. Cost if wrong: a split-paragraph layout later.
+- Task 7: complete (b00446f). Spacers are ProseMirror widget decorations, so they never enter the document (checked: the JSON has no gaps). Sheets draw the paper's lines; the desk around them doesn't.
+- Task 8: complete (b00446f).
+  - Ruling: print renders read-only editors into an off-screen portal and hides the rest of the app in print media, so maths, plots and code print exactly as shown. Page numbers use `@page` margin boxes (Chrome 131+; other browsers print without them).
+  - Ruling: printing is always light paper with no ruled lines.
+- Task 9: complete (342e85e).
+  - Ruling: there is no Imgur client id yet, so pictures stay local and say "On this device only". The consent dialog appears only once a client id exists. Uploads also need consent.
+  - Ruling: SVG is refused (it can carry scripts, and Imgur rejects it).
+  - Ruling: the delete hash is never rendered to clipboard HTML. A picture removed from the text is deleted from Imgur 15 s later unless it's back (undo, cut+paste, another block). Purging a page deletes its pictures.
+  - Ruling: implementation was written before its tests ran red. The test file covers fitWithin, imageFiles and publicDoc.
+- Task 10: complete (342e85e).
+  - Ruling: shared pages are validated with zod. Colours must be plain hex because they end up in CSS. Image src must be an i.imgur.com URL, so a shared page can't make a viewer's browser call a tracker. Delete hashes and local-only pictures are stripped. Ink is included only when "Include my drawing" is ticked.
+- Task 11: complete (342e85e, 3fddc29). All six deferred minors are done.
+- Final review: self-review (no reviewer subagent; the user hasn't asked for subagents this session). It found and fixed a stroke left half-drawn when released outside the window (3fddc29).
