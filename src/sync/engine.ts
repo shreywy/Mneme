@@ -119,20 +119,23 @@ const CHUNK = 300
 
 export async function push(remote: Remote): Promise<number> {
   let sent = 0
-  for (const spec of SPECS) {
-    const ids = [...(pending.get(spec.remote) ?? [])]
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const chunk = ids.slice(i, i + CHUNK)
-      const rows = await Promise.all(chunk.map(async (id) => {
-        const key = await spec.localKey(id)
-        const row = key === undefined ? undefined : await spec.table().get(key as never)
-        return row ? { id, doc: JSON.parse(JSON.stringify(row)), deleted: false } : { id, doc: {}, deleted: true }
-      }))
-      await remote.upsert(spec.remote, rows)
-      const s = pending.get(spec.remote)
-      for (const id of chunk) s?.delete(id)
-      savePending()
-      sent += rows.length
+  // Deletions go up first: they only free space, so they still go through when the account is full.
+  for (const deletions of [true, false]) {
+    for (const spec of SPECS) {
+      const ids = [...(pending.get(spec.remote) ?? [])]
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const rows = (await Promise.all(ids.slice(i, i + CHUNK).map(async (id) => {
+          const key = await spec.localKey(id)
+          const row = key === undefined ? undefined : await spec.table().get(key as never)
+          return row ? { id, doc: JSON.parse(JSON.stringify(row)), deleted: false } : { id, doc: {}, deleted: true }
+        }))).filter((r) => r.deleted === deletions)
+        if (!rows.length) continue
+        await remote.upsert(spec.remote, rows)
+        const s = pending.get(spec.remote)
+        for (const r of rows) s?.delete(r.id)
+        savePending()
+        sent += rows.length
+      }
     }
   }
   return sent

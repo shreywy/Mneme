@@ -40,7 +40,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 1. ~~**Account page and menu**~~ done 2026-10-01
 2. ~~**Guest end-to-end pass**~~ done 2026-10-01; Shrey confirmed sync works from his phone ([results](testing/e2e-2026-10-01.md))
 3. **Notes**: design approved 2026-10-01 ([spec](superpowers/specs/2026-10-01-notes-design.md), [preview](https://claude.ai/artifact/SjxNTc6KryekgCXGwbJsuW)). Phases: (1) core pages, import, linking, prompt; (2) find, key-term hovers, right-click menu, highlights, annotations, bookmarks; (3) derivation, plot and figure blocks; (4) cheat sheet builder. Parked: slide images on a free image host.
-4. **Text notes** (the user's own writing pages)
+4. **Text notes** (the user's own writing pages): draft 1 is up for Shrey's critique ([draft](https://claude.ai/artifact/CxCD9ntPzai9YCrkPrjdco)). Nothing gets built until a draft is approved.
 5. **AI** (Gemini, bring your own key)
 6. **Full end-to-end pass**: everything, signed in, phone and PC, including sync and the account page ([checklist](testing/e2e-2026-10-01.md#part-2-signed-in-to-do-needs-shrey-to-sign-in))
 7. **Preview site, GitHub polish, v1 release**
@@ -53,7 +53,9 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Generic sample deck and sample notes (non-accounting) for new users
 
 ## Accounts and sync (Supabase)
-- [ ] Storage clean-up near the free 500 MB limit. A 200-question deck is about 250 KB, so roughly 2,000 decks fit. Watch total database size (not a deck count; reviews and progress grow too). At about 75% (~1,500 decks' worth), ask each user about decks they haven't opened in a long time: "You haven't used this deck in N months. Delete it?", with a download button first. Never delete without a yes.
+- [x] 20 MB of cloud space per account (Shrey's admin account has no limit). The server counts every synced row and share and refuses writes past the cap; deletions always go through and are sent first. Settings shows the meter, and a full account is told to delete pages or decks. New data stays on the device until there's room.
+- [ ] Apply the `storage_cap` migration (`npx supabase db push`) and set Shrey's account to no limit (`cap_bytes = null` in `storage_usage`)
+- [ ] Keep an eye on the free 500 MB database: 20 MB each means about 25 completely full accounts. Raise the plan or lower the cap before that matters.
 - [ ] Sync a deck's notes links and course units once the Notes pages exist (tables are already in place)
 
 ## Security (portfolio focus)
@@ -89,6 +91,10 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Text notes (the user's own pages; draft the design with Shrey first)
 - [ ] Reuse the notes blocks for writing: LaTeX that's easy to type (live preview), and easy graphics of any sort (plots from a formula, figures, tables, diagrams). The derivation, plot and figure blocks already take plain data an editor can produce.
+- [ ] One infinite canvas per page with a pinned start (the top-left of the first view) and one grid for everything, so separate blocks line up on the same lines
+- [ ] Pageless by default; a Pages layout (A4 or Letter sheets) as an option in Page settings
+- [ ] Paper is customisable: lines none, ruled, dots or squares; spacing; line strength and colour; margin line; paper colour; remembered for new pages
+- [ ] A fast Insert panel: search, a letter per block, numbered recent blocks, drag to place, smart paste (images, spreadsheet cells, LaTeX, code), and saved "my blocks"
 - [ ] Pageless editor in the style of Google Docs but sleeker: headings, lists, tables, diagrams, code blocks with syntax highlighting for many languages, highlighting, and annotations (comments attached to selected text)
 - [ ] Paste and drag in images; draw over them and over the page with good pen settings (colour, width, highlighter, eraser)
 - [ ] Images aren't stored by Mneme: upload them to a free image host (Imgur API or similar) and keep only the link

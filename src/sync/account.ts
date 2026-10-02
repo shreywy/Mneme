@@ -5,8 +5,9 @@ import { useSettings } from '../settings/store'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, setOnDirty, SPECS } from './engine'
 import { enabledProviders, supabase, supabaseRemote } from './supabase'
 import { forgetProfile, loadProfile, removeAvatars } from './profile'
+import { forgetStorage, isStorageFull, loadStorage } from './storage'
 
-export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error'
+export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error' | 'full'
 type Account = { ready: boolean; user: User | null; status: SyncStatus; lastSync: number | null; error: string | null }
 export const useAccount = create<Account>(() => ({ ready: !supabase, user: null, status: 'off', lastSync: null, error: null }))
 export const accountsEnabled = !!supabase
@@ -116,9 +117,12 @@ export async function syncNow(withPull = true): Promise<void> {
   running = (async () => {
     set({ status: 'syncing' })
     try {
-      await push(remote())
+      // Out of space: new data waits here, but deletions went up and other devices' changes still come in.
+      let full = false
+      try { await push(remote()) } catch (e) { if (!isStorageFull(e)) throw e; full = true }
       if (withPull) { await pull(remote()); await pullSettings() }
-      set({ status: 'synced', lastSync: Date.now(), error: null })
+      set({ status: full ? 'full' : 'synced', lastSync: Date.now(), error: null })
+      loadStorage(full ? 0 : 60_000).catch(() => { /* shown again on the next sync */ })
     } catch (e) {
       set({ status: navigator.onLine ? 'error' : 'offline', error: e instanceof Error ? e.message : String(e) })
     }
@@ -197,6 +201,7 @@ async function forgetLocally(scope: 'global' | 'local') {
   await wipeLocal()
   localStorage.removeItem(OWNER_KEY)
   forgetProfile()
+  forgetStorage()
   set({ user: null, status: 'off', lastSync: null })
 }
 

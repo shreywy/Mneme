@@ -25,6 +25,13 @@ export function Shell() {
   const loc = useLocation()
   useEffect(() => { if (!/^\/(settings|account)(\/|$)/.test(loc.pathname)) useUI.setState({ lastPage: loc.pathname + loc.search }) }, [loc.pathname, loc.search])
   useEffect(() => { setDrawer(false) }, [loc.pathname, setDrawer])
+  const syncStatus = useAccount((a) => a.status)
+  const toldFull = useRef(false)
+  useEffect(() => {
+    if (syncStatus !== 'full' || toldFull.current) return
+    toldFull.current = true
+    toast('Your cloud space is full', "Delete pages or decks you don't need. New changes stay on this device until then.", 'x')
+  }, [syncStatus])
   const rail = sidebar === 'rail'
   const peekT = useRef<number>(0)
   const unpeekT = useRef<number>(0)

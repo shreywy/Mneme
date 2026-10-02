@@ -11,6 +11,8 @@ import { db } from '../../data/db'
 import { ensurePersistentStorage, exportBackup, restoreBackup } from '../../data/backup'
 import { downloadJson } from '../../deck-format/export'
 import { confirmAction } from '../../ui/confirm'
+import { accountsEnabled, useAccount } from '../../sync/account'
+import { describeUsage, loadStorage, useStorage } from '../../sync/storage'
 
 export function SettingsPage() {
   const s = useSettings()
@@ -92,6 +94,7 @@ export function SettingsPage() {
       </Section>
 
       <Section id="data" icon="archive" title="Your data" summary="Storage, backup, reset">
+        <CloudSpace />
         <div className="srow"><div className="l"><b>Storage</b>
             <span>{persisted ? 'Saved in this browser, marked as persistent so it is not cleared automatically.' : 'Saved in this browser. Ask for persistent storage so the browser keeps it under low disk space.'}</span></div>
           {!persisted && <button className="btn sm" onClick={async () => { const p = await ensurePersistentStorage(); setPersisted(p); toast(p ? 'Storage is now persistent' : 'The browser said no', p ? undefined : 'Firefox may ask first, or allow it after you use the site more', p ? 'check' : 'x') }}>Make persistent</button>}
@@ -122,6 +125,25 @@ export function SettingsPage() {
 
 const OPEN_KEY = 'mneme.settings.sections'
 /** A titled group that opens and closes. Which ones are open is remembered on this device. */
+/** How much of the account's cloud space is used. Guests have no cloud copy, so no limit. */
+function CloudSpace() {
+  const user = useAccount((a) => a.user)
+  const usage = useStorage((s) => s.usage)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => { if (user) loadStorage(10_000).then(() => setFailed(false)).catch(() => setFailed(true)) }, [user])
+  if (!accountsEnabled) return null
+  const row = (body: React.ReactNode) => <div className="srow"><div className="l" style={{ flex: 1 }}><b>Cloud space</b>{body}</div></div>
+  if (!user) return row(<span>Accounts get 20 MB, about 80 large decks. As a guest everything stays in this browser.</span>)
+  if (!usage) return row(<span>{failed ? "Couldn't check right now." : 'Checking…'}</span>)
+  const d = describeUsage(usage)
+  return row(<>
+    <span>{d.label}</span>
+    {d.pct !== null && <div className={`space-meter ${d.level}`} role="meter" aria-label="Cloud space used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={d.pct}><i style={{ width: `${d.pct}%` }} /></div>}
+    {d.level === 'full' && <span className="space-warn">Full. New changes stay on this device until you delete pages or decks you don't need. Download a backup first if you want to keep a copy.</span>}
+    {d.level === 'near' && <span>Almost full. Deleting pages or decks you're finished with frees space.</span>}
+  </>)
+}
+
 function Section({ id, icon, title, summary, defaultOpen = false, children }: { id: string; icon: string; title: string; summary: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(() => {
     try { const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? 'null') as Record<string, boolean> | null; return v?.[id] ?? defaultOpen } catch { return defaultOpen }

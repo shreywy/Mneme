@@ -257,6 +257,12 @@ a.drow:hover { background: var(--surface2); }
 .syncdot.syncing { background: #C8962C; animation: pulse 1s ease-in-out infinite; }
 .syncdot.error { background: var(--bad); }
 .syncdot.offline { background: var(--muted); }
+.syncdot.full { background: #C8962C; }
+.space-meter { height: 6px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin: 8px 0 2px; max-width: 360px; }
+.space-meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .5s var(--ease); }
+.space-meter.near i { background: #C8962C; }
+.space-meter.full i { background: var(--bad); }
+.srow .l span.space-warn { display: block; margin-top: 4px; color: var(--bad); }
 @keyframes pulse { 50% { opacity: .4; } }
 .code-input { height: 56px; font-size: 28px; letter-spacing: 10px; text-align: center; font-family: ui-monospace, Consolas, monospace; }
 .btn.oauth { width: 100%; justify-content: center; height: 42px; margin-top: 18px; gap: 10px; }

@@ -105,6 +105,26 @@ describe('sync engine', () => {
     expect(st?.card.due instanceof Date).toBe(true)
   })
 
+  it('sends deletions first, so a full account can still free space', async () => {
+    const f = fakeRemote()
+    const { deckId } = await repo.importDeck(deck)
+    await push(f.remote)
+    // The server is full: it takes tombstones but refuses anything that adds data.
+    const full: Remote = {
+      ...f.remote,
+      async upsert(table, rows) {
+        if (rows.some((r) => !r.deleted)) throw new Error('storage_full')
+        return f.remote.upsert(table, rows)
+      },
+    }
+    await repo.importDeck({ ...deck, title: 'New' })
+    await repo.deleteDeck(deckId)
+    await expect(push(full)).rejects.toThrow('storage_full')
+    expect(f.t('decks').get(deckId)?.deleted).toBe(true)
+    expect(f.t('items').get(`${deckId}|t`)?.deleted).toBe(true)
+    expect(pendingCount()).toBeGreaterThan(0)
+  })
+
   it('markAll queues every local row for the first upload', async () => {
     const f = fakeRemote()
     await repo.importDeck(deck)

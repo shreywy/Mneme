@@ -157,6 +157,69 @@ reset role;
 set local role authenticated;
 
 -- ---------- account deletion needs a fresh emailed code ----------
+-- Storage allowance: counted per account, readable only by its owner, capped, never blocks deletes.
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.storage_usage where user_id = '00000000-0000-4000-8000-00000000000b';
+  if n <> 0 then raise exception 'FAIL: A can see B''s storage usage'; end if;
+  select count(*) into n from public.storage_usage;
+  if n <> 1 then raise exception 'FAIL: A should see its own storage usage (% rows)', n; end if;
+  begin
+    update public.storage_usage set cap_bytes = null;
+    raise exception 'FAIL: A lifted its own storage cap';
+  exception when insufficient_privilege then null; -- expected
+  end;
+end $$;
+
+-- Give A a tiny allowance (as the database owner), then try to go past it.
+reset role;
+update public.storage_usage set cap_bytes = bytes + 500 where user_id = '00000000-0000-4000-8000-00000000000a';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+do $$
+declare before bigint; after bigint;
+begin
+  select bytes into before from public.storage_usage;
+  begin
+    insert into public.decks (id, doc) values ('deck-big', jsonb_build_object('title', repeat('x', 2000)));
+    raise exception 'FAIL: a write past the storage cap was accepted';
+  exception when others then
+    if sqlerrm <> 'storage_full' then raise; end if;
+  end;
+  insert into public.decks (id, doc) values ('deck-small', '{"t":1}');
+  insert into public.decks (id, doc) values ('deck-small', '{"t":1}') on conflict (user_id, id) do update set doc = excluded.doc;
+  select bytes into after from public.storage_usage;
+  if after - before <> public._sync_row_bytes('deck-small', '{"t":1}', false) then
+    raise exception 'FAIL: an upsert was counted wrongly (% bytes added)', after - before;
+  end if;
+end $$;
+
+-- Full up: deletes and tombstones still go through and give the space back; settings still save.
+reset role;
+update public.storage_usage set cap_bytes = bytes where user_id = '00000000-0000-4000-8000-00000000000a';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+do $$
+declare before bigint; after bigint;
+begin
+  select bytes into before from public.storage_usage;
+  update public.decks set doc = '{}', deleted = true where id = 'deck-small';
+  select bytes into after from public.storage_usage;
+  if after >= before then raise exception 'FAIL: a tombstone did not free space'; end if;
+  delete from public.decks where id = 'deck-small';
+  insert into public.user_settings (id, doc) values ('settings', jsonb_build_object('theme', repeat('x', 900)))
+    on conflict (user_id, id) do update set doc = excluded.doc;
+end $$;
+
+-- No cap (the admin account): anything goes.
+reset role;
+update public.storage_usage set cap_bytes = null where user_id = '00000000-0000-4000-8000-00000000000a';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+insert into public.decks (id, doc) values ('deck-big', jsonb_build_object('title', repeat('x', 5000)));
+
 -- B's session without an OTP sign-in in the last 10 minutes: refused.
 select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
   'amr', json_build_array(json_build_object('method', 'oauth', 'timestamp', extract(epoch from now())::bigint)))::text, true);
@@ -200,6 +263,8 @@ begin
   if n <> 0 then raise exception 'FAIL: B''s decks survived deletion'; end if;
   select count(*) into n from public.profiles where id = '00000000-0000-4000-8000-00000000000b';
   if n <> 0 then raise exception 'FAIL: B''s profile survived deletion'; end if;
+  select count(*) into n from public.storage_usage where user_id = '00000000-0000-4000-8000-00000000000b';
+  if n <> 0 then raise exception 'FAIL: B''s storage usage survived deletion'; end if;
   select count(*) into n from public.profiles where id = '00000000-0000-4000-8000-00000000000a';
   if n <> 1 then raise exception 'FAIL: A''s profile was affected'; end if;
 end $$;
