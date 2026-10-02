@@ -14,6 +14,9 @@ import { PageSettings } from '../page/PageSettings'
 import { Canvas } from './Canvas'
 import { ReadView } from './ReadView'
 import { PaperSettings } from './PaperSettings'
+import { readingOrder } from '../../sheets/order'
+import type { SheetBlock } from '../../sheets/types'
+import { useSheetUI } from './store'
 
 const PHONE = '(max-width: 767px)'
 
@@ -47,6 +50,7 @@ export function SheetPage() {
               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenaming(false) }} />
           : <b onDoubleClick={() => setRenaming(true)} title="Double-click to rename">{sheet.title}</b>}
       </>}>
+        <Contents blocks={blocks} unit={sheet.paper.spacing} mode={mode} />
         <Seg className="sheet-mode" value={mode} onChange={setMode} options={[{ value: 'read', label: 'Read' }, { value: 'canvas', label: 'Canvas' }]} />
         <DropMenu label="More for this page" button={({ open, toggle }) => <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={toggle}><Icon name="more" /></button>}>
           {(close) => <>
@@ -72,5 +76,42 @@ export function SheetPage() {
         </PageSettings>
       )}
     </>
+  )
+}
+
+type Entry = { key: string; label: string; level: 0 | 1 | 2 | 3; block: SheetBlock; index: number }
+type PMNode = { type?: string; attrs?: { level?: number }; content?: PMNode[]; text?: string }
+const textOf = (n: PMNode): string => (n.text ?? '') + (n.content ?? []).map(textOf).join('')
+
+/** Headings (in reading order) and bookmarks (top to bottom). Picking one goes there. */
+function Contents({ blocks, unit, mode }: { blocks: SheetBlock[]; unit: number; mode: 'canvas' | 'read' }) {
+  const entries: Entry[] = []
+  for (const b of readingOrder(blocks.filter((x) => x.kind === 'text'))) {
+    let i = 0
+    for (const n of ((b.data.doc as PMNode | null)?.content ?? [])) {
+      if (n.type !== 'heading') continue
+      const label = textOf(n).trim()
+      if (label) entries.push({ key: `${b.id}:${i}`, label, level: (n.attrs?.level ?? 1) as 1 | 2 | 3, block: b, index: i })
+      i++
+    }
+  }
+  const marks = blocks.filter((b) => b.kind === 'bookmark').sort((a, b) => a.y - b.y || a.x - b.x)
+  const go = (b: SheetBlock, index?: number) => {
+    const wrap = document.querySelector(`[data-block-id="${b.id}"]`)
+    const el = index === undefined ? null : wrap?.querySelectorAll<HTMLElement>('.ProseMirror > h1, .ProseMirror > h2, .ProseMirror > h3')[index]
+    if (mode === 'read') { (el ?? wrap)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return }
+    useSheetUI.getState().canvas?.jumpTo({ x: b.x * unit, y: b.y * unit + (el?.offsetTop ?? 0) })
+  }
+  return (
+    <DropMenu label="Contents" button={({ open, toggle }) => <button className="btn sm ghost" aria-expanded={open} onClick={toggle} title="Headings and bookmarks"><Icon name="contents" />Contents</button>}>
+      {(close) => <div className="contents-menu">
+        {!entries.length && !marks.length && <p className="contents-empty">Headings (# Title) and bookmarks show up here so you can jump to them.</p>}
+        {entries.map((e) => <button key={e.key} role="menuitem" className={`lv${e.level}`} onClick={() => { close(); go(e.block, e.index) }}>{e.label}</button>)}
+        {marks.length > 0 && <>
+          {entries.length > 0 && <div className="ctx-sep" role="separator" />}
+          {marks.map((m) => <button key={m.id} role="menuitem" onClick={() => { close(); go(m) }}><Icon name="flag" size={14} />{m.data.label}</button>)}
+        </>}
+      </div>}
+    </DropMenu>
   )
 }

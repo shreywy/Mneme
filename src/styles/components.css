@@ -188,6 +188,7 @@ h1.title { font-family: var(--serif); font-weight: 500; font-size: 42px; letter-
 .medal { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in oklab, var(--accent) 16%, var(--surface)); color: var(--accent); flex: none; }
 .toast b { display: block; font-family: var(--serif); font-weight: 500; font-size: 16px; }
 .toast span { font-size: 12.5px; color: var(--muted); }
+.toast .toast-act { margin-left: auto; flex: none; }
 .p { position: fixed; width: 6px; height: 6px; border-radius: 2px; pointer-events: none; z-index: 70; }
 .smoke { position: fixed; width: 7px; height: 7px; border-radius: 50%; background: #9AA3AB; pointer-events: none; z-index: 70; filter: blur(1px); }
 
