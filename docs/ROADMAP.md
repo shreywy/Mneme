@@ -55,7 +55,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Accounts and sync (Supabase)
 - [x] 20 MB of cloud space per account (Shrey's admin account has no limit). The server counts every synced row and share and refuses writes past the cap; deletions always go through and are sent first. Settings shows the meter, and a full account is told to delete pages or decks. New data stays on the device until there's room.
-- [ ] Apply the `storage_cap` migration (`npx supabase db push`) and set Shrey's account to no limit (`cap_bytes = null` in `storage_usage`)
+- [x] `storage_cap` migration applied 2026-10-01; Shrey's account has no limit
 - [ ] Keep an eye on the free 500 MB database: 20 MB each means about 25 completely full accounts. Raise the plan or lower the cap before that matters.
 - [ ] Sync a deck's notes links and course units once the Notes pages exist (tables are already in place)
 

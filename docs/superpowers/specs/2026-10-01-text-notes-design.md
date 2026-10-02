@@ -72,7 +72,9 @@ The existing notes renderers (derivation, plot, figure, KaTeX) are reused for di
 
 ## Images
 
-Mneme doesn't store image bytes. On paste or insert, the image is shrunk (longest side 2000 px, WebP/JPEG) and kept in IndexedDB until it's uploaded to Imgur (anonymous upload with Mneme's client id). The block stores the Imgur URL and its delete hash; deleting the block deletes the image from Imgur. Without a network or client id, the image stays local and uploads later. Images uploaded this way are public to anyone with the exact URL; Page settings says so in one line.
+Mneme doesn't store image bytes. On paste or insert, the image is shrunk (longest side 2000 px, WebP/JPEG) and kept in IndexedDB until it's uploaded to Imgur (anonymous upload with Mneme's client id). The block stores the Imgur URL and its delete hash; deleting the block deletes the image from Imgur. Without a network or client id, the image stays local and uploads later.
+
+The first time someone adds an image, a dialog explains that images are hosted on Imgur and anyone with the exact link can open them, with a checkbox to agree. Nothing uploads until it's ticked; cancelling removes the pasted image. The agreement is stored in synced settings, so it's asked once per account (once per browser for guests).
 
 ## Layouts and printing
 
