@@ -68,6 +68,37 @@ Open any page from the sidebar, or press **New page**.
 25. **On a phone**, Read view now has the toolbar and Insert at the top while you edit.
     - Notes:
 
+## Your follow-up notes (fixed since)
+
+26. **Back lines up with the page name** in Settings, Account and Cheat sheet.
+    - Notes:
+27. **Recently deleted.** Deleting a deck, notes page or page now hides it straight away and shows **Undo** on the toast. It waits under Archive → Recently deleted for 5 days (Restore or Delete now), then goes for good. This also fixes deleted pages coming back blank.
+    - Notes:
+28. **Headings sit on the lower of their two lines** instead of in the middle.
+    - Notes:
+29. **Font and size lists stay open** while you pick, with your text still selected.
+    - Notes:
+30. **Default for new pages.** Page settings → Paper → New pages → **Set as default**. It shows "Your default" once it is.
+    - Notes:
+31. **Page colours.** "Like the app" sticks now. A light or dark page uses the palette you picked for that mode in Settings, and the paper is the same colour as the app's background.
+    - Notes:
+32. **Saved / synced** in the page's top bar: "Saved just now · synced", "Syncing…", or "offline" / "not synced" if something's wrong. Opening a page no longer counts as an edit.
+    - Notes:
+33. **Code language** has a clear "Language" picker that's highlighted until you choose one.
+    - Notes:
+34. **Plot and working boxes keep the cursor** where you're typing, so changing a coefficient doesn't jump to the end.
+    - Notes:
+35. **Open editors sit on top.** A plot, maths or working editor floats above nearby blocks on a solid panel.
+    - Notes:
+36. **No more "Type, or press / to insert" everywhere.** Hints only show in the block you're in, and a block left empty disappears even if you never clicked into it.
+    - Notes:
+37. **Grab a selection anywhere to move it.** The whole dashed frame is a handle. A plain click on it lets go and puts your cursor there.
+    - Notes:
+38. **Tables.** Pick the size when inserting by sweeping over the grid. While you're in a table, a **+** under it adds a row and a **+** on its right adds a column.
+    - Notes:
+39. **"The initial header should just be a header, not a double header text one"**: I wasn't sure what you meant. A new page starts with one Title heading, which takes two lines (now with the text on the lower one). If you meant something else, say what you see.
+    - Notes:
+
 ## Not in this round
 
 - **Images** come in phase 4, with the Imgur notice.

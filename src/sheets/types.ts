@@ -10,8 +10,8 @@ export type Paper = {
   margin: boolean
   /** null: follow the theme. */
   paperColor: string | null
-  /** Light or dark for this page only; unset follows the app. */
-  theme?: 'light' | 'dark'
+  /** Light or dark for this page only; 'app' (or unset) follows the app. */
+  theme?: 'app' | 'light' | 'dark'
   /** The page's text font (a key from sheets/fonts); unset is the app's sans. */
   font?: string
 }
@@ -31,6 +31,8 @@ export type SheetRow = {
   lastOpenedAt?: number
   archived?: boolean
   archivedAt?: number
+  /** Set when deleted: it waits in Recently deleted, then goes for good. */
+  deletedAt?: number
   /** Not shown anywhere in the library (the page that holds My blocks). */
   hidden?: boolean
 }

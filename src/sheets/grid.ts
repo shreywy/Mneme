@@ -74,7 +74,7 @@ export function paperStyle(p: Paper, v: View): CSSProperties {
   }
   if (p.lines === 'dots') layer(`radial-gradient(circle, ${lineColor(p, 2)} 1.1px, transparent 1.7px)`, `${s}px ${s}px`, `${ox - s / 2}px ${oy - s / 2}px`)
   return {
-    backgroundColor: p.paperColor ?? 'var(--surface)',
+    backgroundColor: p.paperColor ?? 'var(--bg)',
     backgroundImage: images.length ? images.join(', ') : 'none',
     backgroundSize: sizes.join(', ') || undefined,
     backgroundPosition: positions.join(', ') || undefined,

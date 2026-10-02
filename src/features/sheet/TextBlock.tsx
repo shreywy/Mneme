@@ -8,7 +8,7 @@ import type { SheetBlock } from '../../sheets/types'
 import { toastAction } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
 import { textExtensions } from './editor/extensions'
-import { applyPaste, runInsert } from './editor/commands'
+import { applyPaste, growTable, runInsert } from './editor/commands'
 import { useRecents, useSheetUI } from './store'
 
 export const INSERT_DRAG = 'application/x-mneme-insert'
@@ -41,16 +41,27 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   const remember = (doc: unknown) => { sent.current = [JSON.stringify(doc), ...sent.current].slice(0, 12); return doc }
   const box = useRef<HTMLDivElement>(null)
   const [plus, setPlus] = useState<number | null>(null)
+  const [table, setTable] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
   const main = block.role === 'main'
 
   /** The + beside an empty line: where it goes (px from the block's top), or nowhere. */
   const placePlus = (e: Editor) => {
     const { $from, empty } = e.state.selection
-    const blank = e.isFocused && empty && $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0 && $from.depth === 1
+    const blank = e.view.hasFocus() && empty && $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0 && $from.depth === 1
     const dom = blank ? (e.view.nodeDOM($from.before()) as HTMLElement | null) : null
     setPlus(dom ? dom.offsetTop : null)
   }
-  const report = (e: Editor) => { useSheetUI.setState((s) => ({ tick: s.tick + 1 })); placePlus(e) }
+  /** Where the table the cursor is in sits (px within the block), for the + on its edges. */
+  const placeTable = (e: Editor) => {
+    if (!e.view.hasFocus() || !e.isActive('table')) { setTable(null); return }
+    const at = e.view.domAtPos(e.state.selection.from).node
+    const el = (at instanceof Element ? at : at.parentElement)?.closest('table') as HTMLElement | null
+    if (!el || !box.current) { setTable(null); return }
+    let top = 0, left = 0
+    for (let n: HTMLElement | null = el; n && n !== box.current; n = n.offsetParent as HTMLElement | null) { top += n.offsetTop; left += n.offsetLeft }
+    setTable((t) => (t && t.top === top && t.left === left && t.width === el.offsetWidth && t.height === el.offsetHeight ? t : { top, left, width: el.offsetWidth, height: el.offsetHeight }))
+  }
+  const report = (e: Editor) => { useSheetUI.setState((s) => ({ tick: s.tick + 1 })); placePlus(e); placeTable(e) }
 
   const editor = useEditor({
     extensions: textExtensions(main),
@@ -108,10 +119,13 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
     onSelectionUpdate: ({ editor: e }) => report(e),
     onFocus: ({ editor: e }) => { useSheetUI.setState({ editor: e, lastEditor: e, blockId: block.id }); report(e) },
     onBlur: ({ editor: e, event }) => {
-      // Clicking the toolbar or Insert keeps this block as the one they act on.
+      // The toolbar keeps acting on this block until you go somewhere else. Focus moving to "nowhere" (a
+      // dropdown opening, the window losing focus) doesn't count: dropping the block then disabled the
+      // toolbar and snapped its font and size lists shut. Clicking the paper or another block does count.
       const to = event.relatedTarget as Element | null
-      if (!to?.closest?.('.sheet-toolbar, .insert-panel')) useSheetUI.setState((s) => (s.editor === e ? { editor: null } : {}))
+      if (to && !to.closest?.('.sheet-toolbar, .insert-panel')) useSheetUI.setState((s) => (s.editor === e ? { editor: null } : {}))
       setPlus(null)
+      setTable(null)
       clearTimeout(save.current); save.current = undefined; unsaved.current = undefined
       cb.current.onBlur(remember(e.getJSON()))
     },
@@ -155,6 +169,12 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur }: P
   return (
     <div ref={box} className="tblock" style={{ '--ln': `${unit}px` } as React.CSSProperties}>
       <EditorContent editor={editor} />
+      {table && editor && <>
+        <button className="tgrow row" style={{ top: table.top + table.height + 4, left: table.left, width: table.width }} aria-label="Add a row" title="Add a row"
+          onMouseDown={(e) => e.preventDefault()} onClick={() => growTable(editor, 'row')}><Icon name="plus" size={12} /></button>
+        <button className="tgrow col" style={{ top: table.top, left: table.left + table.width + 4, height: table.height }} aria-label="Add a column" title="Add a column"
+          onMouseDown={(e) => e.preventDefault()} onClick={() => growTable(editor, 'col')}><Icon name="plus" size={12} /></button>
+      </>}
       {plus !== null && (
         <button className="tplus" style={{ top: plus }} aria-label="Insert on this line" title="Insert (or type /)"
           onMouseDown={(e) => e.preventDefault()} onClick={() => useSheetUI.setState({ insertOpen: true })}><Icon name="plus" size={14} /></button>

@@ -8,10 +8,12 @@ import * as sheetsRepo from '../../data/sheets'
 import type { SheetRow } from '../../sheets/types'
 import { groupByUnit, pageIcon, pagesOf, pageTime, pageUrl, type Page } from '../../data/pages'
 import * as repo from '../../data/repo'
+import * as trash from '../../data/trash'
 import { allDeckMastery, plural, relTime, type MasteryCounts } from '../../data/stats'
 import { extractPromptExample } from '../../deck-format/example'
 import { parseDeckText } from '../../deck-format/parse'
 import { TopBar, useNewPage } from '../../app/Shell'
+import { deleteWithUndo } from '../../app/trash'
 import { useUI } from '../../app/ui'
 import { useSettings } from '../../settings/store'
 import { Icon } from '../../ui/Icons'
@@ -306,16 +308,43 @@ function Empty() {
 
 export function ArchivePage() {
   const data = useLiveQuery(() => repo.listArchive(), [])
+  const bin = useLiveQuery(() => trash.listTrash(), [])
   const all = useLiveQuery(() => db.folders.toArray(), [])
-  if (!data || !all) return null
-  const empty = !data.folders.length && !data.decks.length && !data.notes.length && !data.sheets.length
+  if (!data || !all || !bin) return null
+  const empty = !data.folders.length && !data.decks.length && !data.notes.length && !data.sheets.length && !bin.decks.length && !bin.notes.length && !bin.sheets.length
+  const deleted = [
+    ...bin.sheets.map((s) => ({ kind: 'sheet' as const, id: s.id, title: s.title, at: s.deletedAt!, icon: 'page' })),
+    ...bin.notes.map((n) => ({ kind: 'note' as const, id: n.id, title: n.title, at: n.deletedAt!, icon: 'notes' })),
+    ...bin.decks.map((d) => ({ kind: 'deck' as const, id: d.id, title: d.title, at: d.deletedAt!, icon: 'cards' })),
+  ].sort((a, b) => b.at - a.at)
   return (
     <>
       <TopBar crumbs={<><Link to="/">Library</Link> / <b>Archive</b></>} />
       <div className="page">
         <h1 className="title">Archive</h1>
-        <p className="muted" style={{ marginTop: 10 }}>Archived decks, notes, pages and folders keep everything in them. Restore puts them back where they were.</p>
+        <p className="muted" style={{ marginTop: 10 }}>Archived decks, notes, pages and folders keep everything in them. Restore puts them back where they were. Deleted ones wait here for {trash.TRASH_DAYS} days.</p>
         {empty && <p className="empty-note" style={{ marginTop: 26 }}>Nothing archived.</p>}
+        {deleted.length > 0 && (
+          <section className="group"><h2>Recently deleted<span>{deleted.length}</span></h2>
+            <p className="muted" style={{ margin: '-4px 0 12px', fontSize: 13 }}>Each one is removed for good {trash.TRASH_DAYS} days after you delete it.</p>
+            <div className="dlist">
+              {deleted.map((x) => {
+                const left = trash.daysLeft(x.at)
+                return (
+                  <div className="drow static" key={`${x.kind}:${x.id}`}>
+                    <b><Icon name={x.icon} size={14} />{x.title}</b><span className="muted">deleted {relTime(x.at)}</span><span /><span className="muted">{left <= 1 ? 'goes today' : `${left} days left`}</span>
+                    <span className="acts">
+                      <button className="btn sm" onClick={async () => { await trash.restorePage(x.kind, x.id); toast('Restored', 'It’s back where it was') }}>Restore</button>
+                      <button className="btn sm ghost danger" onClick={async () => {
+                        if (await confirmAction({ title: `Delete "${x.title}" now?`, body: 'It goes for good, with everything in it. This can’t be undone.', confirm: 'Delete now', danger: true })) { await trash.deleteForGood(x.kind, x.id); toast('Deleted for good') }
+                      }}>Delete now</button>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
         {data.folders.length > 0 && (
           <section className="group"><h2>Folders<span>{data.folders.length}</span></h2>
             <div className="dlist">
@@ -338,9 +367,7 @@ export function ArchivePage() {
                   <b><Icon name="page" size={14} />{s.title}</b><span className="muted">{all.find((f) => f.id === s.folderId)?.name ?? 'No folder'}{s.unit ? ` · ${s.unit}` : ''}</span><span /><span className="muted">archived {relTime(s.archivedAt)}</span>
                   <span className="acts">
                     <button className="btn sm" onClick={async () => { await sheetsRepo.setSheetArchived(s.id, false); toast('Page restored') }}>Restore</button>
-                    <button className="btn sm ghost danger" onClick={async () => {
-                      if (await confirmAction({ title: `Delete "${s.title}" for good?`, body: 'The page and everything on it are removed. This can\'t be undone.', confirm: 'Delete page', danger: true })) { await sheetsRepo.deleteSheet(s.id); toast('Page deleted') }
-                    }}>Delete</button>
+                    <button className="btn sm ghost danger" onClick={() => deleteWithUndo('sheet', s.id)}>Delete</button>
                   </span>
                 </div>
               ))}
@@ -355,9 +382,7 @@ export function ArchivePage() {
                   <b>{d.title}</b><span className="muted">{all.find((f) => f.id === d.folderId)?.name ?? 'No folder'} · {plural(d.termCount + d.questionCount, 'card')}</span><span /><span className="muted">archived {relTime(d.archivedAt)}</span>
                   <span className="acts">
                     <button className="btn sm" onClick={async () => { await repo.setArchived('deck', d.id, false); toast('Deck restored') }}>Restore</button>
-                    <button className="btn sm ghost danger" onClick={async () => {
-                      if (await confirmAction({ title: `Delete "${d.title}" for good?`, body: 'Its cards and progress are removed. This can\'t be undone.', confirm: 'Delete deck', danger: true })) { await repo.deleteDeck(d.id); toast('Deck deleted') }
-                    }}>Delete</button>
+                    <button className="btn sm ghost danger" onClick={() => deleteWithUndo('deck', d.id)}>Delete</button>
                   </span>
                 </div>
               ))}
@@ -372,9 +397,7 @@ export function ArchivePage() {
                   <b><Icon name="notes" size={14} />{n.title}</b><span className="muted">{all.find((f) => f.id === n.folderId)?.name ?? 'No folder'}{n.unit ? ` · ${n.unit}` : ''}</span><span /><span className="muted">archived {relTime(n.archivedAt)}</span>
                   <span className="acts">
                     <button className="btn sm" onClick={async () => { await notesRepo.setNoteArchived(n.id, false); toast('Notes restored') }}>Restore</button>
-                    <button className="btn sm ghost danger" onClick={async () => {
-                      if (await confirmAction({ title: `Delete "${n.title}" for good?`, body: 'The notes page and its links to decks are removed. Linked decks stay. This can\'t be undone.', confirm: 'Delete notes', danger: true })) { await notesRepo.deleteNote(n.id); toast('Notes deleted') }
-                    }}>Delete</button>
+                    <button className="btn sm ghost danger" onClick={() => deleteWithUndo('note', n.id)}>Delete</button>
                   </span>
                 </div>
               ))}

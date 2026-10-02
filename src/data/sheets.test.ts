@@ -103,4 +103,13 @@ describe('sheets', () => {
     expect(copy).toMatchObject({ sheetId: id, x: 30, y: 6, w: 10, h: 3, data: { doc: para('a') } })
     expect(copy.z).toBeGreaterThan(a.z)
   })
+
+  it('opening a page is not an edit', async () => {
+    const id = await sheets.createSheet()
+    await db.sheets.update(id, { updatedAt: 1000 })
+    await sheets.markOpened(id)
+    const s = await sheets.getSheet(id)
+    expect(s?.updatedAt).toBe(1000)
+    expect(s?.lastOpenedAt).toBeGreaterThan(1000)
+  })
 })

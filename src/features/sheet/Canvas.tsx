@@ -7,12 +7,14 @@ import { titleFrom } from '../../sheets/order'
 import { fontCss } from '../../sheets/fonts'
 import type { InsertId } from '../../sheets/insert'
 import type { SheetBlock, SheetRow } from '../../sheets/types'
+import type { Editor } from '@tiptap/react'
 import { isTyping } from '../../app/ui'
+import { isDarkTheme, useSettings } from '../../settings/store'
 import { useContextItems } from '../../ui/ContextMenu'
 import { askName } from '../../ui/confirm'
 import { toast } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
-import { PagePickerHost } from './editor/nodes'
+import { PagePickerHost, TableSizeHost } from './editor/nodes'
 import { Dock, MYBLOCK_DRAG, insertNow } from './Dock'
 import { INSERT_DRAG, TextBlock } from './TextBlock'
 import { Toolbar } from './Toolbar'
@@ -30,8 +32,17 @@ type Gesture =
   | { kind: 'box'; a: { x: number; y: number }; b: { x: number; y: number } }
   | { kind: 'pinch'; dist: number; zoom: number }
 
-/** Class names that give a page its own light or dark paper, whatever the app uses. */
-export const paperTheme = (s: SheetRow) => (s.paper.theme ? `paper-${s.paper.theme}` : '')
+/**
+ * Class names that give a page its own light or dark paper, whatever the app uses. It takes the palette
+ * you picked for that mode in Settings; a page set to the mode the app is already in just follows the app.
+ */
+export function usePaperTheme(s: SheetRow) {
+  const settings = useSettings()
+  const want = s.paper.theme
+  if (!want || want === 'app' || (want === 'dark') === isDarkTheme(settings)) return ''
+  const palette = want === 'dark' ? settings.darkPalette : settings.lightPalette
+  return `paper-${want}${palette && palette !== 'paper' ? ` pal-${palette}` : ''}`
+}
 
 /**
  * The infinite canvas: pan, zoom, click to type, move and resize blocks on the grid, select several,
@@ -58,6 +69,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   const live = useRef({ blocks, selected, view, size, shown })
   live.current = { blocks, selected, view, size, shown }
   const main = blocks.find((b) => b.role === 'main')
+  const theme = usePaperTheme(sheet)
 
   useEffect(() => { try { localStorage.setItem(viewKey(sheet.id), JSON.stringify(view)) } catch { /* private mode */ } }, [sheet.id, view])
   // Empty side blocks left behind (the tab closed while one was open) are cleared when the page opens.
@@ -251,6 +263,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   // Empty paper. Typing tool: drag pans, click starts a text block. Select tool: drag draws a selection box.
   // Pan tool, Space + drag, middle-drag and one finger all pan. Two fingers pinch. Shift + drag always selects.
   const onPointerDown = (e: React.PointerEvent) => {
+    useSheetUI.setState({ editor: null }) // the toolbar lets go of the block you were in
     const mouse = e.pointerType === 'mouse'
     if (mouse && e.button !== 0 && e.button !== 1) return // right-click opens the menu
     if (mouse && e.button === 1) e.preventDefault() // no autoscroll
@@ -308,7 +321,18 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
     setFocusId(block.id)
   }
 
-  const onDoc = useCallback((b: SheetBlock, doc: unknown) => sheets.saveBlockDoc(b.id, doc), [])
+  /**
+   * Saves a block's text. A side block emptied without anyone in it (its only equation removed, say)
+   * goes away instead of sitting there blank.
+   */
+  const onDoc = useCallback(async (b: SheetBlock, doc: unknown) => {
+    const here = document.querySelector(`[data-block-id="${b.id}"]`)
+    if (b.role !== 'main' && sheets.isEmptyDoc(doc) && !here?.contains(document.activeElement)) {
+      const fresh = await sheets.getBlock(b.id)
+      if (fresh && await sheets.pruneEmpty({ ...fresh, data: { doc } })) { history.record({ kind: 'remove', block: fresh }); return }
+    }
+    await sheets.saveBlockDoc(b.id, doc)
+  }, [history])
 
   /** Leaving a block saves it; a side block left empty goes away (one undo brings it back). */
   const onBlockBlur = useCallback(async (b: SheetBlock, doc: unknown) => {
@@ -359,6 +383,15 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
         })
         return
       }
+      if (!moved && !b) {
+        // A click on the selection (not a drag) lets go of it and puts the cursor where you clicked.
+        setSelected(new Set())
+        const pm = document.elementsFromPoint(ev.clientX, ev.clientY).find((x) => x.classList.contains('ProseMirror')) as (Element & { editor?: Editor }) | undefined
+        const ed = pm?.editor
+        const at = ed?.view.posAtCoords({ left: ev.clientX, top: ev.clientY })
+        if (ed && at) ed.chain().focus().setTextSelection(at.pos).run()
+        return
+      }
       const changes: Change[] = moving
         .map((before, i) => ({ kind: 'update' as const, before, after: latest[i] }))
         .filter((c) => c.before.x !== c.after.x || c.before.y !== c.after.y || c.before.w !== c.after.w)
@@ -399,7 +432,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
   return (
     <div className="sheet-wrap">
       <Toolbar mainBlockId={main?.id} />
-      <div className={`sheet-host ${cursor} ${paperTheme(sheet)}`} ref={host}
+      <div className={`sheet-host ${cursor} ${theme}`} ref={host}
         style={{ ...paperStyle(sheet.paper, view), '--page-font': fontCss(sheet.paper.font) } as React.CSSProperties}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
@@ -429,7 +462,8 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
             </div>
           ))}
           {sel && (
-            <div className={`sheet-sel ${many ? 'many' : ''}`} style={{ left: sel.x * unit - 6, top: sel.y * unit - 6, width: sel.w * unit + 12, height: sel.h * unit + 12 }}>
+            <div className={`sheet-sel ${many ? 'many' : ''}`} style={{ left: sel.x * unit - 6, top: sel.y * unit - 6, width: sel.w * unit + 12, height: sel.h * unit + 12 }}
+              onPointerDown={startDrag(null, 'move')} title="Drag to move · click to edit">
               {many && <button className="sel-grip" aria-label={`Move the ${selected.size} selected blocks`} title="Drag to move them all" onPointerDown={startDrag(null, 'move')}><Icon name="grid" size={13} /></button>}
               <div className="sel-bar" onPointerDown={(e) => e.stopPropagation()} style={{ transform: `scale(${1 / view.zoom})` }}>
                 <span className="n">{many ? `${selected.size} selected` : 'Selected'}</span>
@@ -457,6 +491,7 @@ export function Canvas({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[
           onJump={(wx, wy) => setView((v) => ({ ...v, x: wx - size.w / 2 / v.zoom, y: wy - size.h / 2 / v.zoom }))} />
       )}
       <PagePickerHost exclude={sheet.id} />
+      <TableSizeHost />
     </div>
   )
 }

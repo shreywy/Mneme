@@ -1,3 +1,4 @@
+import { deleteWithUndo } from '../../app/trash'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -8,7 +9,6 @@ import * as sheets from '../../data/sheets'
 import { Icon } from '../../ui/Icons'
 import { Seg } from '../../ui/controls'
 import { DropMenu } from '../../ui/DropMenu'
-import { confirmAction } from '../../ui/confirm'
 import { toast } from '../../ui/toasts'
 import { PageSettings } from '../page/PageSettings'
 import { Canvas } from './Canvas'
@@ -17,6 +17,9 @@ import { PaperSettings } from './PaperSettings'
 import { readingOrder } from '../../sheets/order'
 import type { SheetBlock } from '../../sheets/types'
 import { useSheetUI } from './store'
+import type { SheetRow } from '../../sheets/types'
+import { useAccount } from '../../sync/account'
+import { relTime } from '../../data/stats'
 
 const PHONE = '(max-width: 767px)'
 
@@ -30,7 +33,7 @@ export function SheetPage() {
   const [mode, setMode] = useState<'canvas' | 'read'>(() => (matchMedia(PHONE).matches ? 'read' : 'canvas'))
   const [dialog, setDialog] = useState<null | 'settings'>(null)
   const [renaming, setRenaming] = useState(false)
-  useEffect(() => { if (sheetId) void sheets.updateSheet(sheetId, { lastOpenedAt: Date.now() }) }, [sheetId])
+  useEffect(() => { if (sheetId) void sheets.markOpened(sheetId) }, [sheetId])
   // useLiveQuery keeps the previous page's result until the new one arrives.
   if (sheet === null || blocks === undefined || blocks.some((b) => b.sheetId !== sheetId)) return null
   if (!sheet) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
@@ -50,6 +53,7 @@ export function SheetPage() {
               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenaming(false) }} />
           : <b onDoubleClick={() => setRenaming(true)} title="Double-click to rename">{sheet.title}</b>}
       </>}>
+        <SaveState sheet={sheet} blocks={blocks} />
         <Contents blocks={blocks} unit={sheet.paper.spacing} mode={mode} />
         <Seg className="sheet-mode" value={mode} onChange={setMode} options={[{ value: 'read', label: 'Read' }, { value: 'canvas', label: 'Canvas' }]} />
         <DropMenu label="More for this page" button={({ open, toggle }) => <button className="btn sm ghost" aria-label="More for this page" aria-expanded={open} onClick={toggle}><Icon name="more" /></button>}>
@@ -60,11 +64,9 @@ export function SheetPage() {
             <button role="menuitem" onClick={async () => { close(); await sheets.setSheetArchived(sheet.id, true); toast('Page archived', 'Find it under Archive in the sidebar', 'archive'); nav('/') }}><Icon name="archive" size={15} />Archive</button>
             <button role="menuitem" className="danger" onClick={async () => {
               close()
-              if (!await confirmAction({ title: `Delete "${sheet.title}"?`, body: 'The page and everything on it are removed for good. Archiving keeps it instead.', confirm: 'Delete page', danger: true })) return
               nav('/')
-              await sheets.deleteSheet(sheet.id)
-              toast('Page deleted')
-            }}><Icon name="trash" size={15} />Delete…</button>
+              await deleteWithUndo('sheet', sheet.id)
+            }}><Icon name="trash" size={15} />Delete</button>
           </>}
         </DropMenu>
       </TopBar>
@@ -114,4 +116,25 @@ function Contents({ blocks, unit, mode }: { blocks: SheetBlock[]; unit: number; 
       </div>}
     </DropMenu>
   )
+}
+
+/**
+ * "Saved just now · synced": when this page last changed, and whether that's on your other devices yet.
+ * Edits save to this device as you type; signed in, they go up within a couple of seconds.
+ */
+function SaveState({ sheet, blocks }: { sheet: SheetRow; blocks: SheetBlock[] }) {
+  const { user, status, lastSync } = useAccount()
+  const [, tick] = useState(0)
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 15_000); return () => clearInterval(t) }, [])
+  const last = Math.max(sheet.updatedAt, ...blocks.map((b) => b.updatedAt))
+  const saved = `Saved ${relTime(last)}`
+  const [label, tone, hint] = !user
+    ? [saved, 'ok', 'Saved in this browser. Sign in to have it on your other devices.']
+    : status === 'syncing' ? ['Syncing…', 'busy', 'Sending your latest changes']
+      : status === 'offline' ? [`${saved} · offline`, 'warn', 'Saved on this device. It syncs when you’re back online.']
+        : status === 'error' ? [`${saved} · not synced`, 'warn', 'Saved on this device. Syncing failed and will try again.']
+          : status === 'full' ? [`${saved} · cloud full`, 'warn', 'Saved on this device. Your cloud space is full, so new changes stay here.']
+            : lastSync && lastSync < last ? ['Syncing…', 'busy', 'Sending your latest changes']
+              : [`${saved} · synced`, 'ok', 'On all your devices']
+  return <span className={`save-state ${tone}`} title={hint} aria-live="polite"><i />{label}</span>
 }

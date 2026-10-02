@@ -20,6 +20,8 @@ export type DeckRow = {
   lastStudiedAt?: number
   archived?: boolean
   archivedAt?: number
+  /** Set when deleted: it waits in Recently deleted, then goes for good. */
+  deletedAt?: number
   /** How the class labels this part of the course: "Chapter 4", "Week 5". Groups pages in a folder. */
   unit?: string
   /** Place in its unit when the user has ordered it by hand (otherwise alphabetical). */
@@ -45,6 +47,8 @@ export type NoteRow = {
   read?: number[]
   archived?: boolean
   archivedAt?: number
+  /** Set when deleted: it waits in Recently deleted, then goes for good. */
+  deletedAt?: number
   /** Place in its unit when the user has ordered it by hand (otherwise alphabetical). */
   rank?: number
 }

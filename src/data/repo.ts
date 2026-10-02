@@ -71,7 +71,8 @@ export async function setArchived(kind: 'deck' | 'folder', id: string, archived:
 export async function listArchive(): Promise<{ folders: Folder[]; decks: DeckRow[]; notes: NoteRow[]; sheets: SheetRow[] }> {
   const [folders, decks, notes, sheets] = await Promise.all([db.folders.toArray(), db.decks.toArray(), db.notes.toArray(), db.sheets.toArray()])
   const by = (a: { archivedAt?: number }, b: { archivedAt?: number }) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0)
-  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter((d) => d.archived).sort(by), notes: notes.filter((n) => n.archived).sort(by), sheets: sheets.filter((s) => s.archived).sort(by) }
+  const kept = (x: { archived?: boolean; deletedAt?: number; hidden?: boolean }) => x.archived && !x.deletedAt && !x.hidden
+  return { folders: folders.filter((f) => f.archived).sort(by), decks: decks.filter(kept).sort(by), notes: notes.filter(kept).sort(by), sheets: sheets.filter(kept).sort(by) }
 }
 
 /** Folders hidden because they, or a parent, are archived. */

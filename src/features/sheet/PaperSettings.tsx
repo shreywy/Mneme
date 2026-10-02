@@ -2,7 +2,8 @@ import { Seg, Toggle } from '../../ui/controls'
 import { useSettings } from '../../settings/store'
 import { toast } from '../../ui/toasts'
 import { paperStyle } from '../../sheets/grid'
-import type { Paper } from '../../sheets/types'
+import { DEFAULT_PAPER, type Paper } from '../../sheets/types'
+import { Icon } from '../../ui/Icons'
 import { FONTS } from '../../sheets/fonts'
 
 const LINES: { id: Paper['lines']; label: string }[] = [
@@ -17,6 +18,9 @@ const THEMES = [{ value: 'app', label: 'Like the app' }, { value: 'light', label
 /** Lines, spacing, strength, colour and margin for one page, inside Page settings. */
 export function PaperSettings({ paper, onChange }: { paper: Paper; onChange: (p: Paper) => void }) {
   const set = (patch: Partial<Paper>) => onChange({ ...paper, ...patch })
+  const saved = useSettings((st) => st.paperDefault)
+  const same = (a: Paper, b: Paper) => (Object.keys({ ...a, ...b }) as (keyof Paper)[]).every((k) => (a[k] ?? null) === (b[k] ?? null) || (k === 'theme' && (a[k] ?? 'app') === (b[k] ?? 'app')))
+  const isDefault = same(paper, saved ?? DEFAULT_PAPER)
   return (
     <div className="paper-settings">
       <h3>Paper</h3>
@@ -38,13 +42,17 @@ export function PaperSettings({ paper, onChange }: { paper: Paper; onChange: (p:
         </div>
       </div>
       <div className="srow"><div className="l"><b>Page colours</b><span>Keep this page light (or dark) whatever the app uses</span></div>
-        <Seg value={paper.theme ?? 'app'} options={THEMES} onChange={(v) => set({ theme: v === 'app' ? undefined : (v as 'light' | 'dark') })} /></div>
+        <Seg value={paper.theme ?? 'app'} options={THEMES} onChange={(v) => set({ theme: v as 'app' | 'light' | 'dark' })} /></div>
       <label className="srow"><div className="l"><b>Font</b><span>For this page's text. Select text to change just that.</span></div>
         <select className="select" style={{ width: 'auto', fontFamily: FONTS.find((f) => f.key === (paper.font ?? 'sans'))?.css }} value={paper.font ?? 'sans'} onChange={(e) => set({ font: e.target.value === 'sans' ? undefined : e.target.value })}>
           {FONTS.map((f) => <option key={f.key} value={f.key} style={{ fontFamily: f.css }}>{f.label}</option>)}
         </select></label>
       <div className="srow"><div className="l"><b>Red margin line</b><span>Like notebook paper</span></div><Toggle on={paper.margin} onChange={(margin) => set({ margin })} label="Red margin line" /></div>
-      <button className="btn sm ghost" onClick={() => { useSettings.getState().set({ paperDefault: paper }); toast('New pages will use this paper') }}>Use for my new pages</button>
+      <div className="srow paper-default"><div className="l"><b>New pages</b><span>{isDefault ? 'New pages you make start like this one.' : 'Make these lines, colours and font the start for every new page.'}</span></div>
+        {isDefault
+          ? <span className="paper-default-on"><Icon name="check" size={15} />Your default</span>
+          : <button className="btn sm primary" onClick={() => { useSettings.getState().set({ paperDefault: paper }); toast('Saved as your default', 'New pages start with these settings') }}>Set as default</button>}
+      </div>
     </div>
   )
 }

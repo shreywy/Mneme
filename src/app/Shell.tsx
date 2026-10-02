@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
 import { listNotes } from '../data/notes'
 import { groupByUnit, pageIcon, pagesOf, pageUrl, type Page, type PageKind } from '../data/pages'
-import { createSheet, deleteSheet, listSheets, setSheetArchived, updateSheet } from '../data/sheets'
+import { createSheet, listSheets, setSheetArchived, updateSheet } from '../data/sheets'
 import { createFolder, deleteFolder, descendants, listArchive, listLibrary, moveFolder, renameFolder } from '../data/repo'
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
@@ -16,9 +16,11 @@ import { Avatar } from '../ui/Avatar'
 import { useContextItems } from '../ui/ContextMenu'
 import { askName, confirmAction } from '../ui/confirm'
 import { toast } from '../ui/toasts'
-import { deleteNote, setNoteArchived, updateNote } from '../data/notes'
-import { deleteDeck, renameDeck, setArchived } from '../data/repo'
+import { setNoteArchived, updateNote } from '../data/notes'
+import { renameDeck, setArchived } from '../data/repo'
 import { placePage } from '../data/arrange'
+import { deleteWithUndo } from './trash'
+import { listTrash, purgeTrash } from '../data/trash'
 
 export function Shell() {
   const { sidebar, set } = useSettings()
@@ -26,6 +28,8 @@ export function Shell() {
   const loc = useLocation()
   useEffect(() => { if (!/^\/(settings|account)(\/|$)/.test(loc.pathname)) useUI.setState({ lastPage: loc.pathname + loc.search }) }, [loc.pathname, loc.search])
   useEffect(() => { setDrawer(false) }, [loc.pathname, setDrawer])
+  // Things deleted more than a few days ago go for good, once per visit.
+  useEffect(() => { void purgeTrash().catch(() => { /* tried again next visit */ }) }, [])
   const syncStatus = useAccount((a) => a.status)
   const toldFull = useRef(false)
   useEffect(() => {
@@ -170,7 +174,10 @@ function useSideMenu({ folders, newPage, openDialog }: { folders: Folder[]; newP
 }
 
 function FolderTree() {
-  const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), sheets: await listSheets(), archived: (await listArchive()) }), [])
+  const data = useLiveQuery(async () => {
+    const t = await listTrash()
+    return { ...(await listLibrary()), notes: await listNotes(), sheets: await listSheets(), archived: await listArchive(), trashed: t.decks.length + t.notes.length + t.sheets.length }
+  }, [])
   const loc = useLocation()
   const nav = useNavigate()
   const newPage = useNewPage()
@@ -180,7 +187,7 @@ function FolderTree() {
   if (!data) return <div className="tree" />
   const { folders, decks, notes } = data
   const pages = pagesOf(decks, notes, data.sheets)
-  const archivedCount = data.archived.folders.length + data.archived.decks.length + data.archived.notes.length + data.archived.sheets.length
+  const archivedCount = data.archived.folders.length + data.archived.decks.length + data.archived.notes.length + data.archived.sheets.length + data.trashed
   const isActive = (p: Page) => loc.pathname.startsWith(pageUrl(p))
   // Keep the path to the open page or folder expanded.
   const activePage = pages.find(isActive)
@@ -377,15 +384,9 @@ export function PageMenu() {
       { sep: true as const },
       { label: 'Archive', icon: 'archive', onSelect: async () => { await (kind === 'deck' ? setArchived('deck', id, true) : kind === 'note' ? setNoteArchived(id, true) : setSheetArchived(id, true)); toast(`${noun} archived`, 'Find it under Archive in the sidebar', 'archive') } },
       {
-        label: 'Delete…', icon: 'trash', danger: true, onSelect: async () => {
-          const ok = await confirmAction(kind === 'deck'
-            ? { title: `Delete "${title}"?`, body: 'Its cards and progress are removed for good. Archiving keeps them instead.', confirm: 'Delete deck', danger: true }
-            : kind === 'note' ? { title: `Delete "${title}"?`, body: 'The notes page, its highlights and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true }
-              : { title: `Delete "${title}"?`, body: 'The page and everything on it are removed for good. Archiving keeps it instead.', confirm: 'Delete page', danger: true })
-          if (!ok) return
-          if (kind === 'deck') await deleteDeck(id); else if (kind === 'note') await deleteNote(id); else await deleteSheet(id)
-          toast(`${noun} deleted`)
+        label: 'Delete', icon: 'trash', danger: true, onSelect: async () => {
           if (location.pathname.startsWith(url)) nav('/')
+          await deleteWithUndo(kind, id)
         },
       },
     ]

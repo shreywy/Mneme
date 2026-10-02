@@ -42,6 +42,18 @@ const tex = texHtml
 /** Events inside an open editor (inputs, the maths field) belong to it, not to the text around it. */
 const stopInside = ({ event }: { event: Event }) => !!(event.target as Element | null)?.closest?.('.nv-edit, .nv-ui')
 
+/**
+ * A text box that keeps what you're typing while the node saves it. Bound straight to the node, the box
+ * was redrawn from the saved value a moment later, which threw the cursor to the end.
+ */
+function Draft({ value, onCommit, ...rest }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { value: string; onCommit: (v: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  const typing = useRef(false)
+  useEffect(() => { if (!typing.current) setDraft(value) }, [value])
+  return <input {...rest} value={draft} onFocus={(e) => { typing.current = true; rest.onFocus?.(e) }} onBlur={(e) => { typing.current = false; rest.onBlur?.(e) }}
+    onChange={(e) => { setDraft(e.target.value); onCommit(e.target.value) }} />
+}
+
 /** Rounds its content's height up to whole lines. */
 function Lines({ children, className, boxRef }: { children: ReactNode; className?: string; boxRef?: React.Ref<HTMLDivElement> }) {
   const inner = useRef<HTMLDivElement>(null)
@@ -234,12 +246,12 @@ function WorkingView({ node, updateAttributes, selected, deleteNode, editor, get
 function WorkRow({ l, first, onChange, onRemove, onEnter }: { l: DerivationLine; first: boolean; onChange: (p: Partial<DerivationLine>) => void; onRemove?: () => void; onEnter: () => void }) {
   const enter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); onEnter() } }
   return <>
-    <input className="input" value={l.lhs ?? ''} placeholder={first ? 'F' : ''} spellCheck={false} onChange={(e) => onChange({ lhs: e.target.value })} onKeyDown={enter} aria-label="Left side" />
+    <Draft className="input" value={l.lhs ?? ''} placeholder={first ? 'F' : ''} spellCheck={false} onCommit={(v) => onChange({ lhs: v })} onKeyDown={enter} aria-label="Left side" />
     <select className="select" value={TEX_REL[l.rel ?? '='] ?? l.rel ?? '='} onChange={(e) => onChange({ rel: REL_TEX[e.target.value] })} aria-label="Relation">
       {RELS.map((x) => <option key={x}>{x}</option>)}
     </select>
-    <input className="input" value={l.rhs} placeholder={first ? '\\frac{mv^2}{r}' : ''} spellCheck={false} onChange={(e) => onChange({ rhs: e.target.value })} onKeyDown={enter} aria-label="Right side" autoFocus={first && !l.rhs} />
-    <input className="input" value={l.why ?? ''} placeholder={first ? 'Newton’s second law' : ''} onChange={(e) => onChange({ why: e.target.value })} onKeyDown={enter} aria-label="Why" />
+    <Draft className="input" value={l.rhs} placeholder={first ? '\\frac{mv^2}{r}' : ''} spellCheck={false} onCommit={(v) => onChange({ rhs: v })} onKeyDown={enter} aria-label="Right side" autoFocus={first && !l.rhs} />
+    <Draft className="input" value={l.why ?? ''} placeholder={first ? 'Newton’s second law' : ''} onCommit={(v) => onChange({ why: v })} onKeyDown={enter} aria-label="Why" />
     {onRemove ? <button type="button" className="iconbtn" onClick={onRemove} aria-label="Remove this step"><Icon name="x" size={13} /></button> : <span />}
   </>
 }
@@ -271,8 +283,8 @@ function PlotView({ node, updateAttributes, selected, deleteNode, editor, getPos
           <div className="nv-edit nv-plot-edit" contentEditable={false} onBlur={onBlur} onKeyDown={onKeyDown}>
             {[...spec.fns, ''].slice(0, 6).map((f, i) => (
               <label key={i} className="nv-fn"><span>y =</span>
-                <input className="input" value={f} placeholder={i === 0 ? '100 / x' : 'another line'} spellCheck={false} autoFocus={i === 0 && !f}
-                  onChange={(e) => { const fns = [...spec.fns]; fns[i] = e.target.value; set({ fns: fns.filter((x, k) => x.trim() || k < spec.fns.length - 1 || k === i) }) }} />
+                <Draft className="input" value={f} placeholder={i === 0 ? '100 / x' : 'another line'} spellCheck={false} autoFocus={i === 0 && !f}
+                  onCommit={(v) => { const fns = [...spec.fns]; fns[i] = v; set({ fns: fns.filter((x, k) => x.trim() || k < spec.fns.length - 1 || k === i) }) }} />
               </label>
             ))}
             <div className="nv-ranges">
@@ -374,6 +386,31 @@ export function PagePickerHost({ exclude }: { exclude?: string }) {
   )
 }
 
+// ---------- table size ----------
+
+/** "How big?" for a new table: a grid you sweep over. Resolves to rows and columns, or null. */
+const useTableSize = create<{ resolve: ((s: { rows: number; cols: number } | null) => void) | null }>(() => ({ resolve: null }))
+export const pickTableSize = () => new Promise<{ rows: number; cols: number } | null>((resolve) => useTableSize.setState({ resolve }))
+
+export function TableSizeHost() {
+  const resolve = useTableSize((s) => s.resolve)
+  const [at, setAt] = useState({ rows: 3, cols: 3 })
+  if (!resolve) return null
+  const done = (v: { rows: number; cols: number } | null) => { useTableSize.setState({ resolve: null }); setAt({ rows: 3, cols: 3 }); resolve(v) }
+  return (
+    <Sheet onClose={() => done(null)} label="Table size" width={340}>
+      <h2 style={{ fontSize: 22 }}>Table size</h2>
+      <p className="muted" style={{ margin: '6px 0 14px', fontSize: 13 }}>{at.rows} rows × {at.cols} columns. The first row is the header. You can add more later with the + on its edges.</p>
+      <div className="tsize" onMouseLeave={() => undefined}>
+        {Array.from({ length: 8 }, (_, r) => Array.from({ length: 8 }, (_, c) => (
+          <button key={`${r}-${c}`} type="button" aria-label={`${r + 1} by ${c + 1}`} className={r < at.rows && c < at.cols ? 'on' : ''}
+            onMouseEnter={() => setAt({ rows: r + 1, cols: c + 1 })} onFocus={() => setAt({ rows: r + 1, cols: c + 1 })} onClick={() => done({ rows: r + 1, cols: c + 1 })} />
+        )))}
+      </div>
+    </Sheet>
+  )
+}
+
 // ---------- code ----------
 
 export const lowlight = createLowlight({ bash, c, cpp, csharp, css, go, java, javascript, json, matlab, python, r, rust, sql, typescript, xml })
@@ -396,9 +433,11 @@ function CodeView({ node, updateAttributes }: NodeViewProps) {
   return (
     <NodeViewWrapper className="nv-code">
       <div className="nv-code-head nv-ui" contentEditable={false}>
-        <select className="nv-lang" value={node.attrs.language ?? ''} onChange={(e) => updateAttributes({ language: e.target.value || null })} aria-label="Language">
-          {CODE_LANGS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-        </select>
+        <label className="nv-lang-wrap">Language
+          <select className={`nv-lang ${node.attrs.language ? '' : 'unset'}`} value={node.attrs.language ?? ''} onChange={(e) => updateAttributes({ language: e.target.value || null })}>
+            {CODE_LANGS.map((l) => <option key={l.id} value={l.id}>{l.id ? l.label : 'Choose…'}</option>)}
+          </select>
+        </label>
         <button type="button" className="nv-copy" onClick={async () => { await navigator.clipboard.writeText(node.textContent); setCopied(true); setTimeout(() => setCopied(false), 1400) }}>
           <Icon name={copied ? 'check' : 'copy'} size={13} />{copied ? 'Copied' : 'Copy'}
         </button>

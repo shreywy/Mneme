@@ -31,6 +31,11 @@ export async function updateSheet(id: string, patch: Partial<Omit<SheetRow, 'id'
   await db.sheets.update(id, { ...patch, updatedAt: Date.now() })
 }
 
+/** Notes that the page was opened. Not an edit, so "last changed" stays put. */
+export async function markOpened(id: string) {
+  await db.sheets.update(id, { lastOpenedAt: Date.now() })
+}
+
 export async function setSheetArchived(id: string, archived: boolean) {
   await db.sheets.update(id, archived ? { archived: true, archivedAt: Date.now() } : { archived: false })
 }

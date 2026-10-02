@@ -4,7 +4,7 @@
 .tblock { position: relative; font-family: var(--page-font, var(--sans)); font-size: calc(var(--ln) * .64); line-height: var(--ln); color: var(--ink); }
 .tblock .ProseMirror { outline: none; min-height: var(--ln); white-space: pre-wrap; word-break: break-word; }
 .tblock .ProseMirror > * { margin: 0; }
-.tblock h1 { font-family: var(--serif); font-weight: 400; font-size: calc(var(--ln) * 1.2); line-height: calc(var(--ln) * 2); letter-spacing: -.01em; }
+.tblock h1 { font-family: var(--serif); font-weight: 400; font-size: calc(var(--ln) * 1.2); line-height: calc(var(--ln) * 2); letter-spacing: -.01em; position: relative; top: calc(var(--ln) * .32); }
 .tblock h2 { font-family: var(--serif); font-weight: 600; font-size: calc(var(--ln) * .82); line-height: var(--ln); }
 .tblock h3 { font-weight: 600; font-size: calc(var(--ln) * .68); line-height: var(--ln); }
 .tblock ul, .tblock ol { padding-left: calc(var(--ln) * .9); margin: 0; }
@@ -17,6 +17,8 @@
 .tblock code { font-family: ui-monospace, 'JetBrains Mono', Consolas, monospace; font-size: .88em; background: var(--surface2); border-radius: 4px; padding: 0 3px; }
 .tblock hr { border: 0; height: var(--ln); background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat; }
 .tblock .is-empty::before { content: attr(data-placeholder); color: var(--muted); opacity: .7; pointer-events: none; float: left; height: 0; }
+/* Hints only show where you're typing; a whole empty page still says where to start. */
+.sblock:not(:focus-within) .tblock .is-empty:not(.is-editor-empty)::before, .rblock:not(:focus-within) .tblock .is-empty:not(.is-editor-empty)::before { content: none; }
 .tblock mark { border-radius: 3px; padding: 0 1px; color: inherit; }
 .tblock a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
@@ -36,6 +38,8 @@
 .sblock .sgrip:hover { background: var(--surface2); }
 .sblock .swidth { position: absolute; right: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
 .sblock.in-group .sgrip { display: none; }
+/* A block whose maths, plot or working editor is open sits above everything near it. */
+.sblock:has(.nv-edit), .sblock:focus-within { z-index: 8000 !important; }
 .sheet-box { position: absolute; border: 1.5px solid var(--accent); background: color-mix(in oklab, var(--accent) 10%, transparent); border-radius: 3px; pointer-events: none; }
 .sheet-zoom { position: absolute; z-index: 5; left: 16px; bottom: 16px; display: flex; gap: 8px; align-items: center; cursor: auto; }
 .sheet-zoom .btn { box-shadow: var(--shadow); }
@@ -51,7 +55,7 @@
 .sheet-mode button { min-height: 28px; }
 
 /* Read view (phones) */
-.sheet-read-host { min-height: calc(100dvh - 100px); background: var(--surface); }
+.sheet-read-host { min-height: calc(100dvh - 100px); background: var(--bg); }
 .sheet-read-bar { position: sticky; top: 0; z-index: 6; }
 .sheet-read-insert { position: fixed; inset: auto 0 0 0; height: 0; z-index: 30; }
 .sheet-read-insert .insert-panel { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); }
@@ -76,16 +80,26 @@
 .paper-colors button { width: 24px; height: 24px; border-radius: 99px; border: 0; cursor: pointer; }
 .paper-colors button.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .paper-settings > .btn { margin-top: 10px; }
+.paper-default { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.paper-default-on { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--good); }
 .page-settings-actions > .paper-settings { flex-basis: 100%; margin-top: 0; padding-top: 0; border-top: 0; }
 .paper-settings input[type=range] { accent-color: var(--accent); width: 170px; }
 
 /* A page can keep its own colours: light paper in a dark app, or the other way round. */
 .paper-light { --bg: #F3F0E8; --surface: #FBFAF6; --surface2: #ECE8DD; --ink: #1C1B18; --muted: #6B675D; --line: #DCD6C8; color-scheme: light; color: var(--ink); }
 .paper-dark { --bg: #171613; --surface: #1F1E1A; --surface2: #29271F; --ink: #ECE7DC; --muted: #9C968A; --line: #34322B; color-scheme: dark; color: var(--ink); }
+/* ...in the palette chosen for that mode in Settings (same values as tokens.css). */
+.paper-light.pal-sand { --bg: #EDE3D1; --surface: #F8F2E6; --surface2: #E4D8C2; --ink: #2A2216; --muted: #74664F; --line: #D8CAB0; }
+.paper-light.pal-offwhite { --bg: #F7F7F4; --surface: #FFFFFF; --surface2: #EEEEEA; --ink: #1A1A18; --muted: #66665F; --line: #E1E1DB; }
+.paper-light.pal-grey { --bg: #ECEDEF; --surface: #F7F8F9; --surface2: #E2E4E7; --ink: #1B1D20; --muted: #646870; --line: #D4D7DC; }
+.paper-light.pal-white { --bg: #FFFFFF; --surface: #FFFFFF; --surface2: #F3F3F3; --ink: #111111; --muted: #666666; --line: #E5E5E5; }
+.paper-dark.pal-black { --bg: #000000; --surface: #0E0E0E; --surface2: #1A1A1A; --ink: #EDEDED; --muted: #8F8F8F; --line: #262626; }
+.paper-dark.pal-grey { --bg: #1C1C1E; --surface: #242426; --surface2: #2E2E31; --ink: #E8E8EA; --muted: #9A9AA0; --line: #3A3A3D; }
+.paper-dark.pal-discord { --bg: #313338; --surface: #383A40; --surface2: #41434A; --ink: #DBDEE1; --muted: #9AA0A9; --line: #4A4D55; }
 
 /* Selecting, the one handle for a group, bookmarks, the drop preview, the + beside an empty line */
 @keyframes pop-in { from { opacity: 0; transform: translateY(4px); } }
-.sheet-sel { position: absolute; border: 1.5px dashed color-mix(in oklab, var(--accent) 70%, transparent); border-radius: 8px; pointer-events: none; z-index: 9000; }
+.sheet-sel { position: absolute; border: 1.5px dashed color-mix(in oklab, var(--accent) 70%, transparent); border-radius: 8px; z-index: 9000; cursor: move; background: color-mix(in oklab, var(--accent) 4%, transparent); }
 .sheet-sel .sel-grip { position: absolute; left: -30px; top: 0; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; cursor: grab; pointer-events: auto; box-shadow: var(--shadow); }
 .sheet-sel .sel-bar { position: absolute; left: 0; bottom: 100%; margin-bottom: 8px; transform-origin: 0 100%; display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); pointer-events: auto; white-space: nowrap; font: 500 13px var(--sans); color: var(--ink); }
 .sheet-sel .sel-bar .n { padding: 0 8px 0 6px; color: var(--muted); }
@@ -179,7 +193,7 @@
 .nv-eq-show { text-align: center; cursor: pointer; overflow-x: auto; overflow-y: hidden; }
 .nv-eq-show .katex-display { margin: 0; }
 .nv-empty { padding: 4px 10px; color: var(--muted); font-size: .9em; border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
-.nv-edit { display: block; margin: 6px 0 2px; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); font: 400 14px/1.4 var(--sans); color: var(--ink); cursor: auto; user-select: text; }
+.nv-edit { position: relative; z-index: 2; display: block; margin: 6px 0 2px; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 0 0 6px color-mix(in oklab, var(--surface) 70%, transparent), 0 16px 40px rgba(0, 0, 0, .22); backdrop-filter: blur(6px); font: 400 14px/1.4 var(--sans); color: var(--ink); cursor: auto; user-select: text; }
 .nv-edit-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
 .nv-edit-foot > span:first-child { flex: 1; }
 .nv-edit-foot code { font-size: 12px; background: var(--surface2); padding: 0 4px; border-radius: 4px; }
@@ -216,7 +230,9 @@
 /* Code: the header is one line, every code line is one line. */
 .nv-code { margin: 0; border-radius: 8px; background: var(--surface2); overflow: hidden; }
 .nv-code-head { display: flex; align-items: center; justify-content: space-between; height: var(--ln); padding: 0 6px 0 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink) 8%, transparent); box-sizing: border-box; }
-.nv-code .nv-lang { height: calc(var(--ln) - 6px); border: 0; background: transparent; color: var(--muted); font: 500 12px var(--sans); cursor: pointer; }
+.nv-code .nv-lang-wrap { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--sans); color: var(--muted); }
+.nv-code .nv-lang { height: calc(var(--ln) - 6px); padding: 0 6px; border: 1px solid color-mix(in oklab, var(--ink) 14%, transparent); border-radius: 6px; background: var(--surface); color: var(--ink); font: 600 12px var(--sans); cursor: pointer; }
+.nv-code .nv-lang.unset { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 50%, transparent); }
 .nv-code .nv-copy { display: inline-flex; align-items: center; gap: 5px; height: calc(var(--ln) - 6px); padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: 500 12px var(--sans); cursor: pointer; }
 .nv-code .nv-copy:hover { background: color-mix(in oklab, var(--ink) 8%, transparent); color: var(--ink); }
 .nv-code pre { margin: 0; padding: 0 12px; font: calc(var(--ln) * .5)/var(--ln) 'JetBrains Mono', ui-monospace, Consolas, monospace; overflow-x: auto; white-space: pre; }
@@ -237,3 +253,20 @@
 .tblock th { font-weight: 600; background: color-mix(in oklab, var(--ink) 4%, transparent); }
 .tblock td p, .tblock th p { margin: 0; }
 .tblock .selectedCell { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+
+/* Table size picker and the + on a table's edges */
+.tsize { display: grid; grid-template-columns: repeat(8, 28px); gap: 4px; }
+.tsize button { width: 28px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); cursor: pointer; transition: background-color .08s, border-color .08s; }
+.tsize button.on { background: color-mix(in oklab, var(--accent) 28%, var(--surface)); border-color: var(--accent); }
+.tgrow { position: absolute; z-index: 3; display: grid; place-items: center; border: 1px dashed color-mix(in oklab, var(--accent) 60%, transparent); border-radius: 6px; background: color-mix(in oklab, var(--accent) 8%, var(--surface)); color: var(--accent); cursor: pointer; opacity: .75; transition: opacity .12s; animation: pop-in .14s var(--ease); }
+.tgrow:hover { opacity: 1; }
+.tgrow.row { height: 18px; }
+.tgrow.col { width: 18px; }
+
+/* Saved / synced, in the top bar */
+.save-state { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.save-state i { width: 7px; height: 7px; border-radius: 99px; background: var(--good); transition: background-color .2s; }
+.save-state.busy i { background: var(--accent); animation: save-pulse 1s ease-in-out infinite; }
+.save-state.warn i { background: #C8742C; }
+@keyframes save-pulse { 50% { opacity: .35; } }
+@media (max-width: 767px) { .save-state { display: none; } }

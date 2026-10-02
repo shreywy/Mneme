@@ -1,3 +1,4 @@
+import { deleteWithUndo } from '../../app/trash'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -179,7 +180,7 @@ export function DeckPage() {
             if (await confirmAction({ title: 'Reset progress for this deck?', body: 'Mneme forgets every answer you gave on these cards. The cards themselves stay.', confirm: 'Reset progress', danger: true })) { await repo.resetDeckProgress(deckId); toast('Progress reset') }
           }}><Icon name="reset" />Reset progress</button>
           <button className="btn sm ghost danger" onClick={async () => {
-            if (await confirmAction({ title: `Delete "${deck.title}"?`, body: `This removes ${plural(items.length, 'card')} and all progress for good. Archiving keeps them instead.`, confirm: 'Delete deck', danger: true })) { setDialog(null); leaveTo('/'); setTimeout(async () => { await repo.deleteDeck(deckId); toast('Deck deleted') }, 200) }
+            setDialog(null); leaveTo('/'); setTimeout(() => { void deleteWithUndo('deck', deckId) }, 200)
           }}><Icon name="trash" />Delete deck</button>
         </PageSettings>
       )}

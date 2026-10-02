@@ -1,3 +1,4 @@
+import { deleteWithUndo } from '../../app/trash'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -289,8 +290,7 @@ function NotesView({ note, decks, folders }: { note: NoteRow; decks: DeckRow[]; 
           <button className="btn sm" onClick={() => notesRepo.updateNote(note.id, { read: [] })} disabled={!note.read?.length}><Icon name="reset" />Mark all sections unread</button>
           <button className="btn sm" onClick={async () => { await notesRepo.setNoteArchived(note.id, true); toast('Notes archived', 'Find them under Archive in the sidebar'); nav('/') }}><Icon name="archive" />Archive</button>
           <button className="btn sm ghost danger" onClick={async () => {
-            if (!await confirmAction({ title: `Delete "${note.title}"?`, body: 'The notes page, its highlights and its links are removed. Linked decks stay.', confirm: 'Delete notes', danger: true })) return
-            await notesRepo.deleteNote(note.id); toast('Notes deleted'); nav('/')
+            nav('/'); await deleteWithUndo('note', note.id)
           }}><Icon name="trash" />Delete</button>
         </PageSettings>
       )}
