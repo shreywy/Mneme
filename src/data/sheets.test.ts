@@ -19,6 +19,11 @@ describe('sheets', () => {
     expect(blocks[0]).toMatchObject({ x: 3, y: 2, w: 24, h: 1, kind: 'text', role: 'main' })
   })
 
+  it('a new page can start in a unit; with none it has no unit', async () => {
+    expect((await sheets.getSheet(await sheets.createSheet({ unit: 'Week 3' })))?.unit).toBe('Week 3')
+    expect((await sheets.getSheet(await sheets.createSheet()))?.unit).toBeUndefined()
+  })
+
   it('deleting a page deletes its blocks', async () => {
     const id = await sheets.createSheet()
     await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: para('side') }, z: 0 })

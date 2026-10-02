@@ -4,8 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
 import { listNotes } from '../data/notes'
 import { groupByUnit, pageIcon, pagesOf, pageUrl, type Page, type PageKind } from '../data/pages'
-import { createSheet, deleteSheet, listSheets, setSheetArchived } from '../data/sheets'
-import { createFolder, descendants, listArchive, listLibrary } from '../data/repo'
+import { createSheet, deleteSheet, listSheets, setSheetArchived, updateSheet } from '../data/sheets'
+import { createFolder, deleteFolder, descendants, listArchive, listLibrary, moveFolder, renameFolder } from '../data/repo'
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
 import { isTyping, useUI } from './ui'
@@ -14,10 +14,10 @@ import { accountsEnabled, displayName, useAccount } from '../sync/account'
 import { useProfile } from '../sync/profile'
 import { Avatar } from '../ui/Avatar'
 import { useContextItems } from '../ui/ContextMenu'
-import { confirmAction } from '../ui/confirm'
+import { askName, confirmAction } from '../ui/confirm'
 import { toast } from '../ui/toasts'
-import { deleteNote, setNoteArchived } from '../data/notes'
-import { deleteDeck, setArchived } from '../data/repo'
+import { deleteNote, setNoteArchived, updateNote } from '../data/notes'
+import { deleteDeck, renameDeck, setArchived } from '../data/repo'
 import { placePage } from '../data/arrange'
 
 export function Shell() {
@@ -103,14 +103,71 @@ export function useNewPage() {
   const nav = useNavigate()
   const loc = useLocation()
   const setDrawer = useUI((s) => s.setDrawer)
-  return async (folderId?: string | null) => {
+  return async (folderId?: string | null, unit?: string) => {
     const here = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : null
     setDrawer(false)
-    nav(`/write/${await createSheet({ folderId: folderId === undefined ? here : folderId, paper: useSettings.getState().paperDefault ?? undefined })}`)
+    nav(`/write/${await createSheet({ folderId: folderId === undefined ? here : folderId, unit, paper: useSettings.getState().paperDefault ?? undefined })}`)
   }
 }
 
 const DRAG_TYPE = 'application/x-mneme-page'
+
+/** Right-click in the sidebar: folders, unit headings and empty space. Pages get PageMenu. */
+function useSideMenu({ folders, newPage, openDialog }: { folders: Folder[]; newPage: ReturnType<typeof useNewPage>; openDialog: ReturnType<typeof useUI.getState>['open'] }) {
+  const nav = useNavigate()
+  const newFolder = async (parentId: string | null) => nav(`/folder/${await createFolder('New folder', parentId)}?rename=1`)
+  useContextItems((_e, { target }) => {
+    if (!target.closest('.side') || target.closest('[data-page-id], input, textarea, .foot')) return null
+    const settings = useSettings.getState()
+    const row = target.closest<HTMLElement>('[data-folder-id]')
+    const f = row && folders.find((x) => x.id === row.dataset.folderId)
+    if (f) {
+      const open = settings.openFolders.includes(f.id)
+      const inside = () => location.pathname.startsWith('/folder/') && descendants(folders, f.id).has(location.pathname.split('/')[2])
+      return [
+        { label: 'Open', icon: 'folder', onSelect: () => nav(`/folder/${f.id}`) },
+        { label: open ? 'Collapse' : 'Expand', icon: 'down2', onSelect: () => settings.set({ openFolders: open ? settings.openFolders.filter((x) => x !== f.id) : [...settings.openFolders, f.id] }) },
+        { sep: true as const },
+        { label: 'New page here', icon: 'plus', onSelect: () => newPage(f.id) },
+        { label: 'New subfolder', icon: 'folder', onSelect: () => newFolder(f.id) },
+        { sep: true as const },
+        { label: 'Rename…', icon: 'edit', onSelect: async () => { const name = await askName({ title: 'Rename folder', value: f.name, confirm: 'Rename' }); if (name) await renameFolder(f.id, name) } },
+        ...(f.parentId ? [{ label: 'Move to top level', icon: 'upload', onSelect: async () => { await moveFolder(f.id, null); toast('Folder moved', 'It now sits at the top level') } }] : []),
+        {
+          label: 'Archive…', icon: 'archive', onSelect: async () => {
+            if (!await confirmAction({ title: `Archive "${f.name}"?`, body: 'The folder and everything in it leave the library. Progress is kept, and you can restore it from Archive.', confirm: 'Archive folder' })) return
+            const leave = inside()
+            await setArchived('folder', f.id, true); toast('Folder archived', 'Find it under Archive in the sidebar', 'archive')
+            if (leave) nav('/')
+          },
+        },
+        {
+          label: 'Remove folder…', icon: 'trash', danger: true, onSelect: async () => {
+            if (!await confirmAction({ title: `Remove the folder "${f.name}"?`, body: 'Only the folder goes. Its pages and subfolders move up one level.', confirm: 'Remove folder', danger: true })) return
+            const onIt = location.pathname === `/folder/${f.id}`
+            await deleteFolder(f.id); toast('Folder removed')
+            if (onIt) nav(f.parentId ? `/folder/${f.parentId}` : '/')
+          },
+        },
+      ]
+    }
+    const unitEl = target.closest<HTMLElement>('[data-unit]')
+    const unitItems = unitEl?.dataset.unit
+      ? [{ label: `New page in ${unitEl.dataset.unit}`, icon: 'plus', onSelect: () => newPage(unitEl.dataset.unitFolder || null, unitEl.dataset.unit) }, { sep: true as const }]
+      : []
+    const rail = settings.sidebar === 'rail'
+    return [
+      ...unitItems,
+      { label: 'New page', icon: 'plus', onSelect: () => newPage() },
+      { label: 'New folder', icon: 'folder', onSelect: () => newFolder(null) },
+      { label: 'Import', icon: 'upload', onSelect: () => openDialog('import') },
+      { label: 'Get the LLM prompt', icon: 'prompt', onSelect: () => openDialog('prompt') },
+      { sep: true as const },
+      ...(settings.openFolders.length ? [{ label: 'Collapse all folders', icon: 'down2', onSelect: () => settings.set({ openFolders: [] }) }] : []),
+      { label: rail ? 'Pin the sidebar open' : 'Collapse the sidebar', icon: rail ? 'pin' : 'chev', kbd: '[', onSelect: () => settings.set({ sidebar: rail ? 'full' : 'rail' }) },
+    ]
+  })
+}
 
 function FolderTree() {
   const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), sheets: await listSheets(), archived: (await listArchive()) }), [])
@@ -118,6 +175,8 @@ function FolderTree() {
   const nav = useNavigate()
   const newPage = useNewPage()
   const { openFolders, set } = useSettings()
+  const openDialog = useUI((s) => s.open)
+  useSideMenu({ folders: data?.folders ?? [], newPage, openDialog })
   if (!data) return <div className="tree" />
   const { folders, decks, notes } = data
   const pages = pagesOf(decks, notes, data.sheets)
@@ -191,6 +250,7 @@ function FolderTree() {
   })
   const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
     <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
+      data-page-folder={p.folderId ?? ''} data-page-unit={p.unit ?? ''}
       draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}
       {...dropOnPage(p)}>
       <Icon name={pageIcon(p.kind)} size={13} /><span className="t">{p.title}</span>
@@ -201,7 +261,7 @@ function FolderTree() {
     const labelled = groups.some((g) => g.unit)
     return <>{groups.map((g) => (
       <div key={g.unit ?? '-'}>
-        {labelled && <div className="tunit" style={{ paddingLeft: pad + 2 }} {...drop({ folderId, unit: g.unit ?? null })}>{g.unit ?? 'No unit'}</div>}
+        {labelled && <div className="tunit" style={{ paddingLeft: pad + 2 }} data-unit={g.unit ?? ''} data-unit-folder={folderId ?? ''} {...drop({ folderId, unit: g.unit ?? null })}>{g.unit ?? 'No unit'}</div>}
         {g.pages.map((p) => <PageLink key={p.id} p={p} pad={pad} />)}
       </div>
     ))}</>
@@ -213,7 +273,7 @@ function FolderTree() {
     const open = isOpen(f.id)
     return (
       <div className="tnode">
-        <div className={`trow ${loc.pathname === `/folder/${f.id}` ? 'active' : ''}`} style={{ paddingLeft: 4 + depth * 14 }}>
+        <div className={`trow ${loc.pathname === `/folder/${f.id}` ? 'active' : ''}`} style={{ paddingLeft: 4 + depth * 14 }} data-folder-id={f.id}>
           <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'}>
             <Icon name="down2" size={14} />
           </button>
@@ -284,15 +344,29 @@ function AccountButton() {
 /** Right-click on a deck or notes card (library, sidebar): open, study, archive, delete. */
 export function PageMenu() {
   const nav = useNavigate()
+  const newPage = useNewPage()
   useContextItems((_e, { target }) => {
     const el = target.closest<HTMLElement>('[data-page-id]')
     if (!el) return null
     const kind = el.dataset.pageKind as PageKind, id = el.dataset.pageId!, title = el.dataset.pageTitle ?? ''
     const url = pageUrl({ kind, id })
     const noun = kind === 'deck' ? 'Deck' : kind === 'note' ? 'Notes' : 'Page'
+    const rename = async () => {
+      const name = await askName({ title: `Rename ${noun.toLowerCase()}`, value: title, confirm: 'Rename' })
+      if (!name || name === title) return
+      if (kind === 'deck') await renameDeck(id, name)
+      else if (kind === 'note') await updateNote(id, { title: name })
+      else await updateSheet(id, { title: name, titleAuto: false })
+    }
+    // Sidebar rows say where they sit, so a new page can go next to them.
+    const here = el.dataset.pageFolder !== undefined
+      ? [{ label: 'New page here', icon: 'plus', onSelect: () => newPage(el.dataset.pageFolder || null, el.dataset.pageUnit || undefined) }]
+      : []
     return [
       { label: 'Open', icon: pageIcon(kind), onSelect: () => nav(url) },
       { label: 'Open in a new tab', icon: 'external', onSelect: () => { window.open(url, '_blank', 'noopener') } },
+      ...here,
+      { label: 'Rename…', icon: 'edit', onSelect: rename },
       ...(kind === 'deck' ? [
         { sep: true as const },
         { label: 'Learn', icon: 'loop', onSelect: () => nav(`${url}/learn`) },

@@ -9,11 +9,11 @@ import { titleFrom } from '../sheets/order'
 const uid = () => crypto.randomUUID()
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 } }] }
 
-export async function createSheet(opts: { folderId?: string | null; paper?: Paper } = {}): Promise<string> {
+export async function createSheet(opts: { folderId?: string | null; unit?: string; paper?: Paper } = {}): Promise<string> {
   const now = Date.now()
   const id = uid()
   await db.transaction('rw', db.sheets, db.sheetBlocks, async () => {
-    await db.sheets.add({ id, folderId: opts.folderId ?? null, title: 'Untitled page', titleAuto: true, paper: opts.paper ?? DEFAULT_PAPER, createdAt: now, updatedAt: now, lastOpenedAt: now })
+    await db.sheets.add({ id, folderId: opts.folderId ?? null, title: 'Untitled page', titleAuto: true, paper: opts.paper ?? DEFAULT_PAPER, createdAt: now, updatedAt: now, lastOpenedAt: now, ...(opts.unit ? { unit: opts.unit } : {}) })
     await db.sheetBlocks.add({ id: uid(), sheetId: id, ...MAIN_BLOCK, kind: 'text', role: 'main', data: { doc: EMPTY_DOC }, z: 0, createdAt: now, updatedAt: now })
   })
   return id
