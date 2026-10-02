@@ -11,7 +11,7 @@ import * as repo from '../../data/repo'
 import { allDeckMastery, plural, relTime, type MasteryCounts } from '../../data/stats'
 import { extractPromptExample } from '../../deck-format/example'
 import { parseDeckText } from '../../deck-format/parse'
-import { TopBar } from '../../app/Shell'
+import { TopBar, useNewPage } from '../../app/Shell'
 import { useUI } from '../../app/ui'
 import { useSettings } from '../../settings/store'
 import { Icon } from '../../ui/Icons'
@@ -74,6 +74,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
   const path: Folder[] = []
   for (let f = folder; f; f = lib.folders.find((x) => x.id === f!.parentId)) path.unshift(f)
 
+  const newPage = useNewPage()
   const newFolder = async () => {
     const id = await repo.createFolder('New folder', parentId)
     nav(`/folder/${id}?rename=1`)
@@ -102,6 +103,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
           </select>
           <Seg value={libraryView} onChange={(v) => set({ libraryView: v })} options={[{ value: 'grid', label: <Icon name="grid" />, title: 'Grid' }, { value: 'list', label: <Icon name="list" />, title: 'List' }]} />
           <button className="btn sm" onClick={newFolder}><Icon name="folder" />{folder ? 'New subfolder' : 'New folder'}</button>
+          <button className="btn sm primary" onClick={() => newPage(parentId)}><Icon name="plus" />New page</button>
         </div>
 
         {needle ? (
@@ -267,6 +269,7 @@ function Empty() {
   const open = useUI((s) => s.open)
   const nav = useNavigate()
   const { user, status, lastSync } = useAccount()
+  const newPage = useNewPage()
   const trySample = async () => {
     const r = parseDeckText(extractPromptExample(template))
     if (!r.ok) return
@@ -281,6 +284,7 @@ function Empty() {
         <div className="row">
           <button className="btn primary" onClick={() => open('prompt')}><Icon name="prompt" />Get the LLM prompt</button>
           <button className="btn" onClick={() => open('import')}><Icon name="upload" />Import a deck</button>
+          <button className="btn" onClick={() => newPage(null)}><Icon name="page" />Write a page</button>
           <button className="btn ghost" onClick={trySample}>Try a small sample deck</button>
         </div>
         <div className="how">

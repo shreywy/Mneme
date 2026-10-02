@@ -71,6 +71,9 @@
 .app.rail.peek .brand .side-toggle { color: var(--accent); }
 .lbl { transition: opacity .15s var(--ease); }
 .app.rail:not(.peek) :is(.lbl, .nav .k, .tree, .sec, .brand .side-toggle, .soon) { opacity: 0; pointer-events: none; }
+.side-new { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; margin-bottom: 8px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 600; transition: filter .15s, transform .15s var(--ease); }
+.side-new:hover { filter: brightness(1.08); }
+.side-new:active { transform: scale(.98); }
 .nav a, .nav button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 7px; color: var(--muted); text-decoration: none; font-weight: 500; transition: background-color .15s, color .15s; }
 .nav a:hover, .nav a.active, .nav button:hover { color: var(--ink); background: var(--surface2); }
 .nav .k { margin-left: auto; font-size: 11.5px; color: var(--muted); }
@@ -215,6 +218,12 @@ h1.title { font-family: var(--serif); font-weight: 500; font-size: 42px; letter-
 .twist.open { transform: none; }
 .twist:hover:not(:disabled) { color: var(--ink); }
 .twist:disabled { opacity: .25; }
+.tree .tadd { width: 22px; height: 22px; display: grid; place-items: center; flex: none; margin-right: 4px; border-radius: 5px; color: var(--muted); opacity: 0; transition: opacity .15s, background-color .15s, color .15s; }
+.tree .trow:hover .tadd, .tree .tadd:focus-visible { opacity: 1; }
+.tree .tadd:hover { color: var(--ink); background: var(--line); }
+.tree .tnew { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 10px; border-radius: 7px; font-size: 13px; color: var(--muted); opacity: .7; transition: background-color .15s, color .15s, opacity .15s; }
+.tree .tnew:hover { opacity: 1; color: var(--accent); background: var(--surface2); }
+@media (hover: none) { .tree .tadd { opacity: 1; } }
 .tree a.tdeck { color: var(--muted); font-size: 13px; padding-top: 4px; padding-bottom: 4px; }
 .tree a.tdeck.active { color: var(--ink); background: var(--surface2); }
 .tree a.archive-link { margin-top: 10px; gap: 8px; }

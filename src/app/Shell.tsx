@@ -34,12 +34,7 @@ export function Shell() {
     toast('Your cloud space is full', "Delete pages or decks you don't need. New changes stay on this device until then.", 'x')
   }, [syncStatus])
   const rail = sidebar === 'rail'
-  const nav = useNavigate()
-  const newPage = async () => {
-    const folderId = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : null
-    setDrawer(false)
-    nav(`/write/${await createSheet({ folderId, paper: useSettings.getState().paperDefault ?? undefined })}`)
-  }
+  const newPage = useNewPage()
   const peekT = useRef<number>(0)
   const unpeekT = useRef<number>(0)
   const hotT = useRef<number>(0)
@@ -78,11 +73,13 @@ export function Shell() {
               title={rail ? 'Pin the sidebar open  [' : 'Collapse the sidebar  ['} aria-label={rail ? 'Pin the sidebar open' : 'Collapse the sidebar'}>
               <Icon name={rail ? 'pin' : 'chev'} /></button>
           </div>
+          <button className="side-new" onClick={() => newPage()} title="Start a blank page for writing">
+            <Icon name="plus" /><span className="lbl">New page</span>
+          </button>
           <nav className="nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="lib" /><span className="lbl">Library</span></NavLink>
             <button onClick={() => open('prompt')}><Icon name="prompt" /><span className="lbl">Get the LLM prompt</span></button>
             <button onClick={() => open('import')}><Icon name="upload" /><span className="lbl">Import</span></button>
-            <button onClick={newPage}><Icon name="page" /><span className="lbl">New page</span></button>
           </nav>
           <FolderTree />
           <PageMenu />
@@ -101,12 +98,25 @@ export function Shell() {
   )
 }
 
+/** Start a blank page and open it. With no folder given, it goes in the folder you're looking at. */
+export function useNewPage() {
+  const nav = useNavigate()
+  const loc = useLocation()
+  const setDrawer = useUI((s) => s.setDrawer)
+  return async (folderId?: string | null) => {
+    const here = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : null
+    setDrawer(false)
+    nav(`/write/${await createSheet({ folderId: folderId === undefined ? here : folderId, paper: useSettings.getState().paperDefault ?? undefined })}`)
+  }
+}
+
 const DRAG_TYPE = 'application/x-mneme-page'
 
 function FolderTree() {
   const data = useLiveQuery(async () => ({ ...(await listLibrary()), notes: await listNotes(), sheets: await listSheets(), archived: (await listArchive()) }), [])
   const loc = useLocation()
   const nav = useNavigate()
+  const newPage = useNewPage()
   const { openFolders, set } = useSettings()
   if (!data) return <div className="tree" />
   const { folders, decks, notes } = data
@@ -204,15 +214,17 @@ function FolderTree() {
     return (
       <div className="tnode">
         <div className={`trow ${loc.pathname === `/folder/${f.id}` ? 'active' : ''}`} style={{ paddingLeft: 4 + depth * 14 }}>
-          <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'} disabled={!kids.length && !ps.length}>
+          <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'}>
             <Icon name="down2" size={14} />
           </button>
           <Link to={`/folder/${f.id}`} {...drop({ folderId: f.id })}><Icon name="folder" /><span className="t">{f.name}</span><span className="n">{count(f.id)}</span></Link>
+          <button className="tadd" onClick={() => newPage(f.id)} title={`New page in ${f.name}`} aria-label={`New page in ${f.name}`}><Icon name="plus" size={13} /></button>
         </div>
         <Collapse open={open}>
           <>
             {kids.map((k) => <Node key={k.id} f={k} depth={depth + 1} />)}
             <PageList list={ps} pad={30 + depth * 14} folderId={f.id} />
+            <button className="tnew" style={{ paddingLeft: 30 + depth * 14 }} onClick={() => newPage(f.id)}><Icon name="plus" size={13} /><span className="t">New page</span></button>
           </>
         </Collapse>
       </div>
@@ -223,8 +235,7 @@ function FolderTree() {
     <>
       <div className="sec" {...drop({ folderId: null })} title="Drop a page here to take it out of its folder">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
       <div className="tree">
-        {folders.length === 0 && loose.length === 0 && <div className="empty">Decks, notes and pages you write show up here, grouped by course.</div>}
-        {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
+        {folders.length === 0 && loose.length === 0 && <div className="empty">Decks, notes and pages you write show up here, grouped by course.</div>}        {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
         {loose.map((p) => <PageLink key={p.id} p={p} pad={12} />)}
         {archivedCount > 0 && (
           <Link to="/archive" className={`tdeck archive-link ${loc.pathname === '/archive' ? 'active' : ''}`} style={{ paddingLeft: 10 }}>
