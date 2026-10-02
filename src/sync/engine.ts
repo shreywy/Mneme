@@ -47,6 +47,8 @@ export const SPECS: Spec[] = [
   { remote: 'notes', table: () => db.notes, idOf: (r) => String(r.id), localKey: byKey(() => db.notes) },
   { remote: 'deck_note_links', table: () => db.links, idOf: (r) => `${r.noteId}|${r.deckId}`, localKey: byPair(() => db.links) },
   { remote: 'note_marks', table: () => db.marks, idOf: (r) => String(r.id), localKey: byKey(() => db.marks) },
+  { remote: 'sheets', table: () => db.sheets, idOf: (r) => String(r.id), localKey: byKey(() => db.sheets) },
+  { remote: 'sheet_blocks', table: () => db.sheetBlocks, idOf: (r) => String(r.id), localKey: byKey(() => db.sheetBlocks) },
 ]
 
 // ---------- pending queue ----------

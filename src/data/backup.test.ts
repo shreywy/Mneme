@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Rating } from 'ts-fsrs'
 import { db } from './db'
 import * as repo from './repo'
+import * as sheets from './sheets'
 import { exportBackup, restoreBackup } from './backup'
 
 beforeEach(async () => { await Promise.all(db.tables.map((t) => t.clear())) })
@@ -21,6 +22,15 @@ describe('backup', () => {
     expect(st?.seen).toBe(1)
     expect(st?.card.due instanceof Date).toBe(true) // dates come back as Dates, so FSRS keeps working
     expect((await repo.listLibrary()).folders.map((f) => f.name)).toEqual(['C'])
+  })
+
+  it('includes your own pages and everything on them', async () => {
+    const id = await sheets.createSheet()
+    const json = JSON.parse(JSON.stringify(await exportBackup()))
+    await Promise.all(db.tables.map((t) => t.clear()))
+    await restoreBackup(json)
+    expect((await sheets.getSheet(id))?.title).toBe('Untitled page')
+    expect(await sheets.blocksFor(id)).toHaveLength(1)
   })
 
   it('rejects a file that is not a Mneme backup', async () => {

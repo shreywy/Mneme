@@ -13,6 +13,8 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000
 insert into public.decks (id, doc) values ('deck-b', '{"title":"B secret"}');
 insert into public.items (id, doc) values ('deck-b|t1', '{"deckId":"deck-b","kind":"term"}');
 insert into public.note_marks (id, doc) values ('mark-b', '{"noteId":"n1","kind":"note","text":"B private"}');
+insert into public.sheets (id, doc) values ('sheet-b', '{"title":"B page"}');
+insert into public.sheet_blocks (id, doc) values ('block-b', '{"sheetId":"sheet-b","kind":"text"}');
 
 do $$
 declare n int;
@@ -37,6 +39,13 @@ begin
   update public.note_marks set doc = '{"text":"pwned"}' where id = 'mark-b';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: A changed B''s annotation'; end if;
+  select count(*) into n from public.sheets;
+  if n <> 0 then raise exception 'FAIL: A can read B''s pages'; end if;
+  select count(*) into n from public.sheet_blocks;
+  if n <> 0 then raise exception 'FAIL: A can read B''s page blocks'; end if;
+  update public.sheet_blocks set doc = '{"kind":"pwned"}' where id = 'block-b';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: A changed B''s page block'; end if;
 
   update public.decks set doc = '{"title":"pwned"}' where id = 'deck-b';
   get diagnostics n = row_count;

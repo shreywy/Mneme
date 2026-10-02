@@ -1,6 +1,6 @@
 import { db } from './db'
 
-const TABLES = ['folders', 'decks', 'items', 'cards', 'reviews', 'records', 'notes', 'links', 'marks'] as const
+const TABLES = ['folders', 'decks', 'items', 'cards', 'reviews', 'records', 'notes', 'links', 'marks', 'sheets', 'sheetBlocks'] as const
 
 /** Everything in this browser's Mneme database, as one JSON-safe object. */
 export async function exportBackup() {

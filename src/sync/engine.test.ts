@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Rating } from 'ts-fsrs'
 import { db } from '../data/db'
 import * as repo from '../data/repo'
+import * as sheets from '../data/sheets'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, type Remote, type RemoteRow } from './engine'
 
 /** In-memory stand-in for Supabase: one map per table, with server-assigned timestamps. */
@@ -123,6 +124,28 @@ describe('sync engine', () => {
     expect(f.t('decks').get(deckId)?.deleted).toBe(true)
     expect(f.t('items').get(`${deckId}|t`)?.deleted).toBe(true)
     expect(pendingCount()).toBeGreaterThan(0)
+  })
+
+  it('syncs pages and each of their blocks as separate rows', async () => {
+    const f = fakeRemote()
+    const id = await sheets.createSheet()
+    const side = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: { type: 'doc' } }, z: 0 })
+    await push(f.remote)
+    expect(f.t('sheets').get(id)?.doc).toMatchObject({ title: 'Untitled page' })
+    expect(f.t('sheet_blocks').size).toBe(2)
+    // Another device moves the side block; this one edits the main block. Both survive.
+    f.write('sheet_blocks', side.id, { ...side, x: 40 })
+    const [main] = (await sheets.blocksFor(id)).filter((b) => b.role === 'main')
+    await sheets.updateBlock(main.id, { h: 3 })
+    await pull(f.remote)
+    await push(f.remote)
+    const local = await sheets.blocksFor(id)
+    expect(local.find((b) => b.id === side.id)?.x).toBe(40)
+    expect((f.t('sheet_blocks').get(main.id)?.doc as { h: number }).h).toBe(3)
+    await sheets.deleteSheet(id)
+    await push(f.remote)
+    expect(f.t('sheets').get(id)?.deleted).toBe(true)
+    expect([...f.t('sheet_blocks').values()].every((r) => r.deleted)).toBe(true)
   })
 
   it('markAll queues every local row for the first upload', async () => {
