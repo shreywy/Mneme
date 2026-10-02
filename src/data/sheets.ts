@@ -24,7 +24,7 @@ export const getSheet = (id: string) => db.sheets.get(id)
 export async function listSheets(): Promise<SheetRow[]> {
   const [folders, all] = await Promise.all([db.folders.toArray(), db.sheets.toArray()])
   const hidden = hiddenFolderIds(folders)
-  return all.filter((s) => !s.archived && !(s.folderId && hidden.has(s.folderId)))
+  return all.filter((s) => !s.archived && !s.hidden && !(s.folderId && hidden.has(s.folderId)))
 }
 
 export async function updateSheet(id: string, patch: Partial<Omit<SheetRow, 'id' | 'createdAt'>>) {
@@ -56,6 +56,19 @@ export async function updateBlock(id: string, patch: Partial<Omit<SheetBlock, 'i
   await db.sheetBlocks.update(id, { ...patch, updatedAt: Date.now() })
 }
 export const deleteBlock = (id: string) => db.sheetBlocks.delete(id)
+
+/** Copies of these blocks just below the group, on top of everything else. */
+export async function duplicateBlocks(blocks: SheetBlock[]): Promise<SheetBlock[]> {
+  if (!blocks.length) return []
+  const top = Math.min(...blocks.map((b) => b.y)), bottom = Math.max(...blocks.map((b) => b.y + b.h))
+  const z = Math.max(...(await blocksFor(blocks[0].sheetId)).map((b) => b.z))
+  const out: SheetBlock[] = []
+  for (const [i, b] of blocks.entries()) {
+    const { id: _id, createdAt: _c, updatedAt: _u, role: _role, ...rest } = b
+    out.push(await addBlock({ ...rest, y: b.y + (bottom - top) + 1, z: z + 1 + i, data: structuredClone(b.data) }))
+  }
+  return out
+}
 export const getBlock = (id: string) => db.sheetBlocks.get(id)
 
 /** Saves a block's text. The main block also names the page (its first heading) until the user renames it. */
@@ -93,7 +106,7 @@ export async function pruneLeftovers(sheetId: string) {
 
 /** Removes a block left empty, unless it's the main column. Returns whether it was removed. */
 export async function pruneEmpty(b: SheetBlock): Promise<boolean> {
-  if (b.role === 'main' || !isEmptyDoc(b.data.doc)) return false
+  if (b.kind !== 'text' || b.role === 'main' || !isEmptyDoc(b.data.doc)) return false
   await deleteBlock(b.id)
   return true
 }

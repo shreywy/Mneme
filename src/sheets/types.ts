@@ -10,6 +10,10 @@ export type Paper = {
   margin: boolean
   /** null: follow the theme. */
   paperColor: string | null
+  /** Light or dark for this page only; unset follows the app. */
+  theme?: 'light' | 'dark'
+  /** The page's text font (a key from sheets/fonts); unset is the app's sans. */
+  font?: string
 }
 export const DEFAULT_PAPER: Paper = { lines: 'ruled', spacing: 28, strength: 0.4, color: null, margin: false, paperColor: null }
 
@@ -27,9 +31,14 @@ export type SheetRow = {
   lastOpenedAt?: number
   archived?: boolean
   archivedAt?: number
+  /** Not shown anywhere in the library (the page that holds My blocks). */
+  hidden?: boolean
 }
 
-/** A block on the canvas. x, y, w, h are grid units (h is whole lines). */
+/**
+ * A block on the canvas. x, y, w, h are grid units (h is whole lines). Text blocks hold everything you
+ * write or insert (maths, tables, code, plots are nodes in their document); a bookmark is a named spot.
+ */
 export type SheetBlock = {
   id: string
   sheetId: string
@@ -37,10 +46,11 @@ export type SheetBlock = {
   y: number
   w: number
   h: number
-  kind: 'text'
+  kind: 'text' | 'bookmark'
   /** The page's main column: never removed when emptied. */
   role?: 'main'
-  data: { doc: unknown }
+  /** `label` names a bookmark; `group` and `name` tie a saved block to its group in My blocks. */
+  data: { doc: unknown; label?: string; group?: string; name?: string }
   z: number
   createdAt: number
   updatedAt: number

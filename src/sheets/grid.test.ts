@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAPER } from './types'
-import { baselineOf, blocksInRect, boundsOf, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
+import { blocksInRect, boundsOf, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
 
 const v = { x: -100, y: 50, zoom: 2 }
 
@@ -44,14 +44,13 @@ describe('grid', () => {
     expect(boundsOf([{ x: 3, y: 2, w: 24, h: 5 }, { x: -10, y: -4, w: 6, h: 2 }])).toEqual({ x: -10, y: -4, w: 37, h: 11 })
   })
 
-  it('ruled paper puts a line under each row of text and moves with the view', () => {
-    expect(baselineOf(28)).toBe(21)
+  it('ruled paper draws a line between rows, so each line of text sits centred in its row, and moves with the view', () => {
     const s = paperStyle(DEFAULT_PAPER, { x: 0, y: 0, zoom: 1 })
     expect(s.backgroundSize).toBe('100% 28px')
-    expect(s.backgroundPosition).toBe('0px 21px')
+    expect(s.backgroundPosition).toBe('0px 0px')
     const moved = paperStyle(DEFAULT_PAPER, { x: 10, y: 14, zoom: 2 })
     expect(moved.backgroundSize).toBe('100% 56px')
-    expect(moved.backgroundPosition).toBe('0px 14px')
+    expect(moved.backgroundPosition).toBe('0px -28px')
   })
 
   it('a selection box picks the blocks it touches, whichever way it was dragged', () => {

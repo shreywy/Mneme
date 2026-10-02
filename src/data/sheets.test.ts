@@ -85,4 +85,22 @@ describe('sheets', () => {
     expect(sheets.isEmptyDoc(para('x'))).toBe(false)
     expect(sheets.isEmptyDoc({ type: 'doc', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }] }] })).toBe(false)
   })
+
+  it('a bookmark is never cleared as an empty block', async () => {
+    const id = await sheets.createSheet()
+    const mark = await sheets.addBlock({ sheetId: id, x: 40, y: 80, w: 1, h: 1, kind: 'bookmark', data: { doc: null, label: 'Exam stuff' }, z: 1 })
+    expect(await sheets.pruneEmpty(mark)).toBe(false)
+    await db.sheetBlocks.update(mark.id, { updatedAt: Date.now() - 5 * 60_000 })
+    await sheets.pruneLeftovers(id)
+    expect((await sheets.blocksFor(id)).map((b) => b.id)).toContain(mark.id)
+  })
+
+  it('duplicating blocks copies them with new ids, shifted down by their height', async () => {
+    const id = await sheets.createSheet()
+    const a = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 3, kind: 'text', data: { doc: para('a') }, z: 4 })
+    const [copy] = await sheets.duplicateBlocks([a])
+    expect(copy.id).not.toBe(a.id)
+    expect(copy).toMatchObject({ sheetId: id, x: 30, y: 6, w: 10, h: 3, data: { doc: para('a') } })
+    expect(copy.z).toBeGreaterThan(a.z)
+  })
 })

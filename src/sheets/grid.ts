@@ -42,9 +42,6 @@ export function blocksInRect(blocks: { id: string; x: number; y: number; w: numb
   return blocks.filter((k) => k.x < x1 && k.x + k.w > x0 && k.y < y1 && k.y + k.h > y0).map((k) => k.id)
 }
 
-/** Where a line of text sits inside its row: lines are drawn here so text rests on them. */
-export const baselineOf = (unit: number) => Math.round(unit * 0.75)
-
 const MAIN_COLUMN_X = 3
 const MARGIN_RED = 'color-mix(in oklab, #C0503A 55%, transparent)'
 const lineColor = (p: Paper, boost = 1) => `color-mix(in oklab, ${p.color ?? 'var(--ink)'} ${Math.min(100, Math.round((6 + p.strength * 22) * boost))}%, transparent)`
@@ -53,7 +50,8 @@ const lineColor = (p: Paper, boost = 1) => `color-mix(in oklab, ${p.color ?? 'va
 export function paperStyle(p: Paper, v: View): CSSProperties {
   const s = p.spacing * v.zoom
   const ox = -v.x * v.zoom
-  const oy = (baselineOf(p.spacing) - v.y) * v.zoom
+  // Lines fall between rows, so each line of text sits in the middle of its row.
+  const oy = -v.y * v.zoom
   const c = lineColor(p)
   const images: string[] = [], sizes: string[] = [], positions: string[] = [], repeats: string[] = []
   const layer = (image: string, size: string, position: string, repeat = 'repeat') => { images.push(image); sizes.push(size); positions.push(position); repeats.push(repeat) }
