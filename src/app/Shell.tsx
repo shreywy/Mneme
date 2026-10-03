@@ -89,6 +89,7 @@ export function Shell() {
           <PageMenu />
           <div className="foot">
             <AccountButton />
+            <Link to="/docs" className="iconbtn" onClick={() => setDrawer(false)} title="Help and docs" aria-label="Help and docs"><Icon name="help" /></Link>
             <NavLink to="/settings" className={({ isActive }) => `iconbtn ${isActive ? 'on' : ''}`} onClick={() => setDrawer(false)} title="Settings" aria-label="Settings"><Icon name="gear" /></NavLink>
           </div>
         </aside>

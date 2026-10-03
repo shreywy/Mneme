@@ -72,6 +72,7 @@ export function IconSprite() {
       <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" /></symbol>
       <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></symbol>
       <symbol id="i-highlight" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z" /><path d="M4 21h16" /></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6" /><path d="M12 17h.01" /></symbol>
       <symbol id="i-pen" viewBox="0 0 24 24"><path d="M15.5 4.5l4 4L9 19l-5 1 1-5z" /><path d="M13.5 6.5l4 4" /></symbol>
       <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M8.5 19.5L4 15l9.5-9.5 6.5 6.5-8 7.5z" /><path d="M9 10l5.5 5.5M8.5 19.5H20" /></symbol>
       <symbol id="i-lasso" viewBox="0 0 24 24"><ellipse cx="12.5" cy="9" rx="8" ry="5" strokeDasharray="2.6 2.4" /><path d="M7.5 13c-1.6 1.6-1.2 3.6.4 4.4 1.7.8 1.2 2.6-.4 3.1" /></symbol>

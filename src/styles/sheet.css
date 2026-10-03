@@ -351,3 +351,7 @@
 .sblock .sgrip:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
 .sbookmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .nv-ui[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* A derivation sets its own rows: tall maths (fractions) needs room, and the block still rounds to whole lines. */
+.tblock .deriv { line-height: 1.45; margin: 6px 0; }
+.tblock .deriv .katex { line-height: 1.25; }
+.tblock .deriv-grid { row-gap: 12px; align-items: center; }

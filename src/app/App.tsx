@@ -19,6 +19,9 @@ import { ConfirmHost } from '../ui/confirm'
 
 // Pages bring the editor with them, so they load on first use.
 const SheetPage = lazy(() => import('../features/sheet/SheetPage').then((m) => ({ default: m.SheetPage })))
+// The introduction and docs are their own pages, loaded when visited.
+const AboutPage = lazy(() => import('../features/site/AboutPage').then((m) => ({ default: m.AboutPage })))
+const DocsPage = lazy(() => import('../features/site/DocsPage').then((m) => ({ default: m.DocsPage })))
 
 export function App() {
   return (
@@ -39,6 +42,9 @@ export function App() {
           <Route path="s/:shareId" element={<SharedPage />} />
           <Route path="*" element={<LibraryPage />} />
         </Route>
+        <Route path="about" element={<Suspense fallback={null}><AboutPage /></Suspense>} />
+        <Route path="docs" element={<Suspense fallback={null}><DocsPage /></Suspense>} />
+        <Route path="docs/:topic" element={<Suspense fallback={null}><DocsPage /></Suspense>} />
         <Route path="deck/:deckId/learn" element={<LearnPage />} />
         <Route path="deck/:deckId/flashcards" element={<FlashcardsPage />} />
         <Route path="deck/:deckId/test" element={<TestPage />} />
