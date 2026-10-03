@@ -96,6 +96,24 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - Undo is one history for blocks and ink (`sheets/history.ts`).
 - **Pictures:** Mneme never stores picture bytes on its servers. The Imgur delete hash lives in the synced doc but is stripped from share links and from clipboard HTML.
 
+## Site, docs, README and security (2026-10-02)
+
+- **Introduction page:** `/about` (`src/features/site/AboutPage.tsx`). It has every feature with a real screenshot, the forgetting-curve chart, the security list and "coming next".
+- **Docs:** `/docs/:topic` (`DocsPage.tsx`, markdown in `src/features/site/docs/*.md`, rendered with internal links). `<forgetting-curve></forgetting-curve>` in a doc places the interactive chart. The sidebar's ? button opens the docs.
+- **Update both when AI lands:**
+  - the "Coming next" section
+  - the AI docs topic
+  - the screenshots
+- **Screenshots:** `public/site/*.webp` and `hero.jpg`, made by `scripts/screenshots/` (see its README). The README and the site use the same files.
+- **Security headers:** `public/_headers`.
+  - A strict CSP with no inline scripts. Card demos load `/demo-frame.html` in a sandboxed frame and get their document by postMessage, because a srcdoc frame would inherit the app's CSP.
+  - Anything new that talks to another host needs adding to `connect-src` / `img-src`.
+  - Check a production build with `python scripts/screenshots/serve_csp.py` (port 4199).
+- **`SECURITY.md`:** the threat model. Keep it true when security-relevant code changes.
+- **CI** (`.github/workflows/ci.yml`): typecheck, tests, build, and a scan for secret keys in the bundle.
+- **CodeQL** runs weekly and on pushes.
+- **Dependabot** opens PRs weekly for npm and monthly for actions. Merge them only when CI and the Cloudflare build pass. Lockfile changes must stay npm 10 compatible.
+
 ## How to work on it
 
 - `npm run dev` (Vite), `npm test` (Vitest, 274 tests), `npm run build`, `npm run test:db` (RLS tests against local Supabase).

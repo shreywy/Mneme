@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script type="module">
+  import '@fontsource/newsreader/400.css'
+  import '@fontsource/newsreader/400-italic.css'
+  import '@fontsource/hanken-grotesk/400.css'
+  import '@fontsource/hanken-grotesk/500.css'
+  import '@fontsource/hanken-grotesk/600.css'
+</script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  html { zoom: 2; }
+  body { width: 1600px; height: 860px; overflow: hidden; font-family: 'Hanken Grotesk', sans-serif; color: #1C1B18;
+    background:
+      radial-gradient(900px 600px at 78% 40%, rgba(79,107,58,.16), transparent 70%),
+      radial-gradient(700px 500px at 10% 100%, rgba(169,85,58,.08), transparent 70%),
+      repeating-linear-gradient(to bottom, transparent 0 27px, rgba(28,27,24,.045) 27px 28px),
+      #F3F0E8; position: relative; }
+  .left { position: absolute; left: 96px; top: 118px; width: 600px; }
+  .brand { display: flex; align-items: center; gap: 14px; font: 400 40px 'Newsreader', serif; letter-spacing: -.01em; }
+  .brand .m { width: 54px; height: 54px; border-radius: 14px; background: #4F6B3A; color: #FBFAF6; display: grid; place-items: center; font: 500 34px 'Newsreader', serif; box-shadow: 0 10px 24px -8px rgba(79,107,58,.6); }
+  h1 { font: 400 66px/1.04 'Newsreader', serif; letter-spacing: -.022em; margin: 46px 0 0; }
+  h1 em { font-style: italic; color: #4F6B3A; }
+  p { font-size: 21px; line-height: 1.55; color: #5E5A51; margin: 26px 0 0; max-width: 540px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 34px; max-width: 560px; }
+  .chips span { padding: 7px 13px; border-radius: 99px; background: rgba(251,250,246,.85); border: 1px solid #DCD6C8; font: 500 14.5px 'Hanken Grotesk'; }
+  .chips span.k { background: #4F6B3A; border-color: #4F6B3A; color: #FBFAF6; }
+  .win { position: absolute; border-radius: 14px; overflow: hidden; background: #FBFAF6; border: 1px solid #DCD6C8; box-shadow: 0 2px 4px rgba(0,0,0,.04), 0 40px 80px -24px rgba(40,34,20,.38); }
+  .win .bar { height: 30px; display: flex; gap: 7px; align-items: center; padding: 0 13px; background: #ECE8DD; border-bottom: 1px solid #DCD6C8; }
+  .win .bar i { width: 11px; height: 11px; border-radius: 99px; background: rgba(28,27,24,.16); }
+  .win img { display: block; width: 100%; }
+  .main { left: 740px; top: 92px; width: 900px; transform: perspective(2200px) rotateY(-9deg) rotateX(3deg); transform-origin: left center; }
+  .learn { left: 690px; top: 470px; width: 470px; transform: rotate(-2.5deg); }
+  .phone { position: absolute; left: 1370px; top: 300px; width: 214px; border-radius: 30px; overflow: hidden; border: 7px solid #26241F; background: #26241F; box-shadow: 0 40px 80px -20px rgba(40,34,20,.5); transform: rotate(4deg); }
+  .phone img { display: block; width: 100%; border-radius: 22px; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand"><span class="m">M</span>Mneme</div>
+    <h1>Your course material, turned into <em>decks, notes and pages.</em></h1>
+    <p>Turn slides into decks with any AI chat, learn on an FSRS schedule, and write on an endless page with maths, plots and a pen. Local-first, synced, and locked down with row-level security.</p>
+    <div class="chips"><span class="k">React 19</span><span class="k">TypeScript</span><span>Supabase · Postgres RLS</span><span>IndexedDB sync</span><span>TipTap</span><span>FSRS</span><span>Strict CSP</span></div>
+  </div>
+  <div class="win main"><div class="bar"><i></i><i></i><i></i></div><img src="/site/page.webp"></div>
+  <div class="win learn"><div class="bar"><i></i><i></i><i></i></div><img src="/site/learn.webp"></div>
+  <div class="phone"><img src="/site/phone.webp"></div>
+</body>
+</html>

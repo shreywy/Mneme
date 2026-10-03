@@ -1,0 +1,40 @@
+async (page) => {
+  const B = 'http://127.0.0.1:4199'
+  const errs = []
+  page.on('console', (m) => { if (m.type() === 'error' || /Content Security Policy|Refused/i.test(m.text())) errs.push(m.text().slice(0, 220)) })
+  page.on('pageerror', (e) => errs.push('pageerror: ' + String(e).slice(0, 200)))
+  const wait = (ms) => page.waitForTimeout(ms)
+  const steps = []
+  await page.goto(B + '/about'); await wait(1200); steps.push('about')
+  await page.goto(B + '/docs/studying'); await wait(800); steps.push('docs')
+  await page.goto(B + '/'); await wait(1500)
+  await page.getByRole('button', { name: 'New page' }).first().click(); await wait(2500); steps.push('new page ' + page.url())
+  await page.keyboard.type('Hello CSP')
+  await page.mouse.click(1000, 650); await wait(400)
+  await page.keyboard.press('Escape'); await page.keyboard.press('i'); await wait(400); await page.keyboard.press('e'); await wait(2500)
+  steps.push('mathfield ' + (await page.locator('math-field').count()))
+  await page.keyboard.type('x^2+1'); await wait(500)
+  await page.getByRole('button', { name: 'Done' }).first().click().catch(() => {}); await wait(400)
+  await page.mouse.click(1000, 300); await wait(300)
+  await page.keyboard.press('Escape'); await page.keyboard.press('i'); await wait(300); await page.keyboard.press('p'); await wait(1500)
+  steps.push('plot svgs ' + (await page.locator('.sblock svg').count()))
+  await page.mouse.click(1100, 200); await wait(300)
+  await page.keyboard.press('Escape'); await page.keyboard.press('i'); await wait(300); await page.keyboard.press('c'); await wait(800)
+  await page.keyboard.type('const x = 1'); await wait(500)
+  steps.push('code hl ' + (await page.locator('.hljs-keyword').count()))
+  await page.mouse.click(1200, 700); await page.keyboard.press('Escape'); await page.keyboard.press('p'); await wait(200)
+  await page.mouse.move(900, 500); await page.mouse.down(); for (let i = 0; i < 15; i++) await page.mouse.move(900 + i * 8, 500 + (i % 3) * 4); await page.mouse.up(); await wait(500)
+  steps.push('ink ' + (await page.locator('.ink-layer path').count()))
+  await page.keyboard.press('t')
+  return JSON.stringify({ steps, errs: errs.slice(0, 15) }, null, 1)
+  // deck import
+  const md = await (await page.request.get('http://localhost:5178/deck-format/mneme-deck-prompt.md')).text()
+  const json = md.slice(md.indexOf('## 5. Complete example')).match(/```json\n([\s\S]*?)\n```/)[1]
+  await page.goto(B + '/'); await wait(1200)
+  await page.getByRole('button', { name: 'Import' }).first().click(); await wait(700)
+  const ta = page.locator('textarea').first()
+  await ta.fill(json); await wait(800)
+  const imp = page.getByRole('button', { name: /^Import/ }).last(); await imp.click().catch(() => {}); await wait(1500)
+  steps.push('after import ' + page.url())
+  return JSON.stringify({ steps, errs: errs.slice(0, 15) }, null, 1)
+}
