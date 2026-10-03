@@ -62,11 +62,11 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 ## Security (portfolio focus)
 - [x] Row-level security on every table, with tests that try to read another user's data
 - [ ] End-to-end encrypted decks (AES-256-GCM, a PBKDF2-derived key-encryption key, the passphrase never leaves the browser)
-- [ ] Content Security Policy and security headers via Cloudflare Pages `_headers`. Demo frames use `srcdoc`, which inherits the page's CSP, so either serve demos from a separate sandbox origin with its own CSP, or allow inline scripts only in that frame.
+- [x] Content Security Policy and security headers via Cloudflare Pages `_headers` (done 2026-10-02: strict `script-src 'self'`; demos moved to `/demo-frame.html`, a sandboxed frame with its own `default-src 'none'` policy; checked against a local production build and live). Demo frames use `srcdoc`, which inherits the page's CSP, so either serve demos from a separate sandbox origin with its own CSP, or allow inline scripts only in that frame.
 - [ ] Automated e2e test for the demo sandbox (the manual probe exists: see the 2026-10-01 session)
 - [ ] Sanitizer tests with known XSS payloads (raw HTML is already blocked)
-- [ ] `SECURITY.md` threat model
-- [ ] CodeQL and Dependabot in CI
+- [x] `SECURITY.md` threat model
+- [x] CodeQL and Dependabot in CI
 - [ ] Rate-limit triggers for publishing and search
 - [ ] Subresource Integrity and a strict `script-src` with no inline scripts; Trusted Types for the few places that write HTML
 - [ ] Fuzz the importers and the formula/SVG sanitisers with property-based tests (fast-check)
@@ -86,11 +86,11 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 
 ## Site and docs
 - [ ] Empty-library splash with pictures instead of reading: the prompt going into an AI chat with course PDFs and slides attached, the deck file coming back, then studying it (much later)
-- [ ] Landing page for signed-out visitors
-- [ ] Docs: getting started, making a deck, deck format, study modes, how scheduling works (with an interactive forgetting-curve chart), privacy and security, shortcuts
+- [x] Introduction page at /about with every feature and real screenshots (2026-10-02). Update it when AI lands.
+- [x] Docs at /docs: getting started, making a deck, studying (with an interactive forgetting curve), notes, pages, sync and sharing, privacy and security, shortcuts, how it's built (2026-10-02)
 - [ ] Changelog (patch notes) page, plus a "What's new" dot
 - [ ] GoatCounter analytics and live README badges (users, decks, cards studied)
-- [ ] Full README: screenshots, GIF, architecture and ER diagrams, feature list
+- [x] Full README: hero image, screenshots, engineering and security highlights, mermaid architecture diagram, stack, setup (2026-10-02). Still to add: a GIF.
 - [ ] Deploy to Cloudflare Pages from `main`
 
 
@@ -124,7 +124,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 ## Engineering
 - [ ] Playwright end-to-end tests, and component tests for study screens
 - [ ] Code-split KaTeX and Markdown (the bundle is about 1 MB)
-- [ ] CI workflow: lint, typecheck, unit, e2e, database tests
+- [x] CI workflow: typecheck, unit tests, build, secret scan (2026-10-02). Still to add: lint, e2e, database tests in CI.
 - [ ] CRDT sync (Yjs) for Pages so edits from two devices merge instead of last-write-wins
 - [ ] Performance budget in CI (bundle size, Lighthouse) and Web Vitals reporting
 - [ ] Architecture write-up with diagrams for the README (local-first sync, RLS, storage cap)
