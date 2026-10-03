@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Same install as Cloudflare Pages: the lockfile, exactly.
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit and data tests
+        run: npm test
+      - name: Build
+        run: npx vite build
+      - name: Bundle has no secrets
+        run: |
+          if grep -rEl 'AIza[0-9A-Za-z_-]{30,}|sb_secret_|service_role' dist; then
+            echo "A key that must never ship was found in the build." && exit 1
+          fi

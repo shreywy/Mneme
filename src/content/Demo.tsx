@@ -7,7 +7,9 @@ const VARS = ['bg', 'surface', 'surface2', 'ink', 'muted', 'line', 'accent', 'go
 // Demos come from deck files (LLM output, or other people's decks), so they are untrusted.
 // They run in <iframe sandbox="allow-scripts"> with no allow-same-origin: an opaque origin that can't
 // read Mneme's storage, cookies or DOM, can't navigate the page, open popups or submit forms.
-// The CSP below also blocks every network request, so a demo can't load or send anything.
+// The frame loads /demo-frame.html (which has its own strict policy, set again below), then receives the
+// demo's document by postMessage. It isn't a srcdoc frame, because a srcdoc frame inherits the app's
+// Content-Security-Policy, and the app's policy doesn't allow inline scripts at all.
 const CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:"
 
 function buildDoc(html: string, vars: string, dark: boolean): string {
@@ -41,17 +43,20 @@ export function Demo({ demo }: { demo: DemoSpec }) {
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      if (e.source !== ref.current?.contentWindow || typeof e.data !== 'object' || !e.data) return
+      const frame = ref.current?.contentWindow
+      if (!frame || e.source !== frame || typeof e.data !== 'object' || !e.data) return
+      // The frame is an opaque origin, so '*' is the only target that reaches it; the source check above is what matters.
+      if (e.data.type === 'mneme-demo-ready') frame.postMessage({ type: 'mneme-demo-doc', doc }, '*')
       if (e.data.type === 'mneme-demo-height') setH(Math.max(60, Math.min(1400, Number(e.data.h) || 0)))
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [])
+  }, [doc])
 
   return (
     <figure className="demo">
       {demo.title && <figcaption>{demo.title}</figcaption>}
-      <iframe ref={ref} srcDoc={doc} sandbox="allow-scripts" referrerPolicy="no-referrer"
+      <iframe key={doc} ref={ref} src="/demo-frame.html" sandbox="allow-scripts" referrerPolicy="no-referrer"
         title={demo.title ?? 'Interactive demo'} style={{ height: h, colorScheme: dark ? 'dark' : 'light' }} />
     </figure>
   )

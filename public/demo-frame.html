@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Card demos run here, in a sandboxed frame (opaque origin) with its own policy: inline code may run,
+     but nothing can be loaded or sent anywhere. The app's own policy, which forbids inline scripts, never
+     applies to this document because it's loaded by URL rather than written into the app. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:">
+<script>
+  (function () {
+    function take(e) {
+      if (e.source !== parent || !e.data || e.data.type !== 'mneme-demo-doc' || typeof e.data.doc !== 'string') return
+      removeEventListener('message', take)
+      document.open()
+      document.write(e.data.doc)
+      document.close()
+    }
+    addEventListener('message', take)
+    parent.postMessage({ type: 'mneme-demo-ready' }, '*')
+  })()
+</script>
+</head>
+<body></body>
+</html>
