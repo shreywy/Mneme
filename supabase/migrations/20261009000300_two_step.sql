@@ -16,17 +16,16 @@ $$;
 revoke all on function public.second_step_ok() from public, anon;
 grant execute on function public.second_step_ok() to authenticated;
 
--- Adding a policy locks its table. Take every lock up front, in one order, and give up quickly rather
--- than deadlock with an app that's syncing while this runs (if it times out, run the push again).
-set local lock_timeout = '15s';
-lock table public.folders, public.decks, public.items, public.card_states, public.reviews, public.deck_records, public.notes,
-  public.deck_note_links, public.user_settings, public.note_marks, public.sheets, public.sheet_blocks, public.sheet_ink,
-  public.shares, public.profiles, public.storage_usage, public.account_events in access exclusive mode;
-
 -- A restrictive policy is ANDed with the owner-only policies already on each table.
+-- Adding a policy locks its table, so take every lock up front, in one order, and give up after 15 s
+-- rather than deadlock with an app that's syncing while this runs (if it times out, push again).
 do $$
 declare t text;
 begin
+  perform set_config('lock_timeout', '15s', true);
+  lock table public.folders, public.decks, public.items, public.card_states, public.reviews, public.deck_records, public.notes,
+    public.deck_note_links, public.user_settings, public.note_marks, public.sheets, public.sheet_blocks, public.sheet_ink,
+    public.shares, public.profiles, public.storage_usage, public.account_events in access exclusive mode;
   foreach t in array array['folders', 'decks', 'items', 'card_states', 'reviews', 'deck_records', 'notes', 'deck_note_links',
     'user_settings', 'note_marks', 'sheets', 'sheet_blocks', 'sheet_ink', 'shares', 'profiles', 'storage_usage', 'account_events'] loop
     if to_regclass('public.' || t) is null then continue; end if;
