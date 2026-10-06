@@ -15,7 +15,7 @@ For developers, or anyone curious. The source is on [GitHub](https://github.com/
 | Maths | KaTeX for display, MathLive for typing |
 | Drawing | perfect-freehand outlines as SVG; points stored quantised and delta-encoded |
 | Scheduling | ts-fsrs |
-| Tests | Vitest (unit and data), SQL tests for RLS against the real database |
+| Tests | Vitest (unit and data), fast-check (property-based), Playwright (browser security tests on the production build), SQL tests for RLS against the real database |
 
 ## Local-first sync
 
@@ -49,4 +49,12 @@ Every synced row and share counts toward its owner's total, kept by triggers tha
 
 - Pure logic (scheduling, the deck parser and repair pass, sanitisers, grid and ink maths, pagination, sync engine) is unit-tested with Vitest, with the database faked by fake-indexeddb and an in-memory server.
 - The prompt's example deck and notes are imported by the tests on every run, so the prompt can't drift from the parser.
-- RLS tests run as SQL against the database: two users try to read, change, delete and forge each other's rows.
+- RLS tests run as SQL against the database: two users try to read, change, delete and forge each other's rows, get around two-step sign-in and the rate limits, and reach each other's pictures, devices and activity.
+- Property-based tests (fast-check) feed the importers, the shared-page check, the formula parser and the SVG sanitiser random and mutated input.
+- Browser tests (Playwright) run in CI against the production build served with the real `_headers`: the security headers, no policy violations, and a hostile demo that must fail to escape its sandbox.
+
+## Security in CI
+
+- Typecheck, unit tests, build, and a scan of the bundle for keys that must never ship.
+- `npm audit` (no known vulnerabilities), gitleaks over the whole git history, CodeQL, OpenSSF Scorecard.
+- Every GitHub Action is pinned to a commit, and Dependabot keeps them and the dependencies current.

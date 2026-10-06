@@ -2,18 +2,22 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-02 (phases 3 and 4)._
+_Last updated 2026-10-06 (site polish, private pictures, the security list)._
 
 ## Where we are
 
 - **Live:** https://mnemee.pages.dev, auto-deployed from `main` (Cloudflare Pages). Everything below is merged and deployed.
 - **Current feature:** Text notes ("Pages"), the user's own writing pages. Phases 1–4 are built: everything but AI, which is phase 5. Plus two rounds of Shrey's feedback.
-- **Shrey needs to run `npx supabase db push`.** Migration `20261008000000_sheet_ink.sql` adds `sheet_ink` and lets `shares.kind` be `sheet`. Until then:
-  - ink stays on the device (the sync engine skips tables the server doesn't have)
-  - sharing a page fails
-- **Optional:** an Imgur client id in `.env.local` and in the Cloudflare env as `VITE_IMGUR_CLIENT_ID`. Without it, pictures stay in the browser they were added in.
-- **Waiting on:** Shrey's QC of [round 2](feedback/2026-10-02-pages-round-2.md) (39 items) and [round 3](feedback/2026-10-02-pages-round-3.md) (20 items, phases 3–4).
-- **Then:** act on that feedback. After that comes the security and engineering list, then AI. The preview site (`/about`, `/docs`) and the README were done early at Shrey's request on 2026-10-02.
+- **Shrey needs to run `npx supabase db push`** for four migrations from 2026-10-06, then `npm run test:db`:
+  - `20261009000000_pictures.sql`: the private `pictures` bucket. Until then, signed-in pictures stay on the device and say "Upload failed".
+  - `20261009000100_rate_limits.sql`: 30 share publishes an hour.
+  - `20261009000200_devices_and_activity.sql`: `my_sessions()`, `end_session()`, `account_events`. Until then the Account page hides those cards.
+  - `20261009000300_two_step.sql`: restrictive `aal2` policies once an account has an authenticator.
+  - The SQL tests for these (storage objects, auth.sessions and auth.mfa_factors inserted directly) have never run against the server. If one fails for a setup reason rather than a policy reason, fix the test.
+- **Imgur is on hold** (no client id). Signed-in pictures use the private bucket instead; the Imgur path stays for signed-out use.
+- **No QC checklist files any more.** Shrey asked (2026-10-06) for QC to be done here and reported, not handed over as a file.
+- **Not yet tried signed in:** picture upload/download between devices, signed picture links in a share, the devices and activity cards, two-step setup and the code prompt. Everything else was checked in the browser.
+- **Then:** AI (phase 5), or end-to-end encrypted decks (designed below, waiting on Shrey's call).
 
 ## Text notes: what's built
 
@@ -22,9 +26,9 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 | Phase | State |
 |---|---|
 | 1. Canvas and text | Done. QC round 1 done. |
-| 2. Blocks and Insert | Done. QC round 2 in progress. |
-| 3. Ink (pen, highlighter, eraser, lasso, shapes, palm rejection) | Done. QC round 3 waiting. |
-| 4. Images (Imgur, first-use consent popup), Pages layout, Print/PDF, share links | Done. QC round 3 waiting. |
+| 2. Blocks and Insert | Done. |
+| 3. Ink (pen, highlighter, eraser, lasso, shapes, palm rejection) | Done. |
+| 4. Images (private bucket; Imgur on hold), Pages layout, Print/PDF, share links | Done. |
 | 5. AI (lasso → Gemini, handwriting/maths to text) | Later |
 
 ### Where the code is
@@ -129,7 +133,7 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - No AI attribution anywhere: commits, PRs, README or code comments.
   - Only push when the app works.
   - Don't commit `.env.local` (it holds his Gemini test key) or `fixtures/private/`.
-- **Process:** big features get a preview and a written design for Shrey to approve first. Small single asks are built straight away. Each phase ends with a QC checklist file in `docs/feedback/` for Shrey to fill in.
+- **Process:** big features get a preview and a written design for Shrey to approve first. Small single asks are built straight away. Each phase ends with a QC pass done here (Playwright), reported in the final message; no checklist files.
 
 ### Gotchas from this round
 
@@ -143,7 +147,6 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 
 ## Open and deferred
 
-- **Shrey's round 2 answers** (the checklist), then phase 3.
 - **Couldn't reproduce:**
   - the stuck hand cursor (drags are now guarded)
   - deleted pages coming back blank when signed in (soft delete should avoid it)
@@ -157,3 +160,22 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - Pictures without an Imgur client id don't reach other devices.
   - The dev server goes stale often after many quick file writes; restart it (see Gotchas).
 - **After Text notes:** security and engineering items for the portfolio (CSP, fuzz tests, audit log, threat model, CodeQL, E2E-encrypted decks, Yjs, performance budget). Then AI (Gemini), a full end-to-end pass, v1, and the desktop app. See the roadmap.
+
+## Security list (2026-10-06)
+
+- **Pictures** (`src/sync/pictures.ts`, `src/data/images.ts`): private bucket `pictures/<uid>/<id>.<ext>`, owner-only select/insert/delete, no update, `picture_bytes()` allowance of 50 MB in the insert policy. Other devices download once into `db.images`. Share payloads get one-year signed links (`signPictures`), and `isSafePictureUrl` only accepts this project's signed links or Imgur.
+- **Rate limits:** `_rate_limit(action, max, window)` with `rate_events` (no client access). Used by an AFTER trigger on `shares` (AFTER, so an upsert counts once).
+- **Devices and activity** (`src/sync/devices.ts`, Account page): `my_sessions()` reads `auth.sessions`; `end_session()` deletes one (refresh tokens cascade, so the device is out within the access token's hour). `account_events` is written by `_log_event()` from triggers and functions only.
+- **Two-step sign-in** (`src/features/account/TwoStep.tsx`, `account.ts`): supabase-js MFA (TOTP). `needsSecondStep()` reads `aal` from the session's token rather than calling the auth client inside `onAuthStateChange` (that can deadlock). While it's needed, sync is stopped and `SecondStepGate` covers the app. Server: `second_step_ok()` in a restrictive policy on every table, the picture/avatar folders, and the account functions.
+- **Tests:** `src/content/xss.test.ts` (payload corpus, DOM-based `dangers()` checker in `src/content/dangers.testutil.ts`), `src/features/sheet/editor/shared-xss.test.ts`, `src/fuzz.test.ts` (fast-check), `e2e/security.spec.ts` (Playwright; `npm run test:e2e` after `npx vite build`; served by `scripts/serve_dist.py` with the real `_headers`).
+- **CI:** actions pinned to SHAs (Dependabot updates the SHAs), `npm audit --audit-level=moderate`, gitleaks job over the full history (`.gitleaks.toml` allows only the publishable key), Scorecard workflow. An npm `overrides` entry pins every KaTeX to the root version.
+
+### End-to-end encrypted decks: a design, not built
+
+Waiting on Shrey, because a forgotten passphrase loses the encrypted data for good.
+- A random 256-bit data key per account encrypts each synced doc (AES-256-GCM, a fresh 96-bit IV per write, the row id as additional data so rows can't be swapped).
+- The data key is wrapped by a key from the passphrase (PBKDF2-SHA-256, 600k iterations, or Argon2id via WASM) and the wrapped key syncs in `user_settings`. The passphrase never leaves the browser; the unwrapped key is kept as a non-extractable `CryptoKey` in IndexedDB.
+- The sync engine would encrypt in `push` and decrypt in `pull`. Rows that arrive before the device is unlocked wait in a holding table.
+- Shares stay plaintext copies, because sharing is a deliberate publish.
+- Costs: server-side search of public decks can't see encrypted ones, the storage counts grow by about 35%, and there's no recovery without a recovery key.
+

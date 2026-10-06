@@ -6,7 +6,11 @@ Mneme is built so that one person's data can only ever be reached by that person
 
 - **Row-level security on every table.** The database itself checks that each row belongs to the signed-in user, for reading and for writing. It doesn't rely on the app to ask nicely. An automated test signs in as two users and tries to read, change, delete and forge the other's decks, notes, pages, drawing, highlights and shares; any success fails the build.
 - **Shares are reachable only by their link.** The shares table can't be listed by anyone but its owner; others get one share at a time through a function that takes its id.
-- **Deleting your account needs an emailed code from the last ten minutes**, checked on the server.
+- **Two-step sign-in.** Turn it on in Account and signing in also needs a code from an authenticator app. The database enforces it: once you have an authenticator, a session that hasn't used it can't read or write anything, so an emailed code or a GitHub login on its own isn't enough. Add a second authenticator on another device as a backup; there's no other way back in.
+- **See where you're signed in.** Account lists each browser signed in to your account, when it was last active, and lets you sign any of them out, or all but this one.
+- **Recent activity.** Account also shows sign-ins and every share link made, updated or turned off. Only the database writes that log; you can read it but not change it.
+- **Limits on sharing.** An account can make or update at most 30 share links an hour, so a stolen session can't be used to publish in bulk.
+- **Deleting your account needs an emailed code from the last ten minutes**, checked on the server (and the authenticator code too, if you use one).
 - **No analytics, no ads, no tracking scripts.** Fonts are self-hosted, so pages don't call font services either.
 
 ## Content can't run
@@ -29,6 +33,13 @@ A share link can't use your folder, so sharing a page puts a signed link to each
 ## Your AI key (coming)
 
 When AI arrives you'll bring your own Gemini key. It will be stored encrypted in your browser and sent only to Google, never to Mneme's servers.
+
+## How it's tested
+
+- Known XSS payloads (script tags, event handlers, `javascript:` links, SVG tricks, hostile LaTeX) are thrown at every place text becomes markup, and at a hostile shared page.
+- Property-based tests generate thousands of random and half-broken files, formulas and SVG drawings to check the importers and sanitisers never crash or let anything through.
+- A browser test imports a deck with a demo that tries to read Mneme's storage, reach the page, phone home and open popups; every attempt must fail. It runs on every change against the production build with its real security headers.
+- The SQL tests also try to get around two-step sign-in, the rate limits, the picture folders and the activity log.
 
 ## Reporting a problem
 

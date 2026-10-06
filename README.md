@@ -19,6 +19,7 @@
 <p align="center">
   <a href="https://github.com/shreywy/Mneme/actions/workflows/ci.yml"><img src="https://github.com/shreywy/Mneme/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/shreywy/Mneme/actions/workflows/codeql.yml"><img src="https://github.com/shreywy/Mneme/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/shreywy/Mneme"><img src="https://api.scorecard.dev/projects/github.com/shreywy/Mneme/badge" alt="OpenSSF Scorecard"></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/Postgres-row--level%20security-336791?logo=postgresql&logoColor=white" alt="Postgres RLS">
@@ -56,7 +57,7 @@ Mneme is a study app for the courses you're actually taking. It has three kinds 
   - A SQL test suite ([`supabase/tests/rls.sql`](supabase/tests/rls.sql)) signs in as two users and tries to read, change, delete and forge each other's rows across every table.
   - Shares are reachable only through a `security definer` function and 144-bit ids.
   - Account deletion is gated in SQL on an emailed code from the last ten minutes.
-- **A storage quota enforced in the database.** Triggers count every synced row and share per account and reject writes past 20 MB, while deletions always succeed. The client sends deletions first, so a full account can always recover.
+- **A storage quota enforced in the database.** Triggers count every synced row and share per account and reject writes past 20 MB, while deletions always succeed. The client sends deletions first, so a full account can always recover. Pictures get their own 50 MB, checked by the upload policy.
 - **A canvas editor built on ProseMirror (TipTap 3).**
   - Custom nodes:
     - equations (MathLive, lazy-loaded)
@@ -78,29 +79,34 @@ Mneme is a study app for the courses you're actually taking. It has three kinds 
 
 ## Security
 
-Everything an AI or another person writes is treated as hostile. The full threat model is in [SECURITY.md](SECURITY.md).
+Everything an AI or another person writes is treated as hostile, and nothing is trusted to the browser. The full threat model is in [SECURITY.md](SECURITY.md).
 
-- **Content Security Policy** with `script-src 'self'` (no inline scripts, no eval).
-  - `connect-src` is limited to Supabase, Imgur and the Gemini API.
-  - `frame-ancestors 'none'`.
-  - Also sent: HSTS, `nosniff`, a strict referrer policy and a locked-down permissions policy ([`public/_headers`](public/_headers)).
-- **Sandboxed demos.** Interactive card demos run in an opaque-origin `sandbox` frame that loads [`demo-frame.html`](public/demo-frame.html), which has its own `default-src 'none'` policy. Demos can run code but can't touch storage, the network or the app. Tested by probing storage, `fetch` and the parent DOM.
-- **No HTML from content.**
-  - Markdown is rendered without raw HTML.
-  - KaTeX runs with `trust: false` and has an escaped fallback.
-  - SVG figures are rebuilt as React elements from an allowlist.
-  - Plot formulas never reach `eval`.
-- **Shared pages are checked against a schema.** Colours must be hex (they end up in CSS), pictures can only load from Imgur, and Imgur delete codes are stripped from links and the clipboard.
-- **Privacy:**
-  - pictures are uploaded only after an explicit consent
-  - metadata is stripped by re-encoding
-  - no analytics or ad scripts
-  - fonts are self-hosted
-- **CI:**
-  - typecheck, unit tests and build
-  - a scan that fails if a secret key appears in the bundle
-  - CodeQL (`security-extended`)
-  - Dependabot
+**Data isolation, enforced in Postgres**
+- Forced row-level security on every table and storage bucket, owner-only. A SQL suite ([`supabase/tests/rls.sql`](supabase/tests/rls.sql)) signs in as two users and attacks each other's rows, files, sessions and activity.
+- Pictures live in a private bucket under the same per-user rules, with no overwrite policy. Shared pages get signed links that expire.
+- Share links: 144-bit ids, readable one at a time through a `security definer` function, and rate-limited to 30 publishes an hour in a trigger.
+
+**Account protection**
+- **Two-step sign-in** (TOTP authenticator apps). Once enabled, a restrictive policy on every table, bucket and account function refuses any session below `aal2`, so a stolen email code or OAuth login reads nothing. The client pauses sync and asks for the code.
+- **Signed-in devices**: every session with its browser, last activity and IP. Sign one out (its refresh tokens are deleted) or all others.
+- **Activity log** of share links and signed-out devices, written only by the database and read-only to its owner.
+- Account deletion needs an emailed code from the last ten minutes, checked in SQL.
+
+**Content that can't run**
+- **Content Security Policy** with `script-src 'self'` (no inline scripts, no eval), `frame-ancestors 'none'`, and `connect-src` limited to Supabase and the Gemini API. Also sent: HSTS, `nosniff`, a strict referrer policy and a locked-down permissions policy ([`public/_headers`](public/_headers)).
+- **Sandboxed demos.** Interactive card demos run in an opaque-origin `sandbox` frame that loads [`demo-frame.html`](public/demo-frame.html), which has its own `default-src 'none'` policy.
+- **No HTML from content.** Markdown without raw HTML, KaTeX with `trust: false`, SVG rebuilt as React elements from an allowlist, formulas read by a parser that never reaches `eval`.
+- **Shared pages are checked against a schema**: hex-only colours (they end up in CSS), pictures only from Mneme's own signed links, and non-web links dropped by the editor.
+
+**Tested like an attacker**
+- An [XSS suite](src/content/xss.test.ts) of 35 known payloads against every place text becomes markup, plus a hostile shared page rendered through the real editor.
+- [Property-based fuzzing](src/fuzz.test.ts) (fast-check) of the importers, the share-payload check, the formula parser and the SVG sanitiser with random, mutated and truncated input.
+- [Browser tests](e2e/security.spec.ts) (Playwright, in CI) against the production build under its real headers. One imports a demo that tries to read storage, IndexedDB, cookies and the parent page, phone home, navigate and open popups, and every attempt must fail.
+
+**Supply chain**
+- Every GitHub Action pinned to a commit SHA, credential-free checkouts, least-privilege tokens.
+- `npm audit` gate (0 known vulnerabilities), gitleaks across the whole git history, a bundle scan for keys that must never ship.
+- CodeQL (`security-extended`), OpenSSF Scorecard, Dependabot, and a [`security.txt`](public/.well-known/security.txt) (RFC 9116).
 
 ## Architecture
 
@@ -114,11 +120,11 @@ flowchart LR
     Demo[Sandboxed demo frame] -. height only .-> UI
   end
   subgraph Supabase
-    API[PostgREST] --> PG[(Postgres + RLS + storage triggers)]
-    Auth[Auth: email code, GitHub, Google] --> PG
+    API[PostgREST] --> PG[(Postgres + RLS + triggers)]
+    Auth[Auth: email code, GitHub, Google, TOTP] --> PG
+    UI -->|own folder only| Pics[(Private pictures bucket)]
     RT[Realtime] -. nudge .-> UI
   end
-  UI -->|pictures, after consent| Imgur[(Imgur)]
   CF[Cloudflare Pages + security headers] --> UI
 ```
 
@@ -133,7 +139,8 @@ Every synced table has the same shape on the server, `(user_id, id, doc jsonb, d
 | Editor | TipTap 3 / ProseMirror, KaTeX, MathLive, lowlight (highlight.js), perfect-freehand |
 | Learning | ts-fsrs |
 | Hosting | Cloudflare Pages, GitHub Actions |
-| Testing | Vitest (276 tests across 41 files, fake-indexeddb, an in-memory sync server), SQL RLS tests, CodeQL |
+| Testing | Vitest (376 tests across 46 files, fake-indexeddb, an in-memory sync server), fast-check, Playwright, SQL RLS tests |
+| Security tooling | CodeQL, OpenSSF Scorecard, gitleaks, npm audit, Dependabot |
 
 ## Running it locally
 
@@ -149,10 +156,11 @@ Without Supabase settings it runs fully in guest mode: everything works, stored 
 
 | Command | |
 |---|---|
-| `npm test` | Unit and data tests |
+| `npm test` | Unit, data, XSS and property-based tests |
+| `npm run test:e2e` | Browser security tests against `dist/` with the real headers (run `npx vite build` first) |
 | `npm run typecheck` | TypeScript, strict |
 | `npm run build` | Production build |
-| `npm run test:db` | RLS tests against the linked Supabase project |
+| `npm run test:db` | Row-level security tests against the linked Supabase project (rolled back) |
 | `npx supabase db push` | Apply migrations |
 
 ## Project layout
@@ -170,6 +178,7 @@ src/
 supabase/
   migrations/    one SQL file per change
   tests/         row-level security tests
+e2e/             browser security tests (Playwright)
 deck-format/     the LLM prompts, each with a complete example the tests import
 ```
 

@@ -45,6 +45,10 @@ const SECURITY = [
   ['Server-checked account deletion', 'Deleting an account needs an emailed code from the last ten minutes, enforced in the database.'],
   ['Schema-checked shared pages', 'zod validation on open: hex-only colours, bounded sizes, and pictures only from Mneme’s own signed links.'],
   ['A storage cap per account', '20 MB counted by triggers; writes past it are refused, deletions always go through.'],
+  ['Two-step sign-in', 'An authenticator app on top of the email code, enforced by the database: a session without it reads nothing.'],
+  ['Devices and activity', 'See every browser signed in, sign any of them out, and read a log of sign-ins and share links that only the server writes.'],
+  ['Tested like an attacker', 'XSS payloads and fuzzing against every parser, and a browser test in CI where a hostile demo tries to escape its sandbox.'],
+  ['Rate limits', 'Share links are capped per hour in the database, and the log behind it can’t be read or cleared.'],
   ['Private pictures', 'A private bucket under the same per-user rules, with its own allowance. Shares carry signed links that expire. No trackers anywhere.'],
 ]
 
@@ -53,7 +57,8 @@ const STACK = [
   ['Data', 'Dexie on IndexedDB, zod, Supabase: Postgres, Auth, Realtime'],
   ['Editor', 'TipTap 3 on ProseMirror, KaTeX, MathLive, perfect-freehand'],
   ['Learning', 'ts-fsrs'],
-  ['Hosting and tests', 'Cloudflare Pages, GitHub Actions, Vitest, SQL policy tests, CodeQL'],
+  ['Hosting', 'Cloudflare Pages, GitHub Actions'],
+  ['Testing and security', 'Vitest, fast-check, Playwright, SQL policy tests, CodeQL, OpenSSF Scorecard, gitleaks'],
 ]
 
 /** The introduction: what Mneme is, every feature with a screenshot, and how it's built. */
