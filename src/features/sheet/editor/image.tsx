@@ -71,7 +71,7 @@ function ImageView({ node, updateAttributes, deleteNode, editor, selected }: Nod
   const [missing, setMissing] = useState(false)
   const status = useUploads((s) => (a.local ? s[a.local] : undefined))
   const consent = useSettings((s) => s.imgurConsent)
-  const signedIn = useAccount((s) => !!s.user)
+  const signedIn = useAccount((s) => !!s.user && !s.secondStep)
   const up = !!(a.src || a.stored)
   const editable = editor.isEditable
   const fig = useRef<HTMLDivElement>(null)

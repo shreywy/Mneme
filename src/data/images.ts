@@ -3,6 +3,7 @@ import { db, type LocalImage } from './db'
 import { fitWithin } from '../sheets/image'
 import { useSettings } from '../settings/store'
 import { getPicture, PicturesFull, putPicture, removePictures, signedIn } from '../sync/pictures'
+import { useAccount } from '../sync/account'
 
 // Pictures on pages. Each one is shrunk and kept in this browser (IndexedDB). Signed in, it's then
 // stored in the account's private picture folder and the page keeps its path, so your other devices can
@@ -52,6 +53,7 @@ export function uploadImage(id: string): Promise<Uploaded | null> {
     const img = await db.images.get(id)
     if (!img) return null
     if (await signedIn()) {
+      if (useAccount.getState().secondStep) return null // goes up once the authenticator code is in
       useUploads.setState({ [id]: 'uploading' })
       try {
         const stored = await putPicture(id, img.blob)
