@@ -370,6 +370,49 @@ begin
   if n <> 0 then raise exception 'FAIL: B can read A''s activity'; end if;
 end $$;
 
+-- Two-step sign-in: once A has an authenticator, a session without the second step reaches nothing.
+reset role;
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-00000000000a', 'Test app', 'totp', 'verified', now(), now(), 'x');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated","aal":"aal1"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.decks;
+  if n <> 0 then raise exception 'FAIL: one step was enough to read decks once an authenticator is set up'; end if;
+  select count(*) into n from public.account_events;
+  if n <> 0 then raise exception 'FAIL: one step was enough to read the activity log'; end if;
+  begin
+    insert into public.decks (id, doc) values ('deck-one-step', '{}');
+    raise exception 'FAIL: one step was enough to write';
+  exception when insufficient_privilege then null; -- expected
+  end;
+  begin
+    perform public.my_sessions();
+    raise exception 'FAIL: one step was enough to list devices';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated","aal":"aal2"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.decks;
+  if n = 0 then raise exception 'FAIL: both steps should reach A''s decks'; end if;
+end $$;
+-- B has no authenticator, so one step is still enough for B.
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000b","role":"authenticated","aal":"aal1"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.decks;
+  if n = 0 then raise exception 'FAIL: B without an authenticator lost access'; end if;
+end $$;
+reset role;
+delete from auth.mfa_factors where id = '00000000-0000-4000-8000-0000000000f1';
+set local role authenticated;
+
 -- B's session without an OTP sign-in in the last 10 minutes: refused.
 select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
   'amr', json_build_array(json_build_object('method', 'oauth', 'timestamp', extract(epoch from now())::bigint)))::text, true);

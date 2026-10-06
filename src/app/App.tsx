@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import { SecondStepGate } from '../features/account/TwoStep'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { IconSprite } from '../ui/Icons'
 import { ContextMenuHost } from '../ui/ContextMenu'
@@ -50,6 +51,7 @@ export function App() {
         <Route path="deck/:deckId/test" element={<TestPage />} />
       </Routes>
       <Dialogs />
+      <SecondStepGate />
       <ConfirmHost />
       <Toasts />
       <ContextMenuHost />

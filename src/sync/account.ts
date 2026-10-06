@@ -1,4 +1,4 @@
-import type { RealtimeChannel, User } from '@supabase/supabase-js'
+import type { RealtimeChannel, Session, User } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import { db } from '../data/db'
 import { useSettings } from '../settings/store'
@@ -9,8 +9,9 @@ import { removeAllPictures } from './pictures'
 import { forgetStorage, isStorageFull, loadStorage } from './storage'
 
 export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error' | 'full'
-type Account = { ready: boolean; user: User | null; status: SyncStatus; lastSync: number | null; error: string | null }
-export const useAccount = create<Account>(() => ({ ready: !supabase, user: null, status: 'off', lastSync: null, error: null }))
+/** `secondStep`: signed in, but the account has an authenticator and this session hasn't used it yet. Nothing syncs until it has. */
+type Account = { ready: boolean; user: User | null; status: SyncStatus; lastSync: number | null; error: string | null; secondStep: boolean }
+export const useAccount = create<Account>(() => ({ ready: !supabase, user: null, status: 'off', lastSync: null, error: null, secondStep: false }))
 export const accountsEnabled = !!supabase
 
 const OWNER_KEY = 'mneme.sync.owner'
@@ -40,9 +41,9 @@ export async function initAccount() {
   void oauthProviders()
   installHooks()
   const { data } = await supabase.auth.getSession()
-  await handleUser(data.session?.user ?? null)
+  await handleSession(data.session)
   set({ ready: true })
-  supabase.auth.onAuthStateChange((_event, session) => { void handleUser(session?.user ?? null) })
+  supabase.auth.onAuthStateChange((_event, session) => { void handleSession(session) })
   useSettings.subscribe((s, prev) => {
     if (applyingSettings || !currentId) return
     if (SYNCED_SETTINGS.some((k) => JSON.stringify(s[k]) !== JSON.stringify(prev[k]))) {
@@ -52,6 +53,31 @@ export async function initAccount() {
       settingsTimer = setTimeout(() => { pushSettings().catch(() => { /* stays dirty; the next sync retries */ }) }, 1200)
     }
   })
+}
+
+/**
+ * Whether this session still needs the authenticator code: the account has a verified authenticator and
+ * the session's token says it hasn't been used. Read from the session itself, because calling the auth
+ * client from inside its own state-change callback can deadlock.
+ */
+export function needsSecondStep(session: Session | null): boolean {
+  if (!session || !(session.user.factors ?? []).some((f) => f.status === 'verified')) return false
+  try {
+    const part = session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    return (JSON.parse(atob(part)) as { aal?: string }).aal !== 'aal2'
+  } catch { return true }
+}
+
+async function handleSession(session: Session | null) {
+  const user = session?.user ?? null
+  // The server refuses everything until the second step, so don't sync (or wipe and re-upload) before it.
+  if (needsSecondStep(session)) {
+    if (currentId) { stop(); currentId = null }
+    set({ user, secondStep: true, status: 'off' })
+    return
+  }
+  set({ secondStep: false })
+  await handleUser(user)
 }
 
 async function handleUser(user: User | null) {
@@ -231,6 +257,51 @@ export async function clearAllDecks(): Promise<number> {
   })
   await syncNow(false)
   return n
+}
+
+// ---------- two-step sign-in (authenticator app) ----------
+
+export type Authenticator = { id: string; name: string; createdAt: string }
+
+/** This account's authenticators. */
+export async function listAuthenticators(): Promise<Authenticator[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.auth.mfa.listFactors()
+  if (error) throw error
+  return data.totp.map((f) => ({ id: f.id, name: f.friendly_name ?? 'Authenticator app', createdAt: f.created_at }))
+}
+
+/** Starts adding an authenticator: returns the QR code (an image URL) and the secret to type in instead. */
+export async function startAuthenticator(): Promise<{ id: string; qr: string; secret: string }> {
+  if (!supabase) throw new Error('Accounts are not set up in this build.')
+  // Half-finished ones from earlier attempts would block a new one.
+  const { data: all } = await supabase.auth.mfa.listFactors()
+  for (const f of all?.all ?? []) if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id })
+  const n = (all?.totp.length ?? 0) + 1
+  const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: n === 1 ? 'Authenticator app' : `Authenticator app ${n}`, issuer: 'Mneme' })
+  if (error) throw error
+  const qr = data.totp.qr_code.startsWith('data:') ? data.totp.qr_code : `data:image/svg+xml;utf-8,${encodeURIComponent(data.totp.qr_code)}`
+  return { id: data.id, qr, secret: data.totp.secret }
+}
+
+/** Checks a 6-digit code against an authenticator (finishing setup, or the second step at sign-in). */
+export async function checkAuthenticatorCode(code: string, factorId?: string) {
+  if (!supabase) return
+  const id = factorId ?? (await listAuthenticators())[0]?.id
+  if (!id) throw new Error('This account has no authenticator.')
+  const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: id, code: code.replace(/\s/g, '') })
+  if (error) throw new Error(/invalid|expired/i.test(error.message) ? 'That code didn’t match. Check the time on your phone, then try the newest code.' : error.message)
+}
+
+export async function cancelAuthenticator(factorId: string) {
+  await supabase?.auth.mfa.unenroll({ factorId })
+}
+
+export async function removeAuthenticator(factorId: string) {
+  if (!supabase) return
+  const { error } = await supabase.auth.mfa.unenroll({ factorId })
+  if (error) throw error
+  await supabase.auth.refreshSession() // so this session's token stops listing the removed authenticator
 }
 
 /** Permanently delete the account and everything in it, then clear this device. */

@@ -19,6 +19,7 @@ import { toast } from '../../ui/toasts'
 import { SlideToConfirm } from '../../ui/SlideToConfirm'
 import { friendly, SignIn, STATUS } from './SignIn'
 import { AFTER_SIGN_IN } from '../share/SharedPage'
+import { TwoStepCard } from './TwoStep'
 import { deviceName, endSession, listActivity, listSessions, signOutOthers, type AccountEvent, type Session } from '../../sync/devices'
 
 export function AccountPage() {
@@ -58,6 +59,7 @@ function SignedIn() {
       <ProfileCard key={profile?.username ?? 'new'} firstTime={firstTime} />
       <SyncCard />
       <MethodsCard />
+      <TwoStepCard />
       <DevicesAndActivity />
 
       <div className="acard danger-zone">
