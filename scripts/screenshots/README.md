@@ -8,4 +8,4 @@ These scripts make the pictures in `public/site/`. Run them when the app changes
 4. Convert to WebP: `python -c "from PIL import Image; ..."` (see HANDOFF), quality 86, into `public/site/`.
 5. Hero: open `http://localhost:5178/scripts/screenshots/hero.html` at 3200×1720, take a screenshot, scale it to 2400 wide, and save it as `public/site/hero.jpg` (quality 88).
 
-`serve_csp.py` serves `dist/` with the headers from `public/_headers`, so a production build can be checked against the real Content Security Policy (`csp_test.js` walks through the main flows and collects violations).
+`../serve_dist.py` serves `dist/` with the headers from `public/_headers`, so a production build can be checked against the real Content Security Policy (`csp_test.js` walks through the main flows and collects violations).

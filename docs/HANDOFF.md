@@ -108,7 +108,7 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 - **Security headers:** `public/_headers`.
   - A strict CSP with no inline scripts. Card demos load `/demo-frame.html` in a sandboxed frame and get their document by postMessage, because a srcdoc frame would inherit the app's CSP.
   - Anything new that talks to another host needs adding to `connect-src` / `img-src`.
-  - Check a production build with `python scripts/screenshots/serve_csp.py` (port 4199).
+  - Check a production build with `python scripts/serve_dist.py` (port 4199), or run `npm run test:e2e`, which builds nothing itself: run `npx vite build` first.
 - **`SECURITY.md`:** the threat model. Keep it true when security-relevant code changes.
 - **CI** (`.github/workflows/ci.yml`): typecheck, tests, build, and a scan for secret keys in the bundle.
 - **CodeQL** runs weekly and on pushes.

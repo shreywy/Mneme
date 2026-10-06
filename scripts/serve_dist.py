@@ -1,6 +1,6 @@
 # Serves dist/ with the headers from public/_headers (a small subset of Cloudflare's rules), SPA fallback.
 import http.server, os, re, sys
-ROOT = os.path.join(os.path.dirname(__file__), '..', '..', 'dist')
+ROOT = os.path.join(os.path.dirname(__file__), '..', 'dist')
 
 def rules():
     out, cur = [], None
@@ -18,6 +18,7 @@ RULES = rules()
 
 class H(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k): super().__init__(*a, directory=ROOT, **k)
+    def log_message(self, *a): pass
     def end_headers(self):
         path = self.path.split('?')[0]
         hdrs = {}

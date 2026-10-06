@@ -35,3 +35,14 @@ jobs:
           if grep -rEl 'AIza[0-9A-Za-z_-]{30,}|sb_secret_|service_role' dist; then
             echo "A key that must never ship was found in the build." && exit 1
           fi
+      # The production build under its real headers: CSP, the demo sandbox, no policy violations.
+      - name: Browser security tests
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
