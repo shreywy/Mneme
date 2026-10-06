@@ -2,11 +2,12 @@ import { create } from 'zustand'
 import { db, type LocalImage } from './db'
 import { fitWithin } from '../sheets/image'
 import { useSettings } from '../settings/store'
+import { getPicture, PicturesFull, putPicture, removePictures, signedIn } from '../sync/pictures'
 
-// Pictures on pages. Each one is shrunk and kept in this browser (IndexedDB), then uploaded to Imgur
-// anonymously with Mneme's client id. The page keeps the Imgur link and its delete code, so any of your
-// devices can show it and deleting it removes it from Imgur. Without a client id, or offline, a picture
-// stays on the device it was added on and uploads later.
+// Pictures on pages. Each one is shrunk and kept in this browser (IndexedDB). Signed in, it's then
+// stored in the account's private picture folder and the page keeps its path, so your other devices can
+// download it. Signed out, it can go to Imgur instead once this build has an Imgur client id (the page
+// keeps the link and its delete code). Otherwise, or offline, it stays on this device and goes up later.
 
 const CLIENT_ID = (import.meta.env.VITE_IMGUR_CLIENT_ID as string | undefined)?.trim() || ''
 export const imgurReady = () => !!CLIENT_ID
@@ -35,19 +36,34 @@ export async function addImage(sheetId: string, file: Blob): Promise<LocalImage>
   return row
 }
 
-type Status = 'uploading' | 'failed'
+type Status = 'uploading' | 'failed' | 'full'
 export const useUploads = create<Record<string, Status>>(() => ({}))
-const inflight = new Map<string, Promise<{ url: string; hash: string } | null>>()
+/** What the page keeps once a picture is up: its path in your folder, or an Imgur link and delete code. */
+export type Uploaded = { stored: string } | { src: string; hash: string }
+const inflight = new Map<string, Promise<Uploaded | null>>()
+const done = (id: string) => useUploads.setState((s) => { const n = { ...s }; delete n[id]; return n })
 
-/** Uploads a local picture (once, however many views ask). Null when it can't yet: no client id, no consent, offline. */
-export function uploadImage(id: string): Promise<{ url: string; hash: string } | null> {
-  if (!CLIENT_ID || !useSettings.getState().imgurConsent || !navigator.onLine) return Promise.resolve(null)
+/** Uploads a local picture (once, however many views ask). Null when it can't yet: signed out with no Imgur, offline, or full. */
+export function uploadImage(id: string): Promise<Uploaded | null> {
+  if (!navigator.onLine) return Promise.resolve(null)
   const running = inflight.get(id)
   if (running) return running
-  const job = (async () => {
+  const job = (async (): Promise<Uploaded | null> => {
     const img = await db.images.get(id)
     if (!img) return null
-    if (img.url && img.deleteHash) return { url: img.url, hash: img.deleteHash }
+    if (await signedIn()) {
+      useUploads.setState({ [id]: 'uploading' })
+      try {
+        const stored = await putPicture(id, img.blob)
+        done(id)
+        return { stored }
+      } catch (e) {
+        useUploads.setState({ [id]: e instanceof PicturesFull ? 'full' : 'failed' })
+        return null
+      }
+    }
+    if (!CLIENT_ID || !useSettings.getState().imgurConsent) return null
+    if (img.url && img.deleteHash) return { src: img.url, hash: img.deleteHash }
     useUploads.setState({ [id]: 'uploading' })
     try {
       const body = new FormData()
@@ -58,64 +74,86 @@ export function uploadImage(id: string): Promise<{ url: string; hash: string } |
       const url = json.data?.link, hash = json.data?.deletehash
       if (!res.ok || !url || !hash || !/^https:\/\/i\.imgur\.com\//.test(url)) throw new Error('upload failed')
       await db.images.update(id, { url, deleteHash: hash })
-      useUploads.setState((s) => { const n = { ...s }; delete n[id]; return n })
-      return { url, hash }
+      done(id)
+      return { src: url, hash }
     } catch {
       useUploads.setState({ [id]: 'failed' })
       return null
-    } finally {
-      inflight.delete(id)
     }
-  })()
+  })().finally(() => inflight.delete(id))
   inflight.set(id, job)
   return job
 }
 
-/** Removes a picture from Imgur. Best effort: a failure leaves an unlisted picture nobody links to. */
-export async function deleteRemote(hash: string | null | undefined) {
+/** Removes a picture from your folder or Imgur. Best effort: a failure leaves a file nobody links to. */
+export async function deleteRemote(hash: string | null | undefined, stored?: string | null) {
+  if (stored) await removePictures([stored])
   if (!CLIENT_ID || !hash || !/^[A-Za-z0-9]+$/.test(hash)) return
   try { await fetch(`https://api.imgur.com/3/image/${hash}`, { method: 'DELETE', headers: { Authorization: `Client-ID ${CLIENT_ID}` } }) } catch { /* offline */ }
 }
 
 type Node = { type?: string; attrs?: Record<string, unknown>; content?: Node[] }
-/** Every picture in a document: its local id and Imgur delete code. */
-export function imagesIn(doc: unknown): { local: string | null; hash: string | null }[] {
-  const out: { local: string | null; hash: string | null }[] = []
+export type PictureRef = { local: string | null; hash: string | null; stored: string | null }
+/** Every picture in a document: its local id, stored path and Imgur delete code. */
+export function imagesIn(doc: unknown): PictureRef[] {
+  const out: PictureRef[] = []
   const walk = (n: Node) => {
-    if (n.type === 'image') out.push({ local: (n.attrs?.local as string) ?? null, hash: (n.attrs?.hash as string) ?? null })
+    if (n.type === 'image') out.push({ local: (n.attrs?.local as string) ?? null, hash: (n.attrs?.hash as string) ?? null, stored: (n.attrs?.stored as string) ?? null })
     n.content?.forEach(walk)
   }
   if (doc && typeof doc === 'object') walk(doc as Node)
   return out
 }
 
+const refKey = (i: PictureRef) => i.stored ?? i.hash ?? i.local
+/** Every picture still on a page on this device (any page: a picture can be copied from one to another). */
+async function picturesInUse(exceptSheet?: string): Promise<Set<string | null>> {
+  // ponytail: scans every block on the device; fine for a rare, delayed cleanup.
+  const blocks = await db.sheetBlocks.toArray()
+  return new Set(blocks.filter((b) => b.sheetId !== exceptSheet).flatMap((b) => imagesIn(b.data.doc).flatMap((i) => [i.local, i.hash, i.stored])).filter(Boolean))
+}
+
 /**
- * A picture deleted from a page goes from Imgur once it's clear it isn't coming back (undo, or it's
- * still in another block of the page) — a little after the undo toast has gone.
+ * A picture deleted from a page goes for good once it's clear it isn't coming back (undo, or it's still
+ * on this or another page) — a little after the undo toast has gone.
  */
-export function forgetLater(sheetId: string, local: string | null, hash: string | null) {
+export function forgetLater(local: string | null, hash: string | null, stored: string | null = null) {
   setTimeout(async () => {
-    const still = (await db.sheetBlocks.where('sheetId').equals(sheetId).toArray()).some((b) => imagesIn(b.data.doc).some((i) => (local && i.local === local) || (hash && i.hash === hash)))
-    if (still) return
-    await deleteRemote(hash)
+    const used = await picturesInUse()
+    if ((local && used.has(local)) || (hash && used.has(hash)) || (stored && used.has(stored))) return
+    await deleteRemote(hash, stored)
     if (local) await db.images.delete(local)
   }, 15_000)
 }
 
-/** A page deleted for good takes its pictures with it, here and on Imgur. */
+/** A page deleted for good takes its pictures with it, here and in your folder or on Imgur, unless another page still has them. */
 export async function forgetPageImages(sheetId: string, docs: unknown[]) {
-  for (const d of docs) for (const i of imagesIn(d)) void deleteRemote(i.hash)
+  const used = await picturesInUse(sheetId)
+  for (const d of docs) for (const i of imagesIn(d)) if (!used.has(refKey(i))) void deleteRemote(i.hash, i.stored)
   await db.images.where('sheetId').equals(sheetId).delete()
 }
 
-// One object URL per local picture, shared by every view of it.
+// One object URL per picture, shared by every view of it. A picture this device doesn't have yet is
+// downloaded from your folder once and kept, so it shows offline from then on.
 const urls = new Map<string, string>()
-export async function localUrl(id: string): Promise<string | null> {
+const fetching = new Map<string, Promise<Blob | null>>()
+export async function localUrl(id: string, stored?: string | null, sheetId = ''): Promise<string | null> {
   const hit = urls.get(id)
   if (hit) return hit
-  const img = await db.images.get(id)
-  if (!img) return null
-  const u = URL.createObjectURL(img.blob)
+  let blob = (await db.images.get(id))?.blob ?? null
+  if (!blob && stored) {
+    let job = fetching.get(stored)
+    if (!job) {
+      job = getPicture(stored).then(async (b) => {
+        if (b) await db.images.put({ id, sheetId, blob: b, type: b.type, w: 0, h: 0, createdAt: Date.now() })
+        return b
+      }).finally(() => fetching.delete(stored))
+      fetching.set(stored, job)
+    }
+    blob = await job
+  }
+  if (!blob) return null
+  const u = urls.get(id) ?? URL.createObjectURL(blob)
   urls.set(id, u)
   return u
 }

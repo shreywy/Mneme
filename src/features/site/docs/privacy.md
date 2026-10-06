@@ -18,11 +18,13 @@ Everything that comes from an AI or another person is treated as untrusted:
 - **Figures** (SVG) are rebuilt from an allowlist of elements and attributes; scripts, event handlers, links and external references never survive.
 - **Plots** read formulas with a small parser that only knows numbers, `x`, operators and a list of maths functions. Nothing is ever passed to `eval`.
 - **Demos** on cards run in a sandboxed frame with an opaque origin: no network, no cookies or storage, no access to Mneme.
-- **Shared pages** are checked against a schema before they're shown: colours must be plain hex values, pictures can only load from Imgur, and anything else is dropped.
+- **Shared pages** are checked against a schema before they're shown: colours must be plain hex values, pictures can only load from Mneme's own signed links, and anything else is dropped.
 
 ## Pictures
 
-Mneme doesn't store pictures. They're uploaded to Imgur without an account, and you agree to that the first time. Imgur's delete code for each picture stays in your account; it's removed from share links and never copied to the clipboard, so only you can delete your pictures.
+Pictures are stored in a private folder that only your account can open; the same per-user rules as the rest of your data apply. They're re-encoded first, which drops hidden details such as where a photo was taken. Your other devices download them with your sign-in.
+
+A share link can't use your folder, so sharing a page puts a signed link to each picture in the shared copy. Signed links work for a year; **Update to the current version** makes new ones. Stopping the share doesn't cancel links someone has already copied, so delete a picture if it must go.
 
 ## Your AI key (coming)
 

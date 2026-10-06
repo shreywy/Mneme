@@ -15,7 +15,7 @@ Mneme is **local-first**: the app always reads and writes your browser's own dat
 
 ## Storage
 
-Each account has **20 MB** of cloud space, which is a lot of text: a typical page with writing, plots and some drawing is 20–80 KB. Settings shows how much you've used. If you fill it, new changes stay on the device until you free some space, and deleting always works. Pictures don't count; they live on Imgur.
+Each account has **20 MB** of cloud space, which is a lot of text: a typical page with writing, plots and some drawing is 20–80 KB. Settings shows how much you've used. If you fill it, new changes stay on the device until you free some space, and deleting always works. Pictures have their own **50 MB**, so they never crowd out your writing.
 
 ## Recently deleted
 

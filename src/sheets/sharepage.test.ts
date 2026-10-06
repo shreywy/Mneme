@@ -31,6 +31,26 @@ describe('sharing a page', () => {
     expect(drawn.blocks[onBlock.block!]).toMatchObject({ x: 30, y: 4 })
   })
 
+  it('gives stored pictures their signed link, and never sends the path', async () => {
+    const path = '0f8fad5b-d9cb-469f-a165-70867728950e/7c9e6679-7425-40de-944b-e07fc1f90ae7.webp'
+    const link = `https://abcdefgh.supabase.co/storage/v1/object/sign/pictures/${path}?token=t`
+    const id = await sheets.createSheet()
+    await sheets.addBlock({ sheetId: id, x: 30, y: 4, w: 8, h: 2, kind: 'text', data: { doc: { type: 'doc', content: [{ type: 'image', attrs: { local: 'L', stored: path, src: null } }] } }, z: 1 })
+    const p = pagePayload((await sheets.getSheet(id))!, await sheets.blocksFor(id), [], false, { [path]: link })
+    const text = JSON.stringify(p)
+    expect(text).toContain(link)
+    expect(text).not.toContain(`"${path}"`)
+  })
+
+  it("drops picture links in someone else's page that point anywhere but Imgur or Mneme's own store", () => {
+    const pic = (attrs: object) => ({ x: 3, y: 2, w: 24, h: 4, kind: 'text', data: { doc: { type: 'doc', content: [{ type: 'image', attrs }] } } })
+    const p = parsePagePayload({ format: 'mneme.page', version: 1, title: 'T', paper: { lines: 'dots', spacing: 24, strength: 0.5, color: null, margin: false, paperColor: null }, ink: [],
+      blocks: [pic({ src: 'https://tracker.example/pixel.png', stored: 'someone/else.webp', local: 'x', hash: 'h' }), pic({ src: 'https://i.imgur.com/ok.png' })] })!
+    const attrs = (i: number) => (p.blocks[i].data.doc as { content: { attrs: Record<string, unknown> }[] }).content[0].attrs
+    expect(attrs(0)).toMatchObject({ src: null, stored: null, local: null, hash: null })
+    expect(attrs(1).src).toBe('https://i.imgur.com/ok.png')
+  })
+
   it('only opens payloads that look like a page', () => {
     expect(parsePagePayload({ format: 'mneme.page', version: 1, title: 'T', paper: {}, blocks: 'nope', ink: [] })).toBeNull()
     expect(parsePagePayload(null)).toBeNull()

@@ -52,7 +52,7 @@ Press **I** or **/**, or the **+** beside an empty line.
 
 ## Pictures
 
-Paste, drop or insert a picture. It's shrunk to 2000 px on its longest side and uploaded to Imgur (the first time, Mneme asks you to agree to that). Your page keeps only the link. Drag the corner to resize; add a caption and alt text. Deleting a picture deletes it from Imgur.
+Paste, drop or insert a picture. It's shrunk to 2000 px on its longest side and kept on your device. Signed in, it's also stored in your account's private picture folder, so it shows on your other devices too. Signed out, it stays on the device you added it on. Drag the corner to resize; add a caption and alt text. Deleting a picture deletes the stored copy as well.
 
 ## Pages layout and printing
 

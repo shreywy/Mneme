@@ -169,7 +169,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     history.record(c)
     await applyChange(c)
     select([])
-    for (const b of gone) for (const i of imagesIn(b.data.doc)) forgetLater(sheet.id, i.local, i.hash)
+    for (const b of gone) for (const i of imagesIn(b.data.doc)) forgetLater(i.local, i.hash, i.stored)
     const what = gone.length === 1 ? 'Block deleted' : gone.length ? `${gone.length} blocks deleted` : 'Drawing deleted'
     toast(what, list.length === 1 ? 'Ctrl+Z brings it back' : 'Ctrl+Z brings them back', 'trash')
   }, [history])

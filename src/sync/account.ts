@@ -5,6 +5,7 @@ import { useSettings } from '../settings/store'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, setOnDirty, SPECS } from './engine'
 import { enabledProviders, supabase, supabaseRemote } from './supabase'
 import { forgetProfile, loadProfile, removeAvatars } from './profile'
+import { removeAllPictures } from './pictures'
 import { forgetStorage, isStorageFull, loadStorage } from './storage'
 
 export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error' | 'full'
@@ -236,6 +237,7 @@ export async function clearAllDecks(): Promise<number> {
 export async function deleteAccount() {
   if (!supabase) return
   await removeAvatars()
+  await removeAllPictures()
   const { error } = await supabase.rpc('delete_my_account')
   if (error) throw new Error(error.code === '42501' ? 'Confirm with the emailed code again; it has expired.' : error.message)
   await forgetLocally('local')

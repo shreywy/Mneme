@@ -17,6 +17,8 @@ import { ReadView } from './ReadView'
 import { PrintView } from './Print'
 import { ShareDialog } from '../page/ShareDialog'
 import { pagePayload } from '../../sheets/sharepage'
+import { storedIn } from '../../sheets/image'
+import { signPictures } from '../../sync/pictures'
 import { PaperSettings } from './PaperSettings'
 import { readingOrder } from '../../sheets/order'
 import type { SheetBlock } from '../../sheets/types'
@@ -90,7 +92,7 @@ export function SheetPage() {
       </TopBar>
       {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} />}
       {dialog === 'share' && (
-        <ShareDialog kind="sheet" sourceId={sheet.id} title={sheet.title} onClose={() => setDialog(null)} payload={() => pagePayload(sheet, blocks, strokes, withInk)}>
+        <ShareDialog kind="sheet" sourceId={sheet.id} title={sheet.title} onClose={() => setDialog(null)} payload={async () => pagePayload(sheet, blocks, strokes, withInk, await signPictures(blocks.flatMap((b) => storedIn(b.data.doc))))}>
           {strokes.length > 0 && (
             <label className="confirm-check" style={{ marginTop: 14 }}>
               <input type="checkbox" checked={withInk} onChange={(e) => setWithInk(e.target.checked)} />

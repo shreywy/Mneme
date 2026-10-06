@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { publicDoc } from './image'
+import { isSafePictureUrl, publicDoc } from './image'
 import { readingOrder } from './order'
 import type { Paper, SheetBlock, SheetRow, SheetStroke } from './types'
 
-// A page as a share link carries it: no ids, no Imgur delete codes, and the drawing only if the owner
+// A page as a share link carries it: no ids, no picture paths or delete codes, and the drawing only if the owner
 // asked. Opening one treats it as someone else's data: everything is checked before it's shown.
 
 const colour = z.string().regex(/^#[0-9a-f]{3,8}$/i)
@@ -47,13 +47,13 @@ const PayloadSchema = z.object({
 })
 export type PagePayload = z.infer<typeof PayloadSchema>
 
-/** The shareable copy of a page. */
-export function pagePayload(sheet: SheetRow, blocks: SheetBlock[], strokes: SheetStroke[], withInk: boolean): PagePayload {
+/** The shareable copy of a page. `signed` maps each stored picture's path to its signed link. */
+export function pagePayload(sheet: SheetRow, blocks: SheetBlock[], strokes: SheetStroke[], withInk: boolean, signed: Record<string, string> = {}): PagePayload {
   const list = [...readingOrder(blocks.filter((b) => b.kind === 'text')), ...blocks.filter((b) => b.kind !== 'text')]
   const index = new Map(list.map((b, i) => [b.id, i]))
   return {
     format: 'mneme.page', version: 1, title: sheet.title, paper: sheet.paper,
-    blocks: list.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind, ...(b.role ? { role: b.role } : {}), data: { doc: publicDoc(b.data.doc), ...(b.data.label ? { label: b.data.label } : {}) } })),
+    blocks: list.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind, ...(b.role ? { role: b.role } : {}), data: { doc: publicDoc(b.data.doc, signed), ...(b.data.label ? { label: b.data.label } : {}) } })),
     ink: withInk
       ? strokes.filter((s) => !s.blockId || index.has(s.blockId)).map((s) => ({
         block: s.blockId ? index.get(s.blockId)! : null, tool: s.tool, color: s.color, size: s.size, pts: s.pts,
@@ -64,12 +64,13 @@ export function pagePayload(sheet: SheetRow, blocks: SheetBlock[], strokes: Shee
 }
 
 type Node = { type?: string; attrs?: Record<string, unknown>; content?: Node[] }
-/** Pictures in someone else's page only ever load from Imgur, so a shared page can't make your browser call anywhere else. */
+const SUPABASE = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? ''
+/** Pictures in someone else's page only load from Imgur or Mneme's own signed links, so a shared page can't make your browser call anywhere else. */
 function safeDoc(doc: unknown): unknown {
   const walk = (n: Node): Node => {
     if (n.type === 'image') {
-      const src = typeof n.attrs?.src === 'string' && /^https:\/\/i\.imgur\.com\/[A-Za-z0-9]+\.[a-z]+$/.test(n.attrs.src) ? n.attrs.src : null
-      return { ...n, attrs: { ...n.attrs, src, local: null, hash: null } }
+      const src = isSafePictureUrl(n.attrs?.src, SUPABASE) ? n.attrs.src : null
+      return { ...n, attrs: { ...n.attrs, src, local: null, hash: null, stored: null } }
     }
     return Array.isArray(n.content) ? { ...n, content: n.content.map(walk) } : n
   }

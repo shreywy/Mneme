@@ -238,6 +238,53 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
 insert into public.decks (id, doc) values ('deck-big', jsonb_build_object('title', repeat('x', 5000)));
 
+-- Pictures: A keeps one in A's folder. B can't see it, change it, or put files in A's folder.
+insert into storage.objects (bucket_id, name, metadata) values ('pictures', '00000000-0000-4000-8000-00000000000a/p1.webp', '{"size": 1000}');
+do $$
+declare n int;
+begin
+  select count(*) into n from storage.objects where bucket_id = 'pictures';
+  if n <> 1 then raise exception 'FAIL: A cannot see its own picture'; end if;
+  if public.picture_bytes() <> 1000 then raise exception 'FAIL: A''s pictures counted as % bytes', public.picture_bytes(); end if;
+end $$;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from storage.objects where bucket_id = 'pictures';
+  if n <> 0 then raise exception 'FAIL: B can see A''s pictures'; end if;
+  if public.picture_bytes() <> 0 then raise exception 'FAIL: A''s pictures count against B'; end if;
+  update storage.objects set name = '00000000-0000-4000-8000-00000000000b/stolen.webp' where bucket_id = 'pictures';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: B moved A''s picture'; end if;
+  begin
+    insert into storage.objects (bucket_id, name, metadata) values ('pictures', '00000000-0000-4000-8000-00000000000a/swap.webp', '{"size": 1}');
+    raise exception 'FAIL: B put a file in A''s picture folder';
+  exception when insufficient_privilege then null; -- expected
+  end;
+  begin
+    insert into storage.objects (bucket_id, name) values ('pictures', 'loose.webp');
+    raise exception 'FAIL: a picture outside any folder was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name) values ('pictures', '00000000-0000-4000-8000-00000000000b/a/deep.webp');
+    raise exception 'FAIL: a picture in a subfolder was accepted';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- A at the 50 MB allowance can't add more.
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+insert into storage.objects (bucket_id, name, metadata) values ('pictures', '00000000-0000-4000-8000-00000000000a/big.webp', '{"size": 52428800}');
+do $$
+begin
+  insert into storage.objects (bucket_id, name, metadata) values ('pictures', '00000000-0000-4000-8000-00000000000a/more.webp', '{"size": 10}');
+  raise exception 'FAIL: a picture past the allowance was accepted';
+exception when insufficient_privilege then null; -- expected
+end $$;
+
 -- B's session without an OTP sign-in in the last 10 minutes: refused.
 select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
   'amr', json_build_array(json_build_object('method', 'oauth', 'timestamp', extract(epoch from now())::bigint)))::text, true);

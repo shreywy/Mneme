@@ -43,9 +43,9 @@ const SECURITY = [
   ['Sandboxed demos', 'Interactive card demos run in an opaque-origin frame with no network, storage or access to the app.'],
   ['Unguessable share links', '144-bit ids, readable only through a function that takes the id; the table can’t be listed.'],
   ['Server-checked account deletion', 'Deleting an account needs an emailed code from the last ten minutes, enforced in the database.'],
-  ['Schema-checked shared pages', 'zod validation: hex-only colours, Imgur-only pictures, delete codes stripped.'],
+  ['Schema-checked shared pages', 'zod validation on open: hex-only colours, bounded sizes, and pictures only from Mneme’s own signed links.'],
   ['A storage cap per account', '20 MB counted by triggers; writes past it are refused, deletions always go through.'],
-  ['No trackers', 'No analytics or ad scripts, self-hosted fonts, and pictures only by consent.'],
+  ['Private pictures', 'A private bucket under the same per-user rules, with its own allowance. Shares carry signed links that expire. No trackers anywhere.'],
 ]
 
 const STACK = [

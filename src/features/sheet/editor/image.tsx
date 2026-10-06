@@ -4,7 +4,8 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { NodeViewWrapper, ReactNodeViewRenderer, type Editor, type NodeViewProps } from '@tiptap/react'
 import { addImage, forgetLater, imgurReady, localUrl, uploadImage, useUploads } from '../../../data/images'
-import { imageFiles } from '../../../sheets/image'
+import { imageFiles, isPicturePath } from '../../../sheets/image'
+import { useAccount } from '../../../sync/account'
 import { useSettings } from '../../../settings/store'
 import { askName, confirmAction } from '../../../ui/confirm'
 import { toast } from '../../../ui/toasts'
@@ -12,11 +13,12 @@ import { Icon } from '../../../ui/Icons'
 import { useSheetUI } from '../store'
 
 /**
- * The first picture on an account asks first: pictures are hosted on Imgur, where anyone with the exact
- * link can open them. Nothing uploads until that's agreed. Returns whether to go ahead.
+ * Signed out with Imgur set up, the first picture asks first: pictures would be hosted on Imgur, where
+ * anyone with the exact link can open them. Nothing uploads until that's agreed. Signed in, pictures go to
+ * your own private folder and nothing needs agreeing. Returns whether to go ahead.
  */
 export async function agreeToImgur(): Promise<boolean> {
-  if (!imgurReady() || useSettings.getState().imgurConsent) return true
+  if (!imgurReady() || useSettings.getState().imgurConsent || useAccount.getState().user) return true
   const ok = await confirmAction({
     title: 'Pictures are hosted on Imgur',
     body: 'Mneme doesn’t keep pictures on its own servers. Each one is uploaded to Imgur without an account, and your page keeps the link. The links are long and unlisted, but anyone who has the exact link can open the picture. Deleting a picture from your page deletes it from Imgur too.',
@@ -27,7 +29,7 @@ export async function agreeToImgur(): Promise<boolean> {
   return ok
 }
 
-/** Image nodes for picture files: shrunk, kept on this device, and sent up to Imgur in the background. */
+/** Image nodes for picture files: shrunk, kept on this device, and stored in your account in the background. */
 export async function imageNodes(files: File[], sheetId: string): Promise<object[]> {
   const pics = imageFiles(files)
   if (!pics.length) { toast('That isn’t a picture Mneme can use', 'PNG, JPEG, GIF, WebP and AVIF work', 'image'); return [] }
@@ -64,30 +66,32 @@ export async function insertImages(editor: Editor, files: File[], sheetId: strin
 const currentSheet = () => useSheetUI.getState().sheetId ?? ''
 
 function ImageView({ node, updateAttributes, deleteNode, editor, selected }: NodeViewProps) {
-  const a = node.attrs as { local: string | null; src: string | null; hash: string | null; width: number | null; ratio: number; alt: string; caption: string }
+  const a = node.attrs as { local: string | null; stored: string | null; src: string | null; hash: string | null; width: number | null; ratio: number; alt: string; caption: string }
   const [url, setUrl] = useState<string | null>(null)
   const [missing, setMissing] = useState(false)
   const status = useUploads((s) => (a.local ? s[a.local] : undefined))
   const consent = useSettings((s) => s.imgurConsent)
+  const signedIn = useAccount((s) => !!s.user)
+  const up = !!(a.src || a.stored)
   const editable = editor.isEditable
   const fig = useRef<HTMLDivElement>(null)
   const [boxW, setBoxW] = useState(0)
   const [ln, setLn] = useState(28)
 
-  // This device's copy if it has one (it's instant), otherwise the Imgur link.
+  // This device's copy if it has one (it's instant), then your stored copy (downloaded once), then the link.
   useEffect(() => {
     let live = true
     if (!a.local) { setUrl(a.src); return }
-    void localUrl(a.local).then((u) => { if (live) { setUrl(u ?? a.src); setMissing(!u && !a.src) } })
+    void localUrl(a.local, a.stored, currentSheet()).then((u) => { if (live) { setUrl(u ?? a.src); setMissing(!u && !a.src) } })
     return () => { live = false }
-  }, [a.local, a.src])
-  // A picture added offline, or before agreeing to Imgur, goes up as soon as it can.
+  }, [a.local, a.src, a.stored])
+  // A picture added offline, signed out, or before agreeing to Imgur goes up as soon as it can.
   const upload = async () => {
-    if (!a.local || a.src) return
+    if (!a.local || up) return
     const r = await uploadImage(a.local)
-    if (r && !editor.isDestroyed) updateAttributes({ src: r.url, hash: r.hash })
+    if (r && !editor.isDestroyed) updateAttributes(r)
   }
-  useEffect(() => { if (editable && !a.src && a.local && consent) void upload() }, [a.local, a.src, consent, editable]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (editable && !up && a.local && (signedIn || consent)) void upload() }, [a.local, up, consent, signedIn, editable]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     const el = fig.current
@@ -113,10 +117,14 @@ function ImageView({ node, updateAttributes, deleteNode, editor, selected }: Nod
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
   }
-  const remove = () => { deleteNode(); forgetLater(currentSheet(), a.local, a.hash) }
-  const note = !a.src && a.local
-    ? !imgurReady() ? 'On this device only' : !consent ? 'Not uploaded' : status === 'uploading' ? 'Uploading…' : status === 'failed' ? 'Upload failed' : 'Waiting to upload'
+  const remove = () => { deleteNode(); forgetLater(a.local, a.hash, a.stored) }
+  const askImgur = !signedIn && imgurReady() && !consent
+  const note = !up && a.local
+    ? status === 'uploading' ? 'Uploading…' : status === 'failed' ? 'Upload failed' : status === 'full' ? 'Picture space is full'
+      : signedIn ? 'Waiting to upload' : !imgurReady() ? 'On this device only' : !consent ? 'Not uploaded' : 'Waiting to upload'
     : null
+  const noteTip = status === 'full' ? 'Each account has 50 MB for pictures. Delete some to make room.'
+    : !signedIn && !imgurReady() ? 'Sign in to keep pictures with your account, on all your devices.' : ''
 
   return (
     <NodeViewWrapper className={`nv nv-img ${selected ? 'is-sel' : ''}`} data-drag-handle="">
@@ -124,13 +132,13 @@ function ImageView({ node, updateAttributes, deleteNode, editor, selected }: Nod
         <div className="nv-img-frame" style={{ width: width || undefined, height: Math.max(ln, Math.ceil(imgH / ln - 0.01) * ln) }}>
           {url && !missing
             ? <img src={url} alt={a.alt} draggable={false} style={{ width: '100%', height: imgH }} onError={() => setMissing(true)} />
-            : <div className="nv-img-missing" style={{ height: imgH }}><Icon name="image" size={20} /><span>{a.src ? 'The picture couldn’t be loaded' : 'This picture is on the device it was added on. It shows here once it’s uploaded.'}</span></div>}
+            : <div className="nv-img-missing" style={{ height: imgH }}><Icon name="image" size={20} /><span>{up ? 'The picture couldn’t be loaded' : 'This picture is on the device it was added on. It shows here once it’s uploaded.'}</span></div>}
           {editable && <span className="nv-img-resize nv-ui" onPointerDown={resize} title="Drag to resize" aria-hidden="true" />}
           {editable && (
             <div className="nv-img-bar nv-ui">
-              {note && (status === 'failed' || (!consent && imgurReady())
+              {note && (status === 'failed' || askImgur
                 ? <button type="button" onClick={async () => { if (await agreeToImgur()) void upload() }}><Icon name="upload" size={13} />{status === 'failed' ? 'Retry upload' : 'Upload'}</button>
-                : <span className="nv-img-note" title={imgurReady() ? '' : 'Pictures upload to Imgur once this build has an Imgur client id. Until then they stay in this browser.'}>{note}</span>)}
+                : <span className="nv-img-note" title={noteTip}>{note}</span>)}
               <button type="button" onClick={async () => { const alt = await askName({ title: 'Describe this picture', value: a.alt, confirm: 'Save' }); if (alt !== null) updateAttributes({ alt }) }}><Icon name="edit" size={13} />{a.alt ? 'Alt text' : 'Add alt text'}</button>
               <button type="button" className="danger" onClick={remove} aria-label="Delete picture"><Icon name="trash" size={13} /></button>
             </div>
@@ -144,12 +152,13 @@ function ImageView({ node, updateAttributes, deleteNode, editor, selected }: Nod
   )
 }
 
+type Ref = { local: string | null; hash: string | null; stored: string | null }
 const imagesOf = (doc: PMNode) => {
-  const out: { local: string | null; hash: string | null }[] = []
-  doc.descendants((n) => { if (n.type.name === 'image') out.push({ local: n.attrs.local, hash: n.attrs.hash }); return n.isBlock })
+  const out: Ref[] = []
+  doc.descendants((n) => { if (n.type.name === 'image') out.push({ local: n.attrs.local, hash: n.attrs.hash, stored: n.attrs.stored }); return n.isBlock })
   return out
 }
-const key = (i: { local: string | null; hash: string | null }) => i.local ?? i.hash ?? ''
+const key = (i: Ref) => i.local ?? i.stored ?? i.hash ?? ''
 
 /** A picture on a page (block-level). Only the link and a few settings are stored with the page. */
 export const ImageNode = Node.create({
@@ -159,6 +168,8 @@ export const ImageNode = Node.create({
   draggable: true,
   addAttributes: () => ({
     local: { default: null, parseHTML: (el) => el.getAttribute('data-local') },
+    // Path in your private picture folder; only you can open it.
+    stored: { default: null, parseHTML: (el) => { const s = el.getAttribute('data-stored'); return isPicturePath(s) ? s : null } },
     src: { default: null, parseHTML: (el) => { const s = el.getAttribute('data-src'); return s && /^https:\/\/i\.imgur\.com\//.test(s) ? s : null } },
     hash: { default: null, rendered: false },
     width: { default: null, parseHTML: (el) => Number(el.getAttribute('data-width')) || null },
@@ -168,13 +179,13 @@ export const ImageNode = Node.create({
   }),
   parseHTML: () => [{ tag: 'figure[data-image]' }],
   // The Imgur delete code never goes onto the clipboard.
-  renderHTML: ({ node }) => ['figure', { 'data-image': '', 'data-local': node.attrs.local ?? '', 'data-src': node.attrs.src ?? '', 'data-width': node.attrs.width ?? '', 'data-ratio': node.attrs.ratio, 'data-alt': node.attrs.alt, 'data-caption': node.attrs.caption },
+  renderHTML: ({ node }) => ['figure', { 'data-image': '', 'data-local': node.attrs.local ?? '', 'data-stored': node.attrs.stored ?? '', 'data-src': node.attrs.src ?? '', 'data-width': node.attrs.width ?? '', 'data-ratio': node.attrs.ratio, 'data-alt': node.attrs.alt, 'data-caption': node.attrs.caption },
     ['img', { src: node.attrs.src ?? '', alt: node.attrs.alt }]],
   addNodeView() {
     return ReactNodeViewRenderer(ImageView, { stopEvent: ({ event }) => !!(event.target as Element | null)?.closest?.('.nv-ui') })
   },
   addProseMirrorPlugins() {
-    // However a picture leaves the text (Backspace, cut, typing over it), it goes from Imgur once it's
+    // However a picture leaves the text (Backspace, cut, typing over it), it goes for good once it's
     // clear it isn't coming back.
     return [new Plugin({
       key: new PluginKey('imageCleanup'),
@@ -182,7 +193,7 @@ export const ImageNode = Node.create({
         update: (view, prev) => {
           if (prev.doc === view.state.doc || !view.editable) return
           const now = new Set(imagesOf(view.state.doc).map(key))
-          for (const i of imagesOf(prev.doc)) if (key(i) && !now.has(key(i))) forgetLater(currentSheet(), i.local, i.hash)
+          for (const i of imagesOf(prev.doc)) if (key(i) && !now.has(key(i))) forgetLater(i.local, i.hash, i.stored)
         },
       }),
     })]
