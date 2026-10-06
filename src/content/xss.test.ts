@@ -55,8 +55,8 @@ describe('untrusted text never becomes live markup', () => {
   })
 
   it.each(PAYLOADS)('deck and notes Markdown: %s', (p) => {
-    expect(dangers(renderToStaticMarkup(h(Markdown, null, p)))).toEqual([])
-    expect(dangers(renderToStaticMarkup(h(Markdown, { inline: true }, `Before ${p} after`)))).toEqual([])
+    expect(dangers(renderToStaticMarkup(h(Markdown, { children: p })))).toEqual([])
+    expect(dangers(renderToStaticMarkup(h(Markdown, { inline: true, children: `Before ${p} after` })))).toEqual([])
   })
 
   it.each(PAYLOADS.filter((p) => p.startsWith('$$')).map((p) => p.slice(2, -2)))('maths on a page (KaTeX HTML): %s', (tex) => {
