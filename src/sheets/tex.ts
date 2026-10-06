@@ -5,7 +5,7 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)}
 /** KaTeX's HTML for some LaTeX. If KaTeX gives up (it can still throw), the source is shown as plain text. */
 export function texHtml(latex: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(latex || '\\square', { throwOnError: false, displayMode, maxExpand: 200, maxSize: 50 })
+    return katex.renderToString(latex || '\\square', { throwOnError: false, displayMode, trust: false, maxExpand: 200, maxSize: 50 })
   } catch {
     return `<code>${escape(latex)}</code>`
   }
