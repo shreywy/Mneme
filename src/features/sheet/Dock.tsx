@@ -64,7 +64,7 @@ export function Dock() {
         ))}
         <i className="dk-sep" />
         <button className="dk" aria-label="Add a bookmark in the middle of the view" title="Bookmark this spot" onMouseDown={(e) => e.preventDefault()} onClick={() => void canvas?.addBookmark()}><Icon name="flag" size={18} /></button>
-        <button className={`dk dk-insert ${open ? 'on' : ''}`} title="Insert  I" onMouseDown={(e) => e.preventDefault()} onClick={() => useSheetUI.setState({ insertOpen: !open })}><Icon name="plus" size={16} />Insert</button>
+        <button className={`dk dk-insert ${open ? 'on' : ''}`} aria-label="Insert" title="Insert  I" onMouseDown={(e) => e.preventDefault()} onClick={() => useSheetUI.setState({ insertOpen: !open })}><Icon name="plus" size={16} /><span className="dk-label">Insert</span></button>
       </div>
       {open ? <InsertPanel /> : <InkBar />}
     </>

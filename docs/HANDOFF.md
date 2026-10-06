@@ -2,7 +2,7 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-06 (site polish, private pictures, the security list)._
+_Last updated 2026-10-06 (site polish, private pictures, the security list; then highlighter, bookmarks and the phone canvas)._
 
 ## Where we are
 
@@ -90,6 +90,9 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 - **Block kinds:** every insert (maths, table, code, plot…) is a node inside a text block's document. Canvas blocks are only `text` and `bookmark`.
 - **Grid:** each node's height rounds up to whole lines, so text stays on the paper's lines.
 - **Lines:** lines sit between rows, so text is centred in each row. Headings sit on the lower of their two rows.
+- **Highlighter straightening** reads the text's own line boxes (`textLineMid` in `src/sheets/ink.ts`), not the grid, because headings and resized text don't fill one row. No text under the stroke: the bar stays where it was drawn.
+- **Touch:** `fingers` in `Canvas.tsx` tracks every finger in the capture phase, so a second finger starts a pan/zoom (`pinchView` in `grid.ts`) even when the first landed on a block, which handles its own presses. A pen or mouse in use leaves it to palm rejection.
+- **Phone canvas** (`sheet.css`, end of file): the toolbar floats over the paper (an undo/redo pill when idle, the full bar while typing) so the page doesn't shift when you start typing. Buttons marked `wide` in `Toolbar.tsx` are hidden on phones; the `narrow` Style menu replaces Text/H1–H3.
 - **New inserts:** a just-inserted equation, plot or working opens its editor through a one-off `openToken` on the node, not through node selection. Node selection made ProseMirror steal focus back.
 - **Toolbar focus:** the toolbar keeps its block when focus goes "nowhere", which is what happens when a dropdown opens. It lets go when you click the paper or another block.
 - **Deleting:** deleting any deck, notes page or page goes to Recently deleted (Archive page) with an Undo toast. It's purged after 5 days.

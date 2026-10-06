@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAPER } from './types'
-import { blocksInRect, boundsOf, freeSpot, settle, cellAt, clampZoom, linesFor, paperStyle, snapUnits, toScreen, toWorld, zoomAt } from './grid'
+import { blocksInRect, boundsOf, freeSpot, settle, cellAt, clampZoom, linesFor, paperStyle, pinchView, snapUnits, toScreen, toWorld, zoomAt } from './grid'
 
 const v = { x: -100, y: 50, zoom: 2 }
 
@@ -37,6 +37,18 @@ describe('grid', () => {
     const w = toWorld(after, 300, 200)
     expect(w.x).toBeCloseTo(before.x)
     expect(w.y).toBeCloseTo(before.y)
+  })
+
+  it('two fingers dragged together pan the page, and spread apart zoom around their middle', () => {
+    const start = { x: 100, y: 50, zoom: 1 }
+    const a = { x: 100, y: 100 }, b = { x: 200, y: 100 }
+    const panned = pinchView(start, [a, b], [{ x: 150, y: 130 }, { x: 250, y: 130 }])
+    expect(panned).toEqual({ x: 50, y: 20, zoom: 1 })
+    const under = toWorld(start, 150, 100)
+    const zoomed = pinchView(start, [a, b], [{ x: 50, y: 100 }, { x: 250, y: 100 }])
+    expect(zoomed.zoom).toBe(2)
+    expect(toWorld(zoomed, 150, 100).x).toBeCloseTo(under.x)
+    expect(toWorld(zoomed, 150, 100).y).toBeCloseTo(under.y)
   })
 
   it('bounds cover blocks on both sides of the start', () => {

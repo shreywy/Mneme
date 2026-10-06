@@ -1,11 +1,13 @@
 # Pages
 
-A page is an endless sheet of paper for your own writing. It works best on a computer; on a phone it opens in **Read** view, where you can still tap a paragraph to edit it.
+A page is an endless sheet of paper for your own writing. On a phone it opens in **Read** view, where you can tap a paragraph to edit it; switch to **Canvas** to draw and move things around.
 
 ## The paper
 
 - Click anywhere to start writing there. Everything snaps to one grid, so text in blocks side by side shares the same lines.
 - **Pan** with the wheel, a trackpad, the middle mouse button, or Space + drag. **Zoom** with Ctrl + wheel or a pinch.
+- On a touch screen, one finger uses the tool you picked and **two fingers pan and zoom**, even when they start on text.
+- **Bookmarks** (the flag in the dock) mark a spot you can jump to from **Contents**. Drag one to move it. Click it to rename it or change its colour.
 - **Recenter page** takes you back to where the page starts. The map in the corner shows everything on the page; click it to jump.
 - **Page settings → Paper**: lines (none, ruled, dots, squares), spacing, line strength and colour, a red margin line, paper colour, light or dark for this page only, and the font. Save it as the start for new pages.
 
@@ -41,7 +43,7 @@ Press **I** or **/**, or the **+** beside an empty line.
 | Key | Tool |
 |---|---|
 | **P** | Pen: three colours, thickness, pressure and smoothing |
-| **M** | Highlighter: goes behind the text, and a stroke along a line straightens onto it |
+| **M** | Highlighter: goes behind the text, and a sideways stroke straightens onto the line of text it went over |
 | **E** | Eraser: whole strokes, or rub out just part of one |
 | **L** | Lasso: select drawing and blocks to move, copy, recolour or delete |
 | **T** / **V** / **H** | Back to typing / select / move around |

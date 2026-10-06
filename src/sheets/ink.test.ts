@@ -52,13 +52,18 @@ describe('anchoring', () => {
 })
 
 describe('highlighter', () => {
-  it('straightens a wobbly sideways stroke onto its line', () => {
-    const out = straightenHighlight(line(30, 40, 200, 43, 30, 3), 28)!
+  it('straightens a wobbly sideways stroke onto the line of text it was drawn over', () => {
+    const out = straightenHighlight(line(30, 40, 200, 43, 30, 3), 28, 47)!
     expect(out).toHaveLength(2)
-    expect(out[0][1]).toBe(42)
-    expect(out[1][1]).toBe(42)
+    expect(out[0][1]).toBe(47)
+    expect(out[1][1]).toBe(47)
     expect(out[0][0]).toBeCloseTo(30, 0)
     expect(out[1][0]).toBeCloseTo(200, 0)
+  })
+  it('keeps the bar where it was drawn when there is no text under it, not on a grid row', () => {
+    // Drawn across a grid line (28): the bar stays at about 29, not in the middle of a row (42 or 14).
+    const out = straightenHighlight(line(30, 27, 200, 31, 30, 1), 28)!
+    expect(out[0][1]).toBeCloseTo(29, 0)
   })
   it('leaves strokes that are not along a line alone', () => {
     expect(straightenHighlight(line(30, 40, 60, 160), 28)).toBeNull()

@@ -57,8 +57,8 @@ export type SheetBlock = {
   kind: 'text' | 'bookmark'
   /** The page's main column: never removed when emptied. */
   role?: 'main'
-  /** `label` names a bookmark; `group` and `name` tie a saved block to its group in My blocks. */
-  data: { doc: unknown; label?: string; group?: string; name?: string }
+  /** `label` and `color` (hex) name and mark a bookmark; `group` and `name` tie a saved block to its group in My blocks. */
+  data: { doc: unknown; label?: string; color?: string; group?: string; name?: string }
   z: number
   createdAt: number
   updatedAt: number

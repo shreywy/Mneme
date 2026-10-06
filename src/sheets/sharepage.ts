@@ -26,7 +26,7 @@ const BlockSchema = z.object({
   x: cell, y: cell, w: z.number().int().min(1).max(400), h: z.number().int().min(1).max(20_000),
   kind: z.enum(['text', 'bookmark']),
   role: z.literal('main').optional(),
-  data: z.object({ doc: z.unknown(), label: z.string().max(200).optional() }),
+  data: z.object({ doc: z.unknown(), label: z.string().max(200).optional(), color: colour.optional().catch(undefined) }),
 })
 const StrokeSchema = z.object({
   block: z.number().int().min(0).nullable(),
@@ -53,7 +53,7 @@ export function pagePayload(sheet: SheetRow, blocks: SheetBlock[], strokes: Shee
   const index = new Map(list.map((b, i) => [b.id, i]))
   return {
     format: 'mneme.page', version: 1, title: sheet.title, paper: sheet.paper,
-    blocks: list.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind, ...(b.role ? { role: b.role } : {}), data: { doc: publicDoc(b.data.doc, signed), ...(b.data.label ? { label: b.data.label } : {}) } })),
+    blocks: list.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind, ...(b.role ? { role: b.role } : {}), data: { doc: publicDoc(b.data.doc, signed), ...(b.data.label ? { label: b.data.label } : {}), ...(b.data.color ? { color: b.data.color } : {}) } })),
     ink: withInk
       ? strokes.filter((s) => !s.blockId || index.has(s.blockId)).map((s) => ({
         block: s.blockId ? index.get(s.blockId)! : null, tool: s.tool, color: s.color, size: s.size, pts: s.pts,

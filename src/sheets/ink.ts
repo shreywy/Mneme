@@ -64,15 +64,33 @@ export function anchorFor(pts: Pt[], rects: (Rect & { id: string })[]): string |
 }
 
 /**
- * A highlighter stroke along a line of text becomes a straight bar through the middle of that line.
- * Strokes that go up or down the page (circling, underlining a block) are left as drawn.
+ * A sideways highlighter stroke becomes a straight bar: through `textMid` (the middle of the line of text
+ * it was drawn over, when there is one), otherwise where it was drawn. Strokes that go up or down the page
+ * (circling, underlining a block) are left as drawn.
  */
-export function straightenHighlight(pts: Pt[], unit: number): Pt[] | null {
+export function straightenHighlight(pts: Pt[], unit: number, textMid?: number | null): Pt[] | null {
   const b = strokeBounds(pts)
   if (pts.length < 2 || b.h > unit * 0.9 || b.w < Math.max(unit * 0.5, b.h * 2)) return null
-  const mean = pts.reduce((s, p) => s + p[1], 0) / pts.length
-  const mid = (Math.floor(mean / unit) + 0.5) * unit
+  const mid = textMid ?? pts.reduce((s, p) => s + p[1], 0) / pts.length
   return [[b.x, mid, 0.5], [b.x + b.w, mid, 0.5]]
+}
+
+/**
+ * The middle (client px) of the line of text inside `root` at height `y` that overlaps x0..x1, or null.
+ * Reads the text's own line boxes, so it works for any font size (a heading isn't one grid row tall).
+ */
+export function textLineMid(root: Element, x0: number, x1: number, y: number): number | null {
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const range = document.createRange()
+  let top = Infinity, bottom = -Infinity
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    if (!n.textContent?.trim()) continue
+    range.selectNodeContents(n)
+    for (const r of range.getClientRects()) {
+      if (y >= r.top && y <= r.bottom && r.right > x0 && r.left < x1) { top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom) }
+    }
+  }
+  return top < bottom ? (top + bottom) / 2 : null
 }
 
 const dist = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1])

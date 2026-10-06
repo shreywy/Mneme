@@ -37,6 +37,16 @@ describe('history', () => {
     expect(h.canUndo()).toBe(false)
   })
 
+  it("undoing a bookmark's rename or new colour puts the old ones back", async () => {
+    const sheetId = await sheets.createSheet()
+    const before = await sheets.addBlock({ sheetId, x: 4, y: 4, w: 1, h: 1, kind: 'bookmark', data: { doc: null, label: 'Old' }, z: 1 })
+    const after = { ...before, data: { ...before.data, label: 'New', color: '#3D6FB6' } }
+    await applyChange({ kind: 'update', before, after })
+    expect((await sheets.getBlock(before.id))?.data).toMatchObject({ label: 'New', color: '#3D6FB6' })
+    await applyChange({ kind: 'update', before: after, after: before })
+    expect((await sheets.getBlock(before.id))?.data).toEqual({ doc: null, label: 'Old' })
+  })
+
   it('undoing a move keeps text typed after the move', async () => {
     const id = await sheets.createSheet()
     const b = await sheets.addBlock({ sheetId: id, x: 30, y: 2, w: 10, h: 1, kind: 'text', data: { doc: 'old' }, z: 1 })

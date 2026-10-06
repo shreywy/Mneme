@@ -29,6 +29,19 @@ export function zoomAt(v: View, sx: number, sy: number, factor: number): View {
   return { zoom, x: w.x - sx / zoom, y: w.y - sy / zoom }
 }
 
+type XY = { x: number; y: number }
+/**
+ * Two fingers moved from `from` to `to` (screen px, relative to the canvas): the page under the point
+ * between them at the start stays under that point now (a pan), scaled by how far they spread (a zoom).
+ */
+export function pinchView(start: View, from: [XY, XY], to: [XY, XY]): View {
+  const mid = (p: [XY, XY]) => ({ x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 })
+  const gap = (p: [XY, XY]) => Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1
+  const m0 = mid(from), m1 = mid(to), w = toWorld(start, m0.x, m0.y)
+  const zoom = clampZoom(start.zoom * gap(to) / gap(from))
+  return { zoom, x: w.x - m1.x / zoom, y: w.y - m1.y / zoom }
+}
+
 export function boundsOf(blocks: { x: number; y: number; w: number; h: number }[]) {
   if (!blocks.length) return null
   const x = Math.min(...blocks.map((b) => b.x)), y = Math.min(...blocks.map((b) => b.y))

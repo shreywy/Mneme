@@ -12,7 +12,7 @@ import { Seg } from '../../ui/controls'
 import { DropMenu } from '../../ui/DropMenu'
 import { toast } from '../../ui/toasts'
 import { PageSettings } from '../page/PageSettings'
-import { Canvas } from './Canvas'
+import { Canvas, markColor } from './Canvas'
 import { ReadView } from './ReadView'
 import { PrintView } from './Print'
 import { ShareDialog } from '../page/ShareDialog'
@@ -142,7 +142,7 @@ function Contents({ blocks, unit, mode }: { blocks: SheetBlock[]; unit: number; 
         {entries.map((e) => <button key={e.key} role="menuitem" className={`lv${e.level}`} onClick={() => { close(); go(e.block, e.index) }}>{e.label}</button>)}
         {marks.length > 0 && <>
           {entries.length > 0 && <div className="ctx-sep" role="separator" />}
-          {marks.map((m) => <button key={m.id} role="menuitem" onClick={() => { close(); go(m) }}><Icon name="flag" size={14} />{m.data.label}</button>)}
+          {marks.map((m) => <button key={m.id} role="menuitem" onClick={() => { close(); go(m) }}><span className="mark-flag" style={{ color: markColor(m) }}><Icon name="flag" size={14} /></span>{m.data.label}</button>)}
         </>}
       </div>}
     </DropMenu>

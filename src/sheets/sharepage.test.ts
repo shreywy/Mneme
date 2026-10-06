@@ -51,6 +51,16 @@ describe('sharing a page', () => {
     expect(attrs(1).src).toBe('https://i.imgur.com/ok.png')
   })
 
+  it("keeps a bookmark's colour, but only as plain hex", async () => {
+    const id = await sheets.createSheet()
+    await sheets.addBlock({ sheetId: id, x: 40, y: 8, w: 1, h: 1, kind: 'bookmark', data: { doc: null, label: 'Exam', color: '#3D6FB6' }, z: 1 })
+    const p = pagePayload((await sheets.getSheet(id))!, await sheets.blocksFor(id), [], false)
+    expect(p.blocks.find((b) => b.kind === 'bookmark')?.data).toMatchObject({ label: 'Exam', color: '#3D6FB6' })
+    const back = parsePagePayload({ ...p, blocks: [...p.blocks, { x: 1, y: 1, w: 1, h: 1, kind: 'bookmark', data: { doc: null, label: 'x', color: 'red;background:url(//x)' } }] })!
+    expect(back.blocks.at(-1)?.data.color).toBeUndefined()
+    expect(back.blocks.find((b) => b.data.label === 'Exam')?.data.color).toBe('#3D6FB6')
+  })
+
   it('only opens payloads that look like a page', () => {
     expect(parsePagePayload({ format: 'mneme.page', version: 1, title: 'T', paper: {}, blocks: 'nope', ink: [] })).toBeNull()
     expect(parsePagePayload(null)).toBeNull()

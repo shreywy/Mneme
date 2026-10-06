@@ -3,9 +3,9 @@ import * as sheets from '../../data/sheets'
 import * as inkData from '../../data/ink'
 import { forgetLater, imagesIn } from '../../data/images'
 import { imageNodes } from './editor/image'
-import { anchorFor, distToStroke, encodePoints, insidePolygon, lassoPicks, recogniseShape, rubOut, shiftPoints, straightenHighlight, strokeBounds, type Pt } from '../../sheets/ink'
+import { anchorFor, distToStroke, encodePoints, insidePolygon, lassoPicks, recogniseShape, rubOut, shiftPoints, straightenHighlight, strokeBounds, textLineMid, type Pt } from '../../sheets/ink'
 import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
-import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
+import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, pinchView, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
 import { titleFrom } from '../../sheets/order'
 import { pageCount, pageLines, sheetFrame } from '../../sheets/pages'
@@ -38,11 +38,27 @@ function loadView(id: string): View {
   try { return { ...START, ...JSON.parse(localStorage.getItem(viewKey(id)) ?? '{}') } } catch { return START }
 }
 const EMPTY_PARAGRAPH = { type: 'doc', content: [{ type: 'paragraph' }] }
+/** Bookmark colours; the first is the default. */
+export const MARK_COLORS = [
+  { label: 'Orange', value: '#C8742C' }, { label: 'Red', value: '#C2412D' }, { label: 'Green', value: '#3F7A3A' },
+  { label: 'Blue', value: '#3D6FB6' }, { label: 'Purple', value: '#7A55B0' }, { label: 'Grey', value: '#8A867C' },
+]
+export const markColor = (b: SheetBlock) => b.data.color ?? MARK_COLORS[0].value
+
+/** A row of bookmark colours, the current one ringed. */
+function MarkColors({ current, onPick }: { current: string; onPick: (c: string) => void }) {
+  return (
+    <span className="mark-colors" role="group" aria-label="Bookmark colour">
+      {MARK_COLORS.map((c) => <button key={c.value} className={`ink-swatch sm ${current === c.value ? 'on' : ''}`} style={{ '--c': c.value } as React.CSSProperties} aria-label={c.label} aria-pressed={current === c.value} title={c.label} onClick={() => onPick(c.value)} />)}
+    </span>
+  )
+}
 
 type Gesture =
   | { kind: 'pan'; sx: number; sy: number; moved: boolean; wasEditing: boolean; click: boolean }
   | { kind: 'box'; a: { x: number; y: number }; b: { x: number; y: number } }
-  | { kind: 'pinch'; dist: number; zoom: number }
+  /** Two fingers: the view and where they were (canvas px) when the second one landed. */
+  | { kind: 'pinch'; view: View; from: [{ x: number; y: number }, { x: number; y: number }] }
   | { kind: 'draw' }
   /** Strokes as they stand during this rub (`work`), the ones it removed that existed before, and the pieces it made. */
   | { kind: 'erase'; work: Map<string, SheetStroke>; before: Map<string, SheetStroke>; added: Map<string, SheetStroke>; writes: Promise<void> }
@@ -109,6 +125,9 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   const history = useMemo(() => createHistory(), [sheet.id])
   const host = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
+  /** Every finger on the canvas, on the paper or on a block. */
+  const fingers = useRef(new Map<number, { x: number; y: number }>())
+  const firstFinger = useRef(0)
   // Latest values for listeners that are attached once.
   const live = useRef({ blocks, selected, view, size, shown, strokes, selInk, spots, prefs })
   live.current = { blocks, selected, view, size, shown, strokes, selInk, spots, prefs }
@@ -259,7 +278,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       else if (e.key === 'Escape') { select([]); if (draftRef.current) cancelInk() }
     }
     const onUp = (e: KeyboardEvent) => { if (e.key === ' ') setSpace(false) }
-    const onBlur = () => { setSpace(false); pointers.current.clear(); setGesture(null) }
+    const onBlur = () => { setSpace(false); pointers.current.clear(); fingers.current.clear(); setGesture(null) }
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onUp)
     window.addEventListener('blur', onBlur)
@@ -304,7 +323,13 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       void removeSelection(new Set([b.id]))
     }
   }
-  const renameMark = async (b: SheetBlock) => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label) await sheets.updateBlock(b.id, { data: { ...b.data, label } }) }
+  /** A new name or colour for a bookmark (one undo puts it back). */
+  const editMark = (b: SheetBlock, patch: { label?: string; color?: string }) => {
+    const after = { ...b, data: { ...b.data, ...patch } }
+    history.record({ kind: 'update', before: b, after })
+    return sheets.updateBlock(b.id, { data: after.data })
+  }
+  const renameMark = async (b: SheetBlock) => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label && label !== b.data.label) await editMark(b, { label }) }
   const toFront = (b: SheetBlock) => sheets.updateBlock(b.id, { z: nextZ() })
   const toBack = (b: SheetBlock) => sheets.updateBlock(b.id, { z: Math.min(0, ...live.current.blocks.map((x) => x.z)) - 1 })
 
@@ -320,7 +345,8 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     const b = el && live.current.blocks.find((x) => x.id === el.dataset.blockId)
     if (b?.kind === 'bookmark') {
       return [
-        { label: 'Rename bookmark…', icon: 'edit', onSelect: async () => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label) await sheets.updateBlock(b.id, { data: { ...b.data, label } }) } },
+        { key: 'colors', custom: (close) => <MarkColors current={markColor(b)} onPick={(color) => { close(); void editMark(b, { color }) }} /> },
+        { label: 'Rename bookmark…', icon: 'edit', onSelect: () => renameMark(b) },
         { label: 'Delete bookmark', icon: 'trash', danger: true, onSelect: () => removeBlocks(new Set([b.id])) },
       ]
     }
@@ -354,7 +380,8 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   })
 
   // Empty paper. Typing tool: drag pans, click starts a text block. Select tool: drag draws a selection box.
-  // Pan tool, Space + drag, middle-drag and one finger all pan. Two fingers pinch. Shift + drag always selects.
+  // Pan tool, Space + drag and middle-drag pan. One finger uses the tool; two fingers pan and pinch-zoom.
+  // Shift + drag always selects.
   const onPointerDown = (e: React.PointerEvent) => {
     useSheetUI.setState({ editor: null }) // the toolbar lets go of the block you were in
     const mouse = e.pointerType === 'mouse'
@@ -373,14 +400,10 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       taps.current = pointers.current.size === 1 ? { t: now, n: 1, moved: false } : { ...taps.current, n: now - taps.current.t < 250 ? pointers.current.size : 0 }
     }
     const panOnly = (mouse && e.button === 1) || space || tool === 'pan' || fingerPans
-    if (pointers.current.size === 2) {
-      // A second finger means pinch: a stroke the first one started is dropped.
-      if (draftRef.current) cancelInk()
-      const [a, b] = [...pointers.current.values()]
-      setGesture({ kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: view.zoom })
-    } else if (inking && !panOnly) {
+    if (pointers.current.size === 2) startPinch()
+    else if (inking && !panOnly) {
       startInk(e)
-    } else if (!panOnly && e.pointerType !== 'touch' && (e.shiftKey || tool === 'select')) {
+    } else if (!panOnly && (e.shiftKey || tool === 'select')) {
       const p = local(e), w = toWorld(view, p.x, p.y)
       setGesture({ kind: 'box', a: w, b: w })
     } else {
@@ -389,6 +412,31 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       setGesture({ kind: 'pan', sx: e.clientX, sy: e.clientY, moved: false, wasEditing: active instanceof HTMLElement && !!active.closest('.sblock'), click: !panOnly && tool === 'text' })
     }
   }
+  /** A second finger: the two pan and zoom the page. A stroke the first one started is dropped. */
+  const startPinch = () => {
+    if (draftRef.current) cancelInk()
+    setLasso(null)
+    const [a, b] = [...pointers.current.values()]
+    setGesture({ kind: 'pinch', view, from: [local({ clientX: a.x, clientY: a.y }), local({ clientX: b.x, clientY: b.y })] })
+  }
+  // Fingers on text count too: on a phone the main column covers most of the screen, so a finger that
+  // landed on a block (which handles its own presses) still makes a two-finger pan when a second one lands.
+  const onTouchDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    if (!fingers.current.size) firstFinger.current = performance.now()
+    fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (fingers.current.size !== 2) return
+    // A pen or mouse in use: palm rejection in onPointerDown decides.
+    if ([...pointers.current.keys()].some((id) => !fingers.current.has(id))) return
+    e.preventDefault()
+    e.stopPropagation()
+    pointers.current = new Map(fingers.current)
+    for (const id of fingers.current.keys()) { try { host.current!.setPointerCapture(id) } catch { /* gone already */ } }
+    // Both down at once is a two-finger tap (undo) if they lift without moving.
+    taps.current = { t: firstFinger.current, n: performance.now() - firstFinger.current < 250 ? 2 : 0, moved: false }
+    startPinch()
+  }
+  const onTouchUpCapture = (e: React.PointerEvent) => { if (e.pointerType === 'touch') fingers.current.delete(e.pointerId) }
   const onPointerMove = (e: React.PointerEvent) => {
     if (tool === 'eraser' && e.pointerType !== 'touch') { const p = local(e); setEraserAt(toWorld(view, p.x, p.y)) }
     const prev = pointers.current.get(e.pointerId)
@@ -400,9 +448,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     if (gesture.kind === 'lasso') { const p = local(e), w = toWorld(view, p.x, p.y); setLasso((l) => (l ? [...l, [w.x, w.y]] : l)); return }
     if (gesture.kind === 'pinch' && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
-      const mid = local({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 })
-      const target = gesture.zoom * Math.hypot(a.x - b.x, a.y - b.y) / gesture.dist
-      setView((v) => zoomAt(v, mid.x, mid.y, target / v.zoom))
+      setView(pinchView(gesture.view, gesture.from, [local({ clientX: a.x, clientY: a.y }), local({ clientX: b.x, clientY: b.y })]))
     } else if (gesture.kind === 'box') {
       const p = local(e)
       setGesture({ ...gesture, b: toWorld(view, p.x, p.y) })
@@ -498,6 +544,18 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     setDraft(n)
     if (Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > 3) armHold(e.clientX, e.clientY, e.altKey)
   }
+  /** The middle (world y) of the line of text a highlighter stroke went over, if any. */
+  const highlightedLine = (pts: Pt[]) => {
+    const r = host.current?.getBoundingClientRect()
+    if (!r) return null
+    const b = strokeBounds(pts), my = pts.reduce((s, p) => s + p[1], 0) / pts.length
+    const a = toScreen(view, b.x, my), z = toScreen(view, b.x + b.w, my)
+    for (const el of host.current!.querySelectorAll('.sblock .ProseMirror')) {
+      const mid = textLineMid(el, r.left + a.x, r.left + z.x, r.top + a.y)
+      if (mid !== null) return toWorld(view, 0, mid - r.top).y
+    }
+    return null
+  }
   /** Saves the stroke: a highlighter along a line straightens onto it; one drawn mostly over a block is pinned to it. */
   const finishDraw = async () => {
     clearTimeout(hold.current.timer)
@@ -505,7 +563,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     draftRef.current = null
     if (!d) return
     let pts = d.pts, shape = d.shape
-    if (d.tool === 'highlighter' && !shape) { const st = straightenHighlight(pts, unit); if (st) { pts = st; shape = true } }
+    if (d.tool === 'highlighter' && !shape) { const st = straightenHighlight(pts, unit, highlightedLine(pts)); if (st) { pts = st; shape = true } }
     if (d.tool === 'highlighter' && pts.length < 2) { setDraft(null); return }
     const rects = live.current.shown.filter((b) => b.kind === 'text').map((b) => ({ id: b.id, x: b.x * unit, y: b.y * unit, w: b.w * unit, h: b.h * unit }))
     const blockId = anchorFor(pts, rects)
@@ -627,11 +685,17 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       last = ev
       if (!frame) frame = requestAnimationFrame(place)
     }
-    const up = (ev: PointerEvent) => {
-      if (frame) { cancelAnimationFrame(frame); place() }
+    // A second finger takes the pointer for a pan: keep what was moved, or just stop.
+    const lost = (ev: PointerEvent) => { if (moved) up(ev); else stop() }
+    const stop = () => {
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', up)
       el.removeEventListener('pointercancel', up)
+      el.removeEventListener('lostpointercapture', lost)
+    }
+    const up = (ev: PointerEvent) => {
+      if (frame) { cancelAnimationFrame(frame); place() }
+      stop()
       if (!moved && b && what === 'move') {
         ;(document.activeElement as HTMLElement | null)?.blur?.()
         setSelected((s) => {
@@ -668,6 +732,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
     el.addEventListener('pointercancel', up)
+    el.addEventListener('lostpointercapture', lost)
   }
 
   // Insert tiles and My blocks dropped on the paper land in the cell under the pointer.
@@ -710,6 +775,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   const selCount = selected.size + selInk.size
   const sel = selCount ? boundsOf([...shown.filter((b) => selected.has(b.id)), ...inkBoxes]) : null
   const many = selCount > 1
+  const selMark = selCount === 1 && selected.size === 1 ? shown.find((b) => selected.has(b.id) && b.kind === 'bookmark') : undefined
   const panning = (gesture?.kind === 'pan' && gesture.moved) || gesture?.kind === 'pinch'
   const inking = isInkTool(tool) && !space
   const cursor = panning ? 'panning' : space || tool === 'pan' ? 'can-pan' : tool === 'select' ? 'can-select' : inking ? `inking ink-${tool}` : ''
@@ -718,6 +784,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       <Toolbar mainBlockId={main?.id} />
       <div className={`sheet-host ${cursor} ${theme}`} ref={host}
         style={{ ...(paged ? { backgroundColor: 'var(--desk)' } : paperStyle(sheet.paper, view)), '--page-font': fontCss(sheet.paper.font) } as React.CSSProperties}
+        onPointerDownCapture={onTouchDownCapture} onPointerUpCapture={onTouchUpCapture} onPointerCancelCapture={onTouchUpCapture}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
         onPointerLeave={() => setEraserAt(null)}
@@ -727,10 +794,10 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
           <div className="sheet-origin" aria-hidden="true" />
           {paged && mainShown && <Sheets main={mainShown} paper={sheet.paper} unit={unit} />}
           {blocks.map((b) => { const at = placed[b.id] ?? b; return b.kind === 'bookmark' ? (
-            <div key={b.id} data-block-id={b.id} className={`sbookmark ${selected.has(b.id) ? 'selected' : ''}`} style={{ left: at.x * unit, top: at.y * unit, height: unit, zIndex: b.z }}
+            <div key={b.id} data-block-id={b.id} className={`sbookmark ${selected.has(b.id) ? 'selected' : ''}`} style={{ left: at.x * unit, top: at.y * unit, height: unit, zIndex: b.z, '--mark': markColor(b) } as React.CSSProperties}
               onPointerDown={startDrag(b, 'move')} onDoubleClick={() => void renameMark(b)}
               tabIndex={0} role="button" aria-label={`Bookmark: ${b.data.label}. Enter renames, arrows move it, Delete removes it.`} onKeyDown={keyMove(b, () => void renameMark(b))}
-              title="Drag to move, double-click to rename">
+              title="Drag to move. Click for its name and colour">
               <Icon name="flag" size={14} /><span>{b.data.label}</span>
             </div>
           ) : (
@@ -751,13 +818,17 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
           <InkLayer strokes={strokes} blocks={spots} unit={unit} selected={selInk} shift={inkShift} draft={draft} lasso={lasso}
             eraser={tool === 'eraser' && eraserAt ? { ...eraserAt, r: prefs.eraserSize / 2 / view.zoom } : null} />
           {sel && (
-            <div className={`sheet-sel ${many ? 'many' : ''}`} style={{ left: sel.x * unit - 6, top: sel.y * unit - 6, width: sel.w * unit + 12, height: sel.h * unit + 12 }}
+            <div className={`sheet-sel ${many ? 'many' : ''} ${selMark ? 'mark' : ''}`} style={{ left: sel.x * unit - 6, top: sel.y * unit - 6, width: sel.w * unit + 12, height: sel.h * unit + 12 }}
               onPointerDown={startDrag(null, 'move')} title="Drag to move · click to edit">
               {(many || !selected.size) && <button className="sel-grip" aria-label={`Move the ${selCount} selected things`} title="Drag to move them all" onPointerDown={startDrag(null, 'move')}><Icon name="grid" size={13} /></button>}
               <div className="sel-bar" onPointerDown={(e) => e.stopPropagation()} style={{ transform: `scale(${1 / view.zoom})` }}>
-                <span className="n">{many ? `${selCount} selected` : 'Selected'}</span>
-                <button onClick={() => duplicate(selected, selInk)} title="Duplicate  Ctrl+D"><Icon name="copy" size={14} />Duplicate</button>
-                {selected.size > 0 && <button onClick={() => saveAsMine(selected)} title="Save to My blocks (with what's drawn on them)"><Icon name="star" size={14} />Save</button>}
+                <span className="n">{many ? `${selCount} selected` : selMark ? 'Bookmark' : 'Selected'}</span>
+                {selMark && <>
+                  <button onClick={() => void renameMark(selMark)} title="Rename  Enter"><Icon name="edit" size={14} />Rename</button>
+                  <MarkColors current={markColor(selMark)} onPick={(color) => void editMark(selMark, { color })} />
+                </>}
+                {!selMark && <button onClick={() => duplicate(selected, selInk)} title="Duplicate  Ctrl+D"><Icon name="copy" size={14} />Duplicate</button>}
+                {selected.size > 0 && !selMark && <button onClick={() => saveAsMine(selected)} title="Save to My blocks (with what's drawn on them)"><Icon name="star" size={14} />Save</button>}
                 {selInk.size > 0 && (
                   <span className="sel-colors" role="group" aria-label="Colour">
                     {[...new Set([...prefs.pens, ...HIGHLIGHTERS])].map((c) => <button key={c} className="ink-swatch sm" style={{ '--c': inkColor(c) } as React.CSSProperties} aria-label={`Colour ${c === 'ink' ? 'like the text' : c}`} onClick={() => void recolor(c)} />)}
@@ -773,7 +844,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
         {box && <div className="sheet-box" style={{ left: Math.min(box.a.x, box.b.x), top: Math.min(box.a.y, box.b.y), width: Math.abs(box.a.x - box.b.x), height: Math.abs(box.a.y - box.b.y) }} />}
       </div>
       <div className="sheet-zoom">
-        <button className="btn sm" onClick={() => setView(START)} title="Back to where the page starts, at 100%"><Icon name="reset" size={14} />Recenter page</button>
+        <button className="btn sm" onClick={() => setView(START)} aria-label="Recenter page" title="Back to where the page starts, at 100%"><Icon name="reset" size={14} /><span className="zl">Recenter page</span></button>
         <div className="zoomctl">
           <button aria-label="Zoom out" onClick={() => zoomBy(1 / 1.25)}>−</button>
           <button className="pct" onClick={() => zoomBy(1 / view.zoom)} title="Back to 100%">{Math.round(view.zoom * 100)}%</button>
@@ -822,7 +893,7 @@ function Minimap({ blocks, unit, view, size, onJump }: { blocks: SheetBlock[]; u
       onJump(((e.clientX - r.left - pad) / k + b.x) * unit, ((e.clientY - r.top - pad) / k + b.y) * unit)
     }}>
       {blocks.map((bl) => bl.kind === 'bookmark'
-        ? <b key={bl.id} className="mm-mark" style={at(bl.x, bl.y)} title={bl.data.label} />
+        ? <b key={bl.id} className="mm-mark" style={{ ...at(bl.x, bl.y), background: markColor(bl) }} title={bl.data.label} />
         : <i key={bl.id} style={{ ...at(bl.x, bl.y), width: Math.max(2, bl.w * k), height: Math.max(2, bl.h * k) }} />)}
       <span className="mm-view" style={{ ...at(vw.x, vw.y), width: vw.w * k, height: vw.h * k }} />
       <span className="mm-start" style={at(0, 0)} />
