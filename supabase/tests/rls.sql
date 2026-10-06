@@ -191,6 +191,36 @@ begin
   end;
 end $$;
 
+-- Publishing share links is rate-limited: 30 an hour, counting updates, and the log can't be read or cleared.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+do $$
+declare n int;
+begin
+  for i in 1..15 loop
+    insert into public.shares (id, kind, source_id, title, payload) values (format('share-a-rate-%s-0123456789', i), 'deck', format('deck-a-%s', i), 'A', '{}');
+    insert into public.shares (id, kind, source_id, title, payload) values (format('share-a-rate-%s-0123456789', i), 'deck', format('deck-a-%s', i), 'A again', '{}')
+      on conflict (owner, kind, source_id) do update set title = excluded.title;
+  end loop;
+  begin
+    insert into public.shares (id, kind, source_id, title, payload) values ('share-a-rate-31-0123456789', 'deck', 'deck-a-31', 'A', '{}');
+    raise exception 'FAIL: a 31st share in an hour was accepted';
+  exception when others then
+    if sqlerrm <> 'rate_limited' then raise; end if;
+  end;
+  begin
+    select count(*) into n from public.rate_events;
+    raise exception 'FAIL: A can read the rate-limit log';
+  exception when insufficient_privilege then null; -- expected
+  end;
+  begin
+    delete from public.rate_events;
+    raise exception 'FAIL: A can clear the rate-limit log';
+  exception when insufficient_privilege then null;
+  end;
+  delete from public.shares where id like 'share-a-rate-%';
+end $$;
+
 -- Give A a tiny allowance (as the database owner), then try to go past it.
 reset role;
 update public.storage_usage set cap_bytes = bytes + 500 where user_id = '00000000-0000-4000-8000-00000000000a';

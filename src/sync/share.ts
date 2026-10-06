@@ -32,7 +32,8 @@ export async function publishShare(kind: ShareKind, sourceId: string, title: str
   const { data, error } = await supabase.from('shares')
     .upsert({ id: existing?.id ?? newId(), kind, source_id: sourceId, title: title.slice(0, 200), payload }, { onConflict: 'owner,kind,source_id' })
     .select('id,kind,source_id,title,updated_at').single()
-  if (error) throw error
+  if (error) throw new Error(error.message.includes('rate_limited') ? 'You’ve made or updated a lot of links in the last hour. Try again in a while.'
+    : error.message.includes('storage_full') ? 'Your account is full. Delete pages or decks you no longer need, then try again.' : error.message)
   return data as ShareRow
 }
 
