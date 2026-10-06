@@ -29,6 +29,11 @@ test('every response carries the security headers', async ({ request }) => {
   expect(frame['content-security-policy']).toMatch(/^default-src 'none'/)
   expect(frame['content-security-policy']).not.toContain('connect-src')
   expect(frame['x-frame-options']).toBeUndefined() // Mneme itself frames it; frame-ancestors 'self' guards it instead
+
+  // RFC 9116: how to report a vulnerability.
+  const txt = await (await request.get('/.well-known/security.txt')).text()
+  expect(txt).toMatch(/^Contact: https:\/\//m)
+  expect(new Date(/^Expires: (.+)$/m.exec(txt)![1]).getTime()).toBeGreaterThan(Date.now())
 })
 
 test('the site and the app load without a single policy violation', async ({ page }) => {

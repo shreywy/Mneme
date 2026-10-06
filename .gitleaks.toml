@@ -1,0 +1,7 @@
+# Secret scanning (gitleaks) over the whole history, run in CI.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Supabase publishable keys are public by design: row-level security protects the data, not the key."
+regexes = ['''sb_publishable_[A-Za-z0-9_-]+''']
