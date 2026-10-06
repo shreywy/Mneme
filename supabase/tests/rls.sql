@@ -315,6 +315,61 @@ begin
 exception when insufficient_privilege then null; -- expected
 end $$;
 
+-- Devices: each user lists and signs out only their own sessions.
+reset role;
+insert into auth.sessions (id, user_id, created_at, updated_at, user_agent) values
+  ('00000000-0000-4000-8000-0000000005a1', '00000000-0000-4000-8000-00000000000a', now(), now(), 'A laptop'),
+  ('00000000-0000-4000-8000-0000000005a2', '00000000-0000-4000-8000-00000000000a', now(), now(), 'A phone'),
+  ('00000000-0000-4000-8000-0000000005b1', '00000000-0000-4000-8000-00000000000b', now(), now(), 'B laptop');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated","session_id":"00000000-0000-4000-8000-0000000005a1"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.my_sessions();
+  if n <> 2 then raise exception 'FAIL: A should see its 2 sessions, saw %', n; end if;
+  select count(*) into n from public.my_sessions() where current;
+  if n <> 1 then raise exception 'FAIL: the current session is not marked'; end if;
+  if public.end_session('00000000-0000-4000-8000-0000000005b1') then raise exception 'FAIL: A signed out B''s device'; end if;
+  if not public.end_session('00000000-0000-4000-8000-0000000005a2') then raise exception 'FAIL: A could not sign out its own phone'; end if;
+  select count(*) into n from public.my_sessions();
+  if n <> 1 then raise exception 'FAIL: the phone is still signed in'; end if;
+  begin
+    perform 1 from auth.sessions;
+    raise exception 'FAIL: A can query auth.sessions directly';
+  exception when insufficient_privilege then null; -- expected
+  end;
+end $$;
+
+-- Activity: A's share links and the device it signed out are logged, A can't add or change entries, B can't see them.
+do $$
+declare n int;
+begin
+  select count(*) into n from public.account_events where kind = 'share_created';
+  if n < 15 then raise exception 'FAIL: share links made were not logged (% rows)', n; end if;
+  select count(*) into n from public.account_events where kind = 'share_stopped';
+  if n < 15 then raise exception 'FAIL: share links turned off were not logged'; end if;
+  select count(*) into n from public.account_events where kind = 'device_signed_out' and detail ->> 'device' = 'A phone';
+  if n <> 1 then raise exception 'FAIL: signing out a device was not logged'; end if;
+  begin
+    insert into public.account_events (user_id, kind) values ('00000000-0000-4000-8000-00000000000a', 'share_created');
+    raise exception 'FAIL: A wrote its own activity log';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    delete from public.account_events;
+    raise exception 'FAIL: A cleared its activity log';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
+do $$
+declare n int;
+begin
+  select count(*) into n from public.account_events where user_id = '00000000-0000-4000-8000-00000000000a';
+  if n <> 0 then raise exception 'FAIL: B can read A''s activity'; end if;
+end $$;
+
 -- B's session without an OTP sign-in in the last 10 minutes: refused.
 select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-00000000000b', 'role', 'authenticated',
   'amr', json_build_array(json_build_object('method', 'oauth', 'timestamp', extract(epoch from now())::bigint)))::text, true);

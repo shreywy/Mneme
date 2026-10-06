@@ -19,6 +19,7 @@ import { toast } from '../../ui/toasts'
 import { SlideToConfirm } from '../../ui/SlideToConfirm'
 import { friendly, SignIn, STATUS } from './SignIn'
 import { AFTER_SIGN_IN } from '../share/SharedPage'
+import { deviceName, endSession, listActivity, listSessions, signOutOthers, type AccountEvent, type Session } from '../../sync/devices'
 
 export function AccountPage() {
   const { user, ready } = useAccount()
@@ -57,6 +58,7 @@ function SignedIn() {
       <ProfileCard key={profile?.username ?? 'new'} firstTime={firstTime} />
       <SyncCard />
       <MethodsCard />
+      <DevicesAndActivity />
 
       <div className="acard danger-zone">
         <h2>Danger zone</h2>
@@ -201,6 +203,73 @@ function MethodsCard() {
         <div className="srow-btns">{methods.map((m) => <span key={m} className="mchip">{label[m] ?? m}</span>)}</div>
       </div>
     </div>
+  )
+}
+
+// ---------- devices and activity ----------
+
+const quote = (t?: string) => (t ? `“${t}”` : 'a page')
+function eventText(e: AccountEvent): string {
+  switch (e.kind) {
+    case 'share_created': return `Made a share link for ${quote(e.detail.title)}`
+    case 'share_updated': return `Updated the shared copy of ${quote(e.detail.title)}`
+    case 'share_stopped': return `Turned off the share link for ${quote(e.detail.title)}`
+    case 'device_signed_out': return `Signed out ${deviceName(e.detail.device)}`
+  }
+}
+
+/**
+ * Where you're signed in (sign any of them out) and what's happened on the account lately. Hidden until
+ * the server has the functions behind it.
+ */
+function DevicesAndActivity() {
+  const [sessions, setSessions] = useState<Session[] | null>(null)
+  const [events, setEvents] = useState<AccountEvent[]>([])
+  const [busy, setBusy] = useState(false)
+  const load = () => Promise.all([listSessions().then(setSessions), listActivity().then(setEvents)]).catch(() => setSessions(null))
+  useEffect(() => { void load() }, [])
+  if (!sessions?.length) return null
+  const others = sessions.filter((s) => !s.current)
+  const act = async (f: () => Promise<unknown>, done: string) => {
+    setBusy(true)
+    try { await f(); toast(done, 'It’s signed out within the hour, when its current sign-in runs out') } catch (e) { toast('Couldn’t sign that out', e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false); void load() }
+  }
+  const history = [
+    ...sessions.map((s) => ({ at: Date.parse(s.created_at), text: `Signed in on ${deviceName(s.user_agent)}` })),
+    ...events.map((e) => ({ at: Date.parse(e.at), text: eventText(e) })),
+  ].sort((a, b) => b.at - a.at).slice(0, 12)
+  return (
+    <>
+      <div className="acard">
+        <h2>Signed-in devices</h2>
+        {sessions.map((s) => (
+          <div key={s.id} className="srow">
+            <div className="l">
+              <b>{deviceName(s.user_agent)}{s.current && <span className="mchip" style={{ marginLeft: 8, height: 22 }}>This device</span>}</b>
+              <span>Active {relTime(Date.parse(s.last_active))} · signed in {relTime(Date.parse(s.created_at))}{s.ip ? ` · ${s.ip}` : ''}</span>
+            </div>
+            {!s.current && <button className="btn sm" disabled={busy} onClick={() => act(() => endSession(s.id), `Signed out ${deviceName(s.user_agent)}`)}>Sign out</button>}
+          </div>
+        ))}
+        {others.length > 1 && (
+          <div className="srow">
+            <div className="l"><span>Lost a device, or don’t recognise one? Sign out everywhere else at once.</span></div>
+            <button className="btn sm danger" disabled={busy} onClick={async () => {
+              if (await confirmAction({ title: 'Sign out your other devices?', body: 'Every device but this one is signed out. Changes they haven’t synced yet stay on them until you sign in there again.', confirm: 'Sign out others', danger: true })) await act(signOutOthers, 'Signed out your other devices')
+            }}>Sign out all others</button>
+          </div>
+        )}
+      </div>
+      {history.length > 0 && (
+        <div className="acard">
+          <h2>Recent activity</h2>
+          {history.map((h, i) => (
+            <div key={i} className="srow" style={{ padding: '10px 0' }}><div className="l"><span style={{ fontSize: 14, color: 'var(--ink)' }}>{h.text}</span></div><span className="muted small">{relTime(h.at)}</span></div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
