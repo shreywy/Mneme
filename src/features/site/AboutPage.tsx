@@ -14,11 +14,10 @@ function Shot({ name, alt, className = '' }: { name: string; alt: string; classN
   )
 }
 
-function Feature({ id, kicker, title, children, image, alt, flip, phone }: { id: string; kicker: string; title: string; children: React.ReactNode; image: string; alt: string; flip?: boolean; phone?: boolean }) {
+function Feature({ id, title, children, image, alt, flip, phone }: { id: string; title: string; children: React.ReactNode; image: string; alt: string; flip?: boolean; phone?: boolean }) {
   return (
     <section id={id} className={`feat reveal ${flip ? 'flip' : ''}`}>
       <div className="feat-text">
-        <span className="kicker">{kicker}</span>
         <h2>{title}</h2>
         {children}
       </div>
@@ -27,15 +26,15 @@ function Feature({ id, kicker, title, children, image, alt, flip, phone }: { id:
   )
 }
 
-const SMALL: [string, string, string][] = [
-  ['color', 'Themes', 'Light and dark palettes, six accents, or a background colour of your own.'],
-  ['cursor', 'Right-click everything', 'Folders, pages, cards, blocks and the paper all have their own menu.'],
-  ['focus', 'Focus mode', 'Press F and everything but the question goes away.'],
-  ['notes', 'Cheat sheets', 'Mix notes and decks into a 2, 3 or 4-column sheet and print it.'],
-  ['archive', 'Recently deleted', 'Five days to change your mind, and Undo straight away.'],
-  ['down', 'Backups', 'Export a deck, or the whole library, as one file.'],
-  ['eye', 'Reduce motion', 'One switch turns every animation into an instant change.'],
-  ['grid', 'Keyboard first', 'Answers on 1–9, tools on single letters, Ctrl+Z on the paper.'],
+const SMALL: [string, string][] = [
+  ['Themes', 'Light and dark palettes, six accents, or a background colour of your own.'],
+  ['Right-click everything', 'Folders, pages, cards, blocks and the paper all have their own menu.'],
+  ['Focus mode', 'Press F and everything but the question goes away.'],
+  ['Cheat sheets', 'Mix notes and decks into a 2, 3 or 4-column sheet and print it.'],
+  ['Recently deleted', 'Five days to change your mind, and Undo straight away.'],
+  ['Backups', 'Export a deck, or the whole library, as one file.'],
+  ['Reduce motion', 'One switch turns every animation into an instant change.'],
+  ['Keyboard first', 'Answers on 1–9, tools on single letters, Ctrl+Z on the paper.'],
 ]
 
 const SECURITY = [
@@ -49,7 +48,13 @@ const SECURITY = [
   ['No trackers', 'No analytics or ad scripts, self-hosted fonts, and pictures only by consent.'],
 ]
 
-const STACK = ['React 19', 'TypeScript', 'Vite', 'Dexie / IndexedDB', 'Supabase', 'Postgres RLS', 'Cloudflare Pages', 'TipTap 3', 'KaTeX', 'MathLive', 'perfect-freehand', 'ts-fsrs', 'zod', 'Zustand', 'Vitest']
+const STACK = [
+  ['App', 'React 19, TypeScript (strict), Vite, React Router, Zustand'],
+  ['Data', 'Dexie on IndexedDB, zod, Supabase: Postgres, Auth, Realtime'],
+  ['Editor', 'TipTap 3 on ProseMirror, KaTeX, MathLive, perfect-freehand'],
+  ['Learning', 'ts-fsrs'],
+  ['Hosting and tests', 'Cloudflare Pages, GitHub Actions, Vitest, SQL policy tests, CodeQL'],
+]
 
 /** The introduction: what Mneme is, every feature with a screenshot, and how it's built. */
 export function AboutPage() {
@@ -58,14 +63,13 @@ export function AboutPage() {
     <SiteLayout>
       <section className="hero">
         <div className="hero-text reveal">
-          <span className="kicker">A study app for your own courses</span>
           <h1>Your course material, turned into decks, notes and pages.</h1>
           <p className="hero-lede">Bring your slides to any AI chat with Mneme’s prompt and import what comes back. Learn schedules every card for just before you’d forget it, and notes and your own writing sit in the same folders.</p>
           <div className="hero-cta">
             <Link to="/" className="btn primary">Open Mneme<Icon name="chev" size={15} /></Link>
             <Link to="/docs" className="btn">Read the docs</Link>
           </div>
-          <p className="hero-note"><Icon name="check" size={14} />Free, no account needed, works offline</p>
+          <p className="hero-note">Free, no account needed, works offline.</p>
         </div>
         <div className="hero-art reveal" aria-hidden="true">
           <Shot name="page" alt="" className="hero-main" />
@@ -73,11 +77,8 @@ export function AboutPage() {
         </div>
       </section>
 
-      <nav className="jump reveal" aria-label="Features">
-        <a href="#decks">Decks</a><a href="#learn">Learn</a><a href="#notes">Notes</a><a href="#pages">Pages</a><a href="#sync">Sync</a><a href="#security">Security</a><a href="#next">Next</a>
-      </nav>
 
-      <Feature id="decks" kicker="Make a deck" title="From your slides, with the AI chat you already use" image="prompt" alt="The prompt builder: what to make, course, length and difficulty">
+      <Feature id="decks" title="From your slides, with the AI chat you already use" image="prompt" alt="The prompt builder: what to make, course, length and difficulty">
         <p>Mneme writes the prompt. Paste it into ChatGPT, Claude or Gemini with your course files, and import the reply. No API key, nothing to pay for.</p>
         <ul>
           <li>Eight question types, including numeric answers with a tolerance and scenarios with several questions.</li>
@@ -86,7 +87,7 @@ export function AboutPage() {
         </ul>
       </Feature>
 
-      <Feature id="learn" kicker="Learn" title="An endless queue that knows what you’re about to forget" image="learn" alt="A multiple-choice question in Learn, with the progress panel" flip>
+      <Feature id="learn" title="An endless queue that knows what you’re about to forget" image="learn" alt="A multiple-choice question in Learn, with the progress panel" flip>
         <p>Every card is scheduled with FSRS, the model Anki uses. Misses come back within a few cards; right answers come back later and harder, a choice becoming a typed answer.</p>
         <ul>
           <li>Match rounds between questions, plus Flashcards and timed practice Tests.</li>
@@ -96,14 +97,13 @@ export function AboutPage() {
 
       <section className="curve-block reveal">
         <div>
-          <span className="kicker">How scheduling works</span>
           <h3>Each review makes the memory last longer</h3>
           <p className="muted">One card, reviewed when its chance of being remembered drops to the target. Drag the slider.</p>
         </div>
         <ForgettingCurve />
       </section>
 
-      <Feature id="notes" kicker="Notes" title="Notes you can read, mark up and turn into a cheat sheet" image="notes" alt="A notes page with its contents, a plot and highlights">
+      <Feature id="notes" title="Notes you can read, mark up and turn into a cheat sheet" image="notes" alt="A notes page with its contents, a plot and highlights">
         <p>The same prompt can write readable notes: contents, chapters, key terms that explain themselves on hover, and questions to check yourself as you read.</p>
         <ul>
           <li>Derivations lined up on the equals sign, plots, and figures drawn in Mneme’s own style.</li>
@@ -112,7 +112,7 @@ export function AboutPage() {
         </ul>
       </Feature>
 
-      <Feature id="pages" kicker="Pages" title="An endless sheet of paper for your own writing" image="page" alt="A page with maths, a plot, a table, code and handwriting" flip>
+      <Feature id="pages" title="An endless sheet of paper for your own writing" image="page" alt="A page with maths, a plot, a table, code and handwriting" flip>
         <p>Click anywhere and type. Everything sits on one grid, so blocks side by side share their lines.</p>
         <ul>
           <li>Equations typed with a maths keyboard, step-by-step working, plots of any formula, tables, highlighted code.</li>
@@ -126,7 +126,7 @@ export function AboutPage() {
         <Shot name="insert" alt="The Insert panel with a letter for every block" />
       </section>
 
-      <Feature id="sync" kicker="Everywhere" title="Works offline, syncs when it can" image="phone" alt="A page in Read view on a phone" phone>
+      <Feature id="sync" title="Works offline, syncs when it can" image="phone" alt="A page in Read view on a phone" phone>
         <p>Mneme reads and writes your browser’s own database, so it’s instant and works on a plane. Sign in and changes reach your other devices within seconds.</p>
         <ul>
           <li>Pages sync one block and one stroke at a time, so two devices don’t overwrite each other.</li>
@@ -136,19 +136,18 @@ export function AboutPage() {
       </Feature>
 
       <section className="small-grid reveal" aria-label="More">
-        {SMALL.map(([icon, t, d]) => (
-          <div key={t} className="small"><Icon name={icon} size={18} /><b>{t}</b><span>{d}</span></div>
+        {SMALL.map(([t, d]) => (
+          <div key={t} className="small"><b>{t}</b><span>{d}</span></div>
         ))}
       </section>
 
       <section id="security" className="under reveal">
-        <span className="kicker">Under the hood</span>
         <h2>Built like the data matters</h2>
         <p className="under-lede">Local-first sync over Postgres with row-level security, a strict line between your data and everyone else’s, and nothing from an AI or another person allowed to run.</p>
         <div className="sec-grid">
-          {SECURITY.map(([t, d]) => <div key={t} className="secure"><Icon name="check" size={15} /><div><b>{t}</b><span>{d}</span></div></div>)}
+          {SECURITY.map(([t, d]) => <div key={t} className="secure"><b>{t}</b><span>{d}</span></div>)}
         </div>
-        <div className="stack" aria-label="Built with">{STACK.map((s) => <span key={s}>{s}</span>)}</div>
+        <dl className="stack">{STACK.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
         <div className="under-links">
           <Link to="/docs/architecture" className="btn">How it’s built</Link>
           <Link to="/docs/privacy" className="btn ghost">Privacy and security</Link>
@@ -157,7 +156,6 @@ export function AboutPage() {
       </section>
 
       <section id="next" className="next reveal">
-        <span className="kicker">Coming next</span>
         <h2>AI with your own key, and a desktop app</h2>
         <div className="next-grid">
           <div><b>Gemini, your key</b><span>A tutor on any card, “why is this wrong?”, grading of typed answers, and lasso part of a page to ask about it. The key is stored encrypted in your browser and sent only to Google.</span></div>

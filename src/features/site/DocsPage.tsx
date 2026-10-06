@@ -60,8 +60,8 @@ export function DocsPage() {
         <article className="docs-body">
           {parts.map((p, k) => <div key={k}>{k > 0 && <ForgettingCurve />}<Doc md={p} /></div>)}
           <div className="docs-pager">
-            {i > 0 ? <Link to={`/docs/${TOPICS[i - 1].id}`}><span>Previous</span>{TOPICS[i - 1].label}</Link> : <span />}
-            {i < TOPICS.length - 1 && <Link to={`/docs/${TOPICS[i + 1].id}`} className="next"><span>Next</span>{TOPICS[i + 1].label}</Link>}
+            {i > 0 ? <Link to={`/docs/${TOPICS[i - 1].id}`}><span>Previous</span>{TOPICS[i - 1].label}</Link> : null}
+            {i < TOPICS.length - 1 && <Link to={`/docs/${TOPICS[i + 1].id}`} className="pager-next"><span>Next</span>{TOPICS[i + 1].label}</Link>}
           </div>
         </article>
       </div>
