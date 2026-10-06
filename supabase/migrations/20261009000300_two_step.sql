@@ -16,6 +16,13 @@ $$;
 revoke all on function public.second_step_ok() from public, anon;
 grant execute on function public.second_step_ok() to authenticated;
 
+-- Adding a policy locks its table. Take every lock up front, in one order, and give up quickly rather
+-- than deadlock with an app that's syncing while this runs (if it times out, run the push again).
+set local lock_timeout = '15s';
+lock table public.folders, public.decks, public.items, public.card_states, public.reviews, public.deck_records, public.notes,
+  public.deck_note_links, public.user_settings, public.note_marks, public.sheets, public.sheet_blocks, public.sheet_ink,
+  public.shares, public.profiles, public.storage_usage, public.account_events in access exclusive mode;
+
 -- A restrictive policy is ANDed with the owner-only policies already on each table.
 do $$
 declare t text;
