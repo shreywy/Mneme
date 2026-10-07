@@ -1,21 +1,49 @@
 import type { DeckRow, NoteRow } from './db'
 import { compareUnits } from './notes'
 import type { SheetRow } from '../sheets/types'
+import { parentsOf, rootOf } from '../sheets/tree'
 
 // A "page" is a deck, a notes page, or a page the user writes (a sheet). The library, sidebar and search show them together.
 
 export type Page =
   | { kind: 'deck'; id: string; title: string; unit?: string; folderId: string | null; deck: DeckRow }
   | { kind: 'note'; id: string; title: string; unit?: string; folderId: string | null; note: NoteRow }
-  | { kind: 'sheet'; id: string; title: string; unit?: string; folderId: string | null; sheet: SheetRow }
+  | { kind: 'sheet'; id: string; title: string; unit?: string; folderId: string | null; sheet: SheetRow; parentId?: string }
 export type PageKind = Page['kind']
 
+/** What a page carries when it's dragged (sidebar rows, box cards). */
+export const PAGE_DRAG = 'application/x-mneme-page'
+
 export function pagesOf(decks: DeckRow[], notes: NoteRow[], sheets: SheetRow[] = []): Page[] {
+  // Sub-pages live in their top page's folder. A page whose parent isn't here (missing, deleted, a loop) is top level, with no folder.
+  const parents = parentsOf(sheets)
+  const byId = new Map(sheets.map((s) => [s.id, s]))
+  const sheetPage = (s: SheetRow): Page => {
+    const parentId = parents.get(s.id)
+    if (!parentId) return { kind: 'sheet', id: s.id, title: s.title, unit: s.unit, folderId: s.parentId ? null : s.folderId, sheet: s }
+    return { kind: 'sheet', id: s.id, title: s.title, unit: undefined, folderId: byId.get(rootOf(s.id, parents))!.folderId, sheet: s, parentId }
+  }
   return [
     ...decks.map((d): Page => ({ kind: 'deck', id: d.id, title: d.title, unit: d.unit, folderId: d.folderId, deck: d })),
     ...notes.map((n): Page => ({ kind: 'note', id: n.id, title: n.title, unit: n.unit, folderId: n.folderId, note: n })),
-    ...sheets.map((s): Page => ({ kind: 'sheet', id: s.id, title: s.title, unit: s.unit, folderId: s.folderId, sheet: s })),
+    ...sheets.map(sheetPage),
   ]
+}
+
+/** Pages that aren't under another page: what folders and the library list. */
+export const topLevel = (pages: Page[]) => pages.filter((p) => !(p.kind === 'sheet' && p.parentId))
+
+/** Titles of the pages above this one, top first. */
+export function pagePath(p: Page, pages: Page[]): string[] {
+  const byId = new Map(pages.filter((x) => x.kind === 'sheet').map((x) => [x.id, x]))
+  const out: string[] = []
+  for (let x = p.kind === 'sheet' ? p.parentId : undefined; x; ) {
+    const up = byId.get(x)
+    if (!up || up.kind !== 'sheet') break
+    out.unshift(up.title)
+    x = up.parentId
+  }
+  return out
 }
 
 export const pageUrl = (p: Pick<Page, 'kind' | 'id'>) => (p.kind === 'deck' ? `/deck/${p.id}` : p.kind === 'note' ? `/notes/${p.id}` : `/write/${p.id}`)

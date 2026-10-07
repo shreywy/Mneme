@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
 import { listNotes } from '../data/notes'
-import { groupByUnit, pageIcon, pagesOf, pageUrl, type Page, type PageKind } from '../data/pages'
+import { groupByUnit, PAGE_DRAG, pageIcon, pagesOf, pageUrl, topLevel, type Page, type PageKind } from '../data/pages'
 import { createSheet, listSheets, setSheetArchived, updateSheet } from '../data/sheets'
 import { createFolder, deleteFolder, descendants, listArchive, listLibrary, moveFolder, renameFolder } from '../data/repo'
 import { useSettings } from '../settings/store'
@@ -115,8 +115,6 @@ export function useNewPage() {
   }
 }
 
-const DRAG_TYPE = 'application/x-mneme-page'
-
 /** Right-click in the sidebar: folders, unit headings and empty space. Pages get PageMenu. */
 function useSideMenu({ folders, newPage, openDialog }: { folders: Folder[]; newPage: ReturnType<typeof useNewPage>; openDialog: ReturnType<typeof useUI.getState>['open'] }) {
   const nav = useNavigate()
@@ -201,9 +199,9 @@ function FolderTree() {
   const count = (id: string) => { const ids = descendants(folders, id); return pages.filter((p) => p.folderId && ids.has(p.folderId)).length }
   /** The pages of one group (a folder and a unit), in the order shown. */
   const groupOf = (folderId: string | null, unit: string | null) =>
-    (groupByUnit(pages.filter((x) => x.folderId === folderId)).find((g) => (g.unit ?? null)?.toLowerCase() === unit?.toLowerCase())?.pages ?? [])
+    (groupByUnit(topLevel(pages).filter((x) => x.folderId === folderId)).find((g) => (g.unit ?? null)?.toLowerCase() === unit?.toLowerCase())?.pages ?? [])
   const dragged = (e: React.DragEvent) => {
-    const raw = e.dataTransfer.getData(DRAG_TYPE)
+    const raw = e.dataTransfer.getData(PAGE_DRAG)
     if (!raw) return null
     const { kind, id } = JSON.parse(raw) as { kind: PageKind; id: string }
     return pages.find((x) => x.kind === kind && x.id === id) ?? null
@@ -216,7 +214,7 @@ function FolderTree() {
       toast(`Moved "${page.title}"`, unit ? `${where} · ${unit}` : where)
     }
   }
-  const allowDrop = (e: React.DragEvent) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return true } return false }
+  const allowDrop = (e: React.DragEvent) => { if (e.dataTransfer.types.includes(PAGE_DRAG)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return true } return false }
   const clear = (el: HTMLElement) => el.classList.remove('drop-over', 'drop-before', 'drop-after')
 
   /** Folder rows, unit headings and the Folders header: the page goes to the end of that group. */
@@ -259,7 +257,7 @@ function FolderTree() {
   const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
     <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
       data-page-folder={p.folderId ?? ''} data-page-unit={p.unit ?? ''}
-      draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}
+      draggable onDragStart={(e) => { e.dataTransfer.setData(PAGE_DRAG, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}
       {...dropOnPage(p)}>
       <Icon name={pageIcon(p.kind)} size={13} /><span className="t">{p.title}</span>
     </Link>
@@ -277,7 +275,7 @@ function FolderTree() {
 
   const Node = ({ f, depth }: { f: Folder; depth: number }) => {
     const kids = folders.filter((x) => x.parentId === f.id).sort(byName)
-    const ps = pages.filter((p) => p.folderId === f.id)
+    const ps = topLevel(pages).filter((p) => p.folderId === f.id)
     const open = isOpen(f.id)
     return (
       <div className="tnode">
@@ -298,7 +296,7 @@ function FolderTree() {
       </div>
     )
   }
-  const loose = pages.filter((p) => !p.folderId)
+  const loose = topLevel(pages).filter((p) => !p.folderId)
   return (
     <>
       <div className="sec" {...drop({ folderId: null })} title="Drop a page here to take it out of its folder">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>

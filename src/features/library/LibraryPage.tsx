@@ -6,7 +6,7 @@ import { db, type DeckRow, type Folder, type NoteRow } from '../../data/db'
 import * as notesRepo from '../../data/notes'
 import * as sheetsRepo from '../../data/sheets'
 import type { SheetRow } from '../../sheets/types'
-import { groupByUnit, pageIcon, pagesOf, pageTime, pageUrl, type Page } from '../../data/pages'
+import { groupByUnit, pageIcon, pagePath, pagesOf, pageTime, pageUrl, topLevel, type Page } from '../../data/pages'
 import * as repo from '../../data/repo'
 import * as trash from '../../data/trash'
 import { allDeckMastery, plural, relTime, type MasteryCounts } from '../../data/stats'
@@ -60,7 +60,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
     : p.kind === 'note' ? `${p.title} ${p.unit ?? ''} ${p.note.course ?? ''} ${p.note.summary ?? ''} ${notesText(p.note)}`
       : `${p.title} ${p.unit ?? ''}`
   const searchHits = needle ? pages.filter((p) => (!inScope || (p.folderId && inScope.has(p.folderId))) && haystack(p).toLowerCase().includes(needle)).sort(byChosenSort) : []
-  const here = pages.filter((p) => p.folderId === parentId)
+  const here = topLevel(pages).filter((p) => p.folderId === parentId)
   const groups = groupByUnit(here, librarySort === 'recent' ? undefined : byChosenSort)
   const recent = !folder && !needle
     ? pages.filter((p) => (p.kind === 'deck' ? p.deck.lastStudiedAt : p.kind === 'note' ? p.note.lastOpenedAt : p.sheet.lastOpenedAt)).sort((a, b) => pageTime(b) - pageTime(a)).slice(0, 4)
@@ -69,7 +69,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
     const ids = repo.descendants(lib.folders, f.id)
     const ds = lib.decks.filter((d) => d.folderId && ids.has(d.folderId))
     const ns = lib.notes.filter((n) => n.folderId && ids.has(n.folderId))
-    const ss = lib.sheets.filter((s) => s.folderId && ids.has(s.folderId))
+    const ss = pages.filter((p) => p.kind === 'sheet' && p.folderId && ids.has(p.folderId))
     const items = ds.reduce((n, d) => n + d.termCount + d.questionCount, 0)
     const learned = ds.reduce((n, d) => { const m = lib.mastery.get(d.id); return n + (m ? m.familiar + m.mastered : 0) }, 0)
     return { decks: ds.length, notes: ns.length, sheets: ss.length, sub: ids.size - 1, items, pct: items ? learned / items : 0 }
@@ -112,12 +112,12 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
         {needle ? (
           <section className="group">
             <h2>Results<span>{searchHits.length}</span></h2>
-            {searchHits.length ? <Pages pages={searchHits} lib={lib} view={libraryView} showFolder /> : <p className="empty-note">Nothing matches "{q}".</p>}
+            {searchHits.length ? <Pages pages={searchHits} all={pages} lib={lib} view={libraryView} showFolder /> : <p className="empty-note">Nothing matches "{q}".</p>}
           </section>
         ) : (
           <>
             {recent.length > 0 && (
-              <section className="group"><h2>Pick up where you left off</h2><Pages pages={recent} lib={lib} view="grid" showFolder /></section>
+              <section className="group"><h2>Pick up where you left off</h2><Pages pages={recent} all={pages} lib={lib} view="grid" showFolder /></section>
             )}
             {subfolders.length > 0 && (
               <section className="group">
@@ -137,7 +137,7 @@ function Browser({ lib, folder }: { lib: Lib; folder?: Folder }) {
             {groups.map((g) => (
               <section className="group" key={g.unit ?? '-'}>
                 <h2>{g.unit ?? (!folder ? 'Not in a folder' : groups.length > 1 ? 'No unit' : here.some((p) => p.kind === 'note') ? 'Pages' : 'Decks')}<span>{g.pages.length}</span></h2>
-                <Pages pages={g.pages} lib={lib} view={libraryView} />
+                <Pages pages={g.pages} all={pages} lib={lib} view={libraryView} />
               </section>
             ))}
             {folder && here.length === 0 && subfolders.length === 0 && (
@@ -155,8 +155,9 @@ const textCache = new WeakMap<NoteRow, string>()
 const notesText = (n: NoteRow) => { let t = textCache.get(n); if (t === undefined) { t = notesRepo.plainText(n.blocks); textCache.set(n, t) } return t }
 const readPct = (n: NoteRow) => { const r = notesRepo.readingProgress(n); return r.total ? r.read / r.total : 0 }
 
-function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view: 'grid' | 'list'; showFolder?: boolean }) {
-  const folderName = (id: string | null) => lib.folders.find((f) => f.id === id)?.name
+function Pages({ pages, all, lib, view, showFolder }: { pages: Page[]; all: Page[]; lib: Lib; view: 'grid' | 'list'; showFolder?: boolean }) {
+  // Where a page sits: its folder, then the pages above it (CPS721 › Week 2).
+  const where = (p: Page) => showFolder ? [lib.folders.find((f) => f.id === p.folderId)?.name, ...pagePath(p, all)].filter(Boolean).join(' › ') || undefined : undefined
   if (view === 'list') {
     return (
       <div className="dlist">
@@ -166,7 +167,7 @@ function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view
           return (
             <Link key={p.id} className={`drow ${p.kind}`} to={pageUrl(p)} style={{ '--i': i } as React.CSSProperties} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}>
               <b><Icon name={pageIcon(p.kind)} size={14} />{p.title}</b>
-              <span className="muted">{showFolder && folderName(p.folderId) ? `${folderName(p.folderId)} · ` : ''}{what}</span>
+              <span className="muted">{where(p) ? `${where(p)} · ` : ''}{what}</span>
               {pct === null ? <span /> : <span className="mbar"><i style={{ flexGrow: pct, background: p.kind === 'deck' ? 'var(--seg4)' : 'var(--read)' }} /><i style={{ flexGrow: 1 - pct, background: 'var(--seg1)' }} /></span>}
               <span className="muted pct">{pct === null ? '' : `${Math.round(pct * 100)}%`}</span>
               <span className="muted when">{relTime(p.kind === 'deck' ? p.deck.lastStudiedAt : p.kind === 'note' ? p.note.lastOpenedAt : p.sheet.lastOpenedAt)}</span>
@@ -179,9 +180,9 @@ function Pages({ pages, lib, view, showFolder }: { pages: Page[]; lib: Lib; view
   return (
     <div className="cards">
       {pages.map((p, i) => p.kind === 'deck'
-        ? <DeckCard key={p.id} i={i} d={p.deck} m={lib.mastery.get(p.id)} folder={showFolder ? folderName(p.folderId) : undefined} />
-        : p.kind === 'note' ? <NoteCard key={p.id} i={i} n={p.note} folder={showFolder ? folderName(p.folderId) : undefined} />
-          : <SheetCard key={p.id} i={i} s={p.sheet} folder={showFolder ? folderName(p.folderId) : undefined} />)}
+        ? <DeckCard key={p.id} i={i} d={p.deck} m={lib.mastery.get(p.id)} folder={where(p)} />
+        : p.kind === 'note' ? <NoteCard key={p.id} i={i} n={p.note} folder={where(p)} />
+          : <SheetCard key={p.id} i={i} s={p.sheet} folder={where(p)} />)}
     </div>
   )
 }

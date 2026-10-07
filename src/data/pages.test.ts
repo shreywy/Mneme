@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DeckRow, NoteRow } from './db'
-import { groupByUnit, pagesOf, pageUrl } from './pages'
+import { groupByUnit, pagePath, pagesOf, pageUrl, topLevel } from './pages'
 import { DEFAULT_PAPER, type SheetRow } from '../sheets/types'
 
 const deck = (id: string, title: string, unit?: string): DeckRow => ({ id, title, unit, folderId: 'f', sources: [], topics: [], termCount: 1, questionCount: 0, createdAt: 1, updatedAt: 1 })
@@ -46,5 +46,38 @@ describe('pages', () => {
     const groups = groupByUnit(pagesOf([deck('a', 'A'), deck('b', 'B')], []))
     expect(groups).toHaveLength(1)
     expect(groups[0].unit).toBeUndefined()
+  })
+})
+
+const sub = (id: string, more: Partial<SheetRow> = {}): SheetRow =>
+  ({ id, folderId: null, title: id, titleAuto: false, paper: DEFAULT_PAPER, createdAt: 0, updatedAt: 0, ...more })
+
+describe('sub-pages in page lists', () => {
+  const rows = [
+    sub('cps', { folderId: 'fall', unit: 'Year 2' }),
+    sub('ch3', { parentId: 'cps', box: 'w2', folderId: null, unit: 'stale' }),
+    sub('ps3', { parentId: 'ch3', box: 'b' }),
+    sub('lost', { parentId: 'gone', folderId: 'fall' }),
+  ]
+  const pages = pagesOf([], [], rows)
+  const get = (id: string) => pages.find((p) => p.id === id)!
+
+  it('a sub-page takes its top page folder and no unit', () => {
+    expect(get('ps3')).toMatchObject({ folderId: 'fall', unit: undefined, parentId: 'ch3' })
+    expect(get('ch3')).toMatchObject({ folderId: 'fall', unit: undefined, parentId: 'cps' })
+  })
+
+  it('a page whose parent is missing is top level with no folder', () => {
+    expect(get('lost')).toMatchObject({ folderId: null })
+    expect('parentId' in get('lost')).toBe(false)
+  })
+
+  it('topLevel leaves sub-pages out', () => {
+    expect(topLevel(pages).map((p) => p.id).sort()).toEqual(['cps', 'lost'])
+  })
+
+  it('pagePath lists the pages above, top first', () => {
+    expect(pagePath(get('ps3'), pages)).toEqual(['cps', 'ch3'])
+    expect(pagePath(get('cps'), pages)).toEqual([])
   })
 })
