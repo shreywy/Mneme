@@ -45,9 +45,14 @@ const body = (a: Ask) => JSON.stringify({
   generationConfig: { thinkingConfig: { thinkingLevel: 'low' }, ...(a.json ? { responseMimeType: 'application/json' } : {}) },
 })
 
+// After Flash says it's out of requests or busy, skip it for a minute instead of asking it first every time.
+let flashBackAt = 0
+export const resetModels = () => { flashBackAt = 0 }
+
 /** Streams a reply. `onText` gets the whole text so far after each chunk. */
 export async function ask(key: string, a: Ask, { signal, onText }: { signal?: AbortSignal; onText?: (sofar: string) => void } = {}): Promise<Reply> {
   for (const [i, model] of MODELS.entries()) {
+    if (i === 0 && Date.now() < flashBackAt) continue
     let res: Response
     try {
       res = await fetch(`${API}/${model}:streamGenerateContent?alt=sse`, {
@@ -60,7 +65,7 @@ export async function ask(key: string, a: Ask, { signal, onText }: { signal?: Ab
     }
     if (!res.ok) {
       const err = errorFor(res.status, await res.text())
-      if ((err.kind === 'quota' || res.status >= 500) && i < MODELS.length - 1) continue
+      if ((err.kind === 'quota' || res.status >= 500) && i < MODELS.length - 1) { flashBackAt = Date.now() + 60_000; continue }
       throw err
     }
     let text = '', tokens = 0, buf = '', finished = false

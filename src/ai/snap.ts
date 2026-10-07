@@ -28,11 +28,15 @@ export function textIn(box: DOMRect, root: Element = document.body): string {
     },
   })
   const range = document.createRange()
+  let last: Element | null = null
   for (let n = walk.nextNode(); n; n = walk.nextNode()) {
     if (n.nodeType !== Node.TEXT_NODE || !n.textContent?.trim()) continue
     range.selectNodeContents(n)
     if ([...range.getClientRects()].some((r) => hits(r, box))) {
-      const block = getComputedStyle(n.parentElement!).display !== 'inline'
+      // A new line where the text moves into another block; text side by side in one element stays together.
+      const el = n.parentElement!
+      const block = el !== last && !getComputedStyle(el).display.startsWith('inline')
+      last = el
       out.push(block ? `\n${n.textContent}` : n.textContent)
     }
   }

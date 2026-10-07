@@ -2,11 +2,11 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../data/db'
-import { ask, askJson, errorFor, readChunk } from './gemini'
+import { ask, askJson, errorFor, readChunk, resetModels } from './gemini'
 import { contentsFor, emptyChat, needsSummary, saveChat, systemFor, BUDGET, KEEP } from './chat'
 import { getKey, removeKey, setKey } from './key'
 
-beforeEach(async () => { await Promise.all(db.tables.map((t) => t.clear())) })
+beforeEach(async () => { resetModels(); await Promise.all(db.tables.map((t) => t.clear())) })
 afterEach(() => vi.unstubAllGlobals())
 
 const sse = (...chunks: object[]) => new Response(chunks.map((c) => `data: ${JSON.stringify(c)}\r\n\r\n`).join(''), { status: 200 })
@@ -24,10 +24,14 @@ describe('talking to Gemini', () => {
   it('falls back to Flash-Lite when Flash is out of free requests or overloaded', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => (url.includes('flash-latest') ? new Response('{}', { status: 503 }) : sse(part('ok', 1, true)))))
     expect((await ask('k', { contents: [] })).text).toBe('ok')
+    resetModels()
     const f = vi.fn(async (url: string) => (url.includes('flash-latest') ? new Response('{}', { status: 429 }) : sse(part('ok', 1, true))))
     vi.stubGlobal('fetch', f)
     expect((await ask('k', { contents: [] })).text).toBe('ok')
     expect(f.mock.calls.map((c) => c[0])).toEqual([expect.stringContaining('gemini-flash-latest'), expect.stringContaining('gemini-flash-lite-latest')])
+    // For the next minute it goes straight to Flash-Lite.
+    await ask('k', { contents: [] })
+    expect(f.mock.calls[2][0]).toContain('gemini-flash-lite-latest')
   })
 
   it('treats a stream that stops without a finish marker as cut off, and retries JSON once', async () => {

@@ -99,6 +99,8 @@ async function start(user: User) {
   }
   setOnDirty(schedulePush)
   loadProfile().catch(() => { /* shown from cache; retried on the account page */ })
+  // The Gemini key: now, and again whenever the account's settings change (below), not on every sync.
+  pullAiKey().catch(() => { /* tried again when settings change */ })
   await syncNow()
   subscribe(user.id)
   interval = setInterval(() => { void syncNow() }, 60_000)
@@ -134,7 +136,7 @@ function schedulePush() {
 }
 function schedulePull(settings: boolean) {
   if (pullTimer) clearTimeout(pullTimer)
-  pullTimer = setTimeout(() => { void (settings ? pullSettings() : syncNow()) }, 400)
+  pullTimer = setTimeout(() => { if (settings) { void pullSettings().catch(() => {}); void pullAiKey().catch(() => {}) } else void syncNow() }, 400)
 }
 
 /** Push pending changes, then pull everything new. Runs one at a time. */
@@ -148,7 +150,7 @@ export async function syncNow(withPull = true): Promise<void> {
       // Out of space: new data waits here, but deletions went up and other devices' changes still come in.
       let full = false
       try { await push(remote()) } catch (e) { if (!isStorageFull(e)) throw e; full = true }
-      if (withPull) { await pull(remote()); await pullSettings(); await pullAiKey().catch(() => { /* next pull */ }) }
+      if (withPull) { await pull(remote()); await pullSettings() }
       set({ status: full ? 'full' : 'synced', lastSync: Date.now(), error: null })
       loadStorage(full ? 0 : 60_000).catch(() => { /* shown again on the next sync */ })
     } catch (e) {

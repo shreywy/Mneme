@@ -85,9 +85,16 @@ export function DriveImport({ onClose, page }: { onClose: () => void; page?: str
     const pictures = hasDocx(tree) ? await (await import('../sheet/editor/image')).agreeToImgur() : true
     const { importDrive } = await import('../../importdrive/write')
     setStep({ done: 0, total: c.folders + c.files, name: tree.name })
-    const r = await importDrive(tree, target, { off, pictures, onStep: setStep })
-    ensurePersistentStorage()
-    setDone(r)
+    try {
+      const r = await importDrive(tree, target, { off, pictures, onStep: setStep })
+      ensurePersistentStorage()
+      setDone(r)
+    } catch (e) {
+      // Pages made before it stopped stay; the dialog mustn't stay stuck on "Importing…".
+      setStep(null)
+      const full = e instanceof Error && (e.name === 'QuotaExceededError' || /quota/i.test(e.message))
+      setError(`The import stopped: ${full ? 'this browser has no more room for Mneme’s data' : e instanceof Error && e.message ? e.message : 'something went wrong'}. Pages made before that are kept.`)
+    }
   }
 
   if (done) {
@@ -116,11 +123,11 @@ export function DriveImport({ onClose, page }: { onClose: () => void; page?: str
             onDrop={(e) => { e.preventDefault(); setOver(false); takeZips(e.dataTransfer.files) }}>
             <Icon name="upload" size={22} />
             <div style={{ marginTop: 8 }}>{reading ? <b>Reading…</b> : <><b className="for-keys">Drop the zip here</b><span className="for-keys"> or click to choose</span><b className="for-touch">Tap to choose the zip</b></>}</div>
-            <input ref={zipInput} type="file" accept=".zip,application/zip" multiple hidden onChange={(e) => e.target.files && takeZips(e.target.files)} />
+            <input ref={zipInput} type="file" accept=".zip,application/zip" multiple hidden onChange={(e) => { if (e.target.files) takeZips(e.target.files); e.target.value = '' }} />
           </div>
           <div style={{ marginTop: 10 }}>
             <button className="btn ghost sm" onClick={() => dirInput.current?.click()}><Icon name="folder" size={14} />Pick a folder instead</button>
-            <input ref={dirInput} type="file" hidden multiple {...{ webkitdirectory: '' }} onChange={(e) => e.target.files && takeFolder(e.target.files)} />
+            <input ref={dirInput} type="file" hidden multiple {...{ webkitdirectory: '' }} onChange={(e) => { if (e.target.files) takeFolder(e.target.files); e.target.value = '' }} />
           </div>
         </>
       )}

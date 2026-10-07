@@ -190,6 +190,9 @@ function FolderTree() {
   const newPage = useNewPage()
   const { openFolders, set } = useSettings()
   const openDialog = useUI((s) => s.open)
+  // Rows held open for the page you're on that you closed anyway, until you go somewhere else.
+  const shut = useRef({ path: '', ids: new Set<string>() })
+  if (shut.current.path !== loc.pathname) shut.current = { path: loc.pathname, ids: new Set() }
   useSideMenu({ folders: data?.folders ?? [], newPage, openDialog })
   if (!data) return <div className="tree" />
   const { folders, decks, notes } = data
@@ -202,8 +205,12 @@ function FolderTree() {
   const forced = new Set<string>()
   for (let f = folders.find((x) => x.id === activeFolder); f; f = folders.find((x) => x.id === f!.parentId)) forced.add(f.id)
   if (activePage?.kind === 'sheet') for (const a of ancestors(activePage.id, parentsOf(data.sheets))) forced.add(a)
-  const isOpen = (id: string) => openFolders.includes(id) || forced.has(id)
-  const toggle = (id: string) => set({ openFolders: openFolders.includes(id) ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
+  const isOpen = (id: string) => openFolders.includes(id) || (forced.has(id) && !shut.current.ids.has(id))
+  const toggle = (id: string) => {
+    const was = isOpen(id)
+    if (was) shut.current.ids.add(id); else shut.current.ids.delete(id)
+    set({ openFolders: was ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
+  }
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
   const count = (id: string) => { const ids = descendants(folders, id); return pages.filter((p) => p.folderId && ids.has(p.folderId)).length }
   /** The pages of one group (a folder and a unit), in the order shown. */
@@ -302,10 +309,12 @@ function FolderTree() {
       await settle(page, target.folderId, unit, list)
     },
   })
-  const PageLink = ({ p, pad }: { p: Page; pad: number }) => {
+  // Rows are render functions, not components declared in here: a component made during render is a new
+  // type each time, so every save anywhere would rebuild the whole tree.
+  const pageLink = (p: Page, pad: number): React.ReactNode => {
     const kids = p.kind === 'sheet' ? kidsOfPage(p.id) : []
     const link = (
-      <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: kids.length ? 2 : pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
+      <Link key={p.id} to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: kids.length ? 2 : pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
         data-page-folder={p.folderId ?? ''} data-page-unit={p.unit ?? ''}
         {...(p.kind === 'sheet' && p.parentId ? { 'data-page-parent': p.parentId, 'data-page-box': p.sheet.box ?? '' } : {})}
         onClick={(e) => { if (p.kind === 'sheet' && !isActive(p)) growClick(e, nav, pageUrl(p), p.id) }}
@@ -324,7 +333,7 @@ function FolderTree() {
     const inBox = (k: Page, id: string | null) => k.kind === 'sheet' && (id ? k.sheet.box === id : !(k.sheet.box && known.has(k.sheet.box)))
     const groups = [...boxes, null].map((b) => ({ b, list: kids.filter((k) => inBox(k, b?.id ?? null)).sort(rankSort) })).filter((g) => g.list.length)
     return (
-      <div className="tsub">
+      <div className="tsub" key={p.id}>
         <div className="tsubrow" style={{ paddingLeft: Math.max(0, pad - 20) }}>
           <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(p.id)} aria-label={open ? 'Collapse' : 'Expand'} aria-expanded={open}><Icon name="down2" size={13} /></button>
           {link}
@@ -333,30 +342,30 @@ function FolderTree() {
           <>{groups.map((g) => (
             <div key={g.b?.id ?? '-'}>
               {g.b?.data.label && <div className="tunit" style={{ paddingLeft: inner + 2 }} {...dropIntoBox(p.id, g.b.id)}>{g.b.data.label}</div>}
-              {g.list.map((k) => <PageLink key={k.id} p={k} pad={inner} />)}
+              {g.list.map((k) => pageLink(k, inner))}
             </div>
           ))}</>
         </Collapse>
       </div>
     )
   }
-  const PageList = ({ list, pad, folderId }: { list: Page[]; pad: number; folderId: string | null }) => {
+  const pageList = (list: Page[], pad: number, folderId: string | null) => {
     const groups = groupByUnit(list)
     const labelled = groups.some((g) => g.unit)
     return <>{groups.map((g) => (
       <div key={g.unit ?? '-'}>
         {labelled && <div className="tunit" style={{ paddingLeft: pad + 2 }} data-unit={g.unit ?? ''} data-unit-folder={folderId ?? ''} {...drop({ folderId, unit: g.unit ?? null })}>{g.unit ?? 'No unit'}</div>}
-        {g.pages.map((p) => <PageLink key={p.id} p={p} pad={pad} />)}
+        {g.pages.map((p) => pageLink(p, pad))}
       </div>
     ))}</>
   }
 
-  const Node = ({ f, depth }: { f: Folder; depth: number }) => {
+  const node = (f: Folder, depth: number): React.ReactNode => {
     const kids = folders.filter((x) => x.parentId === f.id).sort(byName)
     const ps = topLevel(pages).filter((p) => p.folderId === f.id)
     const open = isOpen(f.id)
     return (
-      <div className="tnode">
+      <div className="tnode" key={f.id}>
         <div className={`trow ${loc.pathname === `/folder/${f.id}` ? 'active' : ''}`} style={{ paddingLeft: 4 + depth * 14 }} data-folder-id={f.id}>
           <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(f.id)} aria-label={open ? 'Collapse' : 'Expand'}>
             <Icon name="down2" size={14} />
@@ -366,8 +375,8 @@ function FolderTree() {
         </div>
         <Collapse open={open}>
           <>
-            {kids.map((k) => <Node key={k.id} f={k} depth={depth + 1} />)}
-            <PageList list={ps} pad={30 + depth * 14} folderId={f.id} />
+            {kids.map((k) => node(k, depth + 1))}
+            {pageList(ps, 30 + depth * 14, f.id)}
             <button className="tnew" style={{ paddingLeft: 30 + depth * 14 }} onClick={() => newPage(f.id)}><Icon name="plus" size={13} /><span className="t">New page</span></button>
           </>
         </Collapse>
@@ -379,8 +388,8 @@ function FolderTree() {
     <>
       <div className="sec" {...drop({ folderId: null })} title="Drop a page here to take it out of its folder">Folders<button onClick={async () => nav(`/folder/${await createFolder('New folder')}?rename=1`)} title="New folder" aria-label="New folder">+</button></div>
       <div className="tree">
-        {folders.length === 0 && loose.length === 0 && <div className="empty">Decks, notes and pages you write show up here, grouped by course.</div>}        {folders.filter((f) => !f.parentId).sort(byName).map((f) => <Node key={f.id} f={f} depth={0} />)}
-        {loose.map((p) => <PageLink key={p.id} p={p} pad={12} />)}
+        {folders.length === 0 && loose.length === 0 && <div className="empty">Decks, notes and pages you write show up here, grouped by course.</div>}        {folders.filter((f) => !f.parentId).sort(byName).map((f) => node(f, 0))}
+        {loose.map((p) => pageLink(p, 12))}
         {archivedCount > 0 && (
           <Link to="/archive" className={`tdeck archive-link ${loc.pathname === '/archive' ? 'active' : ''}`} style={{ paddingLeft: 10 }}>
             <Icon name="archive" /><span className="t">Archive</span><span className="n">{archivedCount}</span>
