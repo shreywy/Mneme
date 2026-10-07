@@ -19,6 +19,9 @@ import { toast } from '../ui/toasts'
 import { setNoteArchived, updateNote } from '../data/notes'
 import { renameDeck, setArchived } from '../data/repo'
 import { placePage } from '../data/arrange'
+import { db } from '../data/db'
+import { createSubPage, ensureBox, moveIntoBox, moveOutALevel } from '../data/subpages'
+import { ancestors, parentsOf } from '../sheets/tree'
 import { archiveSheet, deleteWithUndo } from './trash'
 import { listTrash, purgeTrash } from '../data/trash'
 
@@ -175,7 +178,11 @@ function useSideMenu({ folders, newPage, openDialog }: { folders: Folder[]; newP
 function FolderTree() {
   const data = useLiveQuery(async () => {
     const t = await listTrash()
-    return { ...(await listLibrary()), notes: await listNotes(), sheets: await listSheets(), archived: await listArchive(), trashed: t.decks.length + t.notes.length + t.sheets.length }
+    const sheets = await listSheets()
+    // Boxes on pages that have sub-pages: their titles are the headings under those pages.
+    const parents = [...new Set(sheets.map((s) => s.parentId).filter((x): x is string => !!x))]
+    const boxes = parents.length ? (await db.sheetBlocks.where('sheetId').anyOf(parents).toArray()).filter((b) => b.kind === 'box') : []
+    return { ...(await listLibrary()), notes: await listNotes(), sheets, boxes, archived: await listArchive(), trashed: t.decks.length + t.notes.length + t.sheets.length }
   }, [])
   const loc = useLocation()
   const nav = useNavigate()
@@ -193,6 +200,7 @@ function FolderTree() {
   const activeFolder = loc.pathname.startsWith('/folder/') ? loc.pathname.split('/')[2] : activePage?.folderId
   const forced = new Set<string>()
   for (let f = folders.find((x) => x.id === activeFolder); f; f = folders.find((x) => x.id === f!.parentId)) forced.add(f.id)
+  if (activePage?.kind === 'sheet') for (const a of ancestors(activePage.id, parentsOf(data.sheets))) forced.add(a)
   const isOpen = (id: string) => openFolders.includes(id) || forced.has(id)
   const toggle = (id: string) => set({ openFolders: openFolders.includes(id) ? openFolders.filter((x) => x !== id) : [...openFolders, id] })
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
@@ -231,22 +239,61 @@ function FolderTree() {
       await settle(page, to.folderId, unit, [...list, page])
     },
   })
-  /** A page in the list: drop above or below it, joining its group. */
+  const kidsOfPage = (id: string) => pages.filter((x) => x.kind === 'sheet' && x.parentId === id)
+  const rankSort = (a: Page, b: Page) => ((a.kind === 'sheet' ? a.sheet.rank : undefined) ?? Infinity) - ((b.kind === 'sheet' ? b.sheet.rank : undefined) ?? Infinity) || a.title.localeCompare(b.title, undefined, { numeric: true })
+  const refuse = (ok: boolean) => { if (!ok) toast("Can't put a page inside its own sub-page") }
+  const onlySheets = () => toast('Only pages you write can go under a page')
+  /** A box heading under a page: the dropped page goes to the end of that box. */
+  const dropIntoBox = (parentId: string, boxId: string) => ({
+    onDragOver: (e: React.DragEvent) => { if (allowDrop(e)) (e.currentTarget as HTMLElement).classList.add('drop-over') },
+    onDragLeave: (e: React.DragEvent) => clear(e.currentTarget as HTMLElement),
+    onDrop: async (e: React.DragEvent) => {
+      clear(e.currentTarget as HTMLElement)
+      const page = dragged(e)
+      if (!page) return
+      e.preventDefault()
+      if (page.kind !== 'sheet') return onlySheets()
+      refuse(await moveIntoBox(page.id, parentId, boxId))
+    },
+  })
+  /**
+   * A page in the list: drop above or below it to join its group (or its box, for a sub-page). A page
+   * dropped on the middle of another page goes inside it.
+   */
   const dropOnPage = (target: Page) => ({
     onDragOver: (e: React.DragEvent) => {
       if (!allowDrop(e)) return
       const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect()
-      const after = e.clientY > r.top + r.height / 2
-      el.classList.toggle('drop-after', after); el.classList.toggle('drop-before', !after)
+      // dragover can't read the data, only its types: the kind rides along as a type of its own.
+      const nest = target.kind === 'sheet' && e.dataTransfer.types.includes(`${PAGE_DRAG}-sheet`)
+      const at = (e.clientY - r.top) / r.height
+      const zone = nest ? (at < 0.3 ? 'before' : at > 0.7 ? 'after' : 'over') : at < 0.5 ? 'before' : 'after'
+      el.classList.toggle('drop-before', zone === 'before'); el.classList.toggle('drop-after', zone === 'after'); el.classList.toggle('drop-over', zone === 'over')
     },
     onDragLeave: (e: React.DragEvent) => clear(e.currentTarget as HTMLElement),
     onDrop: async (e: React.DragEvent) => {
       const el = e.currentTarget as HTMLElement
-      const after = el.classList.contains('drop-after')
+      const after = el.classList.contains('drop-after'), into = el.classList.contains('drop-over')
       clear(el)
       const page = dragged(e)
       if (!page || (page.kind === target.kind && page.id === target.id)) return
       e.preventDefault()
+      if (into && target.kind === 'sheet') {
+        if (page.kind !== 'sheet') return onlySheets()
+        const ok = await moveIntoBox(page.id, target.id, await ensureBox(target.id))
+        refuse(ok)
+        if (ok) toast(`Moved into "${target.title}"`)
+        return
+      }
+      if (target.kind === 'sheet' && target.parentId) {
+        // Next to a sub-page: into the same box, in that place.
+        if (page.kind !== 'sheet') return onlySheets()
+        const box = target.sheet.box ?? await ensureBox(target.parentId)
+        const list = kidsOfPage(target.parentId).filter((k) => k.kind === 'sheet' && k.sheet.box === target.sheet.box && k.id !== page.id).sort(rankSort)
+        list.splice(list.findIndex((x) => x.id === target.id) + (after ? 1 : 0), 0, page)
+        refuse(await moveIntoBox(page.id, target.parentId, box, list.map((x) => x.id)))
+        return
+      }
       const unit = target.unit ?? null
       const list = groupOf(target.folderId, unit).filter((x) => !(x.kind === page.kind && x.id === page.id))
       const at = list.findIndex((x) => x.kind === target.kind && x.id === target.id) + (after ? 1 : 0)
@@ -254,14 +301,43 @@ function FolderTree() {
       await settle(page, target.folderId, unit, list)
     },
   })
-  const PageLink = ({ p, pad }: { p: Page; pad: number }) => (
-    <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
-      data-page-folder={p.folderId ?? ''} data-page-unit={p.unit ?? ''}
-      draggable onDragStart={(e) => { e.dataTransfer.setData(PAGE_DRAG, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.effectAllowed = 'move' }}
-      {...dropOnPage(p)}>
-      <Icon name={pageIcon(p.kind)} size={13} /><span className="t">{p.title}</span>
-    </Link>
-  )
+  const PageLink = ({ p, pad }: { p: Page; pad: number }) => {
+    const kids = p.kind === 'sheet' ? kidsOfPage(p.id) : []
+    const link = (
+      <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: kids.length ? 2 : pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
+        data-page-folder={p.folderId ?? ''} data-page-unit={p.unit ?? ''}
+        {...(p.kind === 'sheet' && p.parentId ? { 'data-page-parent': p.parentId, 'data-page-box': p.sheet.box ?? '' } : {})}
+        draggable onDragStart={(e) => { e.dataTransfer.setData(PAGE_DRAG, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.setData(`${PAGE_DRAG}-${p.kind}`, ''); e.dataTransfer.effectAllowed = 'move' }}
+        {...dropOnPage(p)}>
+        <Icon name={pageIcon(p.kind)} size={13} /><span className="t">{p.title}</span>
+      </Link>
+    )
+    if (!kids.length) return link
+    const open = isOpen(p.id)
+    // The twist sits left of the row, which can't go below 0 at the top level: indent from where the icon really is.
+    const inner = Math.max(pad, 20) + 14
+    // Sub-pages grouped by box, in the boxes' order on the page; any whose box is missing come last, unlabelled.
+    const boxes = data.boxes.filter((b) => b.sheetId === p.id).sort((a, b) => a.y - b.y || a.x - b.x)
+    const known = new Set(boxes.map((b) => b.id))
+    const inBox = (k: Page, id: string | null) => k.kind === 'sheet' && (id ? k.sheet.box === id : !(k.sheet.box && known.has(k.sheet.box)))
+    const groups = [...boxes, null].map((b) => ({ b, list: kids.filter((k) => inBox(k, b?.id ?? null)).sort(rankSort) })).filter((g) => g.list.length)
+    return (
+      <div className="tsub">
+        <div className="tsubrow" style={{ paddingLeft: Math.max(0, pad - 20) }}>
+          <button className={`twist ${open ? 'open' : ''}`} onClick={() => toggle(p.id)} aria-label={open ? 'Collapse' : 'Expand'} aria-expanded={open}><Icon name="down2" size={13} /></button>
+          {link}
+        </div>
+        <Collapse open={open}>
+          <>{groups.map((g) => (
+            <div key={g.b?.id ?? '-'}>
+              {g.b?.data.label && <div className="tunit" style={{ paddingLeft: inner + 2 }} {...dropIntoBox(p.id, g.b.id)}>{g.b.data.label}</div>}
+              {g.list.map((k) => <PageLink key={k.id} p={k} pad={inner} />)}
+            </div>
+          ))}</>
+        </Collapse>
+      </div>
+    )
+  }
   const PageList = ({ list, pad, folderId }: { list: Page[]; pad: number; folderId: string | null }) => {
     const groups = groupByUnit(list)
     const labelled = groups.some((g) => g.unit)
@@ -365,13 +441,22 @@ export function PageMenu() {
       else await updateSheet(id, { title: name, titleAuto: false })
     }
     // Sidebar rows say where they sit, so a new page can go next to them.
-    const here = el.dataset.pageFolder !== undefined
-      ? [{ label: 'New page here', icon: 'plus', onSelect: () => newPage(el.dataset.pageFolder || null, el.dataset.pageUnit || undefined) }]
-      : []
+    const paper = () => useSettings.getState().paperDefault ?? undefined
+    const parent = el.dataset.pageParent
+    const here = parent
+      ? [{ label: 'New page here', icon: 'plus', onSelect: async () => nav(`/write/${await createSubPage(parent, el.dataset.pageBox || await ensureBox(parent), paper())}`) }]
+      : el.dataset.pageFolder !== undefined
+        ? [{ label: 'New page here', icon: 'plus', onSelect: () => newPage(el.dataset.pageFolder || null, el.dataset.pageUnit || undefined) }]
+        : []
+    const tree = kind === 'sheet' ? [
+      { label: 'New sub-page', icon: 'plus', onSelect: async () => nav(`/write/${await createSubPage(id, await ensureBox(id), paper())}`) },
+      ...(parent ? [{ label: 'Move out a level', icon: 'upload', onSelect: async () => { await moveOutALevel(id); toast('Moved out a level') } }] : []),
+    ] : []
     return [
       { label: 'Open', icon: pageIcon(kind), onSelect: () => nav(url) },
       { label: 'Open in a new tab', icon: 'external', onSelect: () => { window.open(url, '_blank', 'noopener') } },
       ...here,
+      ...tree,
       { label: 'Rename…', icon: 'edit', onSelect: rename },
       ...(kind === 'deck' ? [
         { sep: true as const },
