@@ -1,3 +1,4 @@
+import { isEmptyDoc } from '../../data/sheets'
 import { useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import { TextSelection, type Transaction } from '@tiptap/pm/state'
@@ -174,7 +175,8 @@ export function TextBlock({ block, unit, autoFocus, onDoc, onHeight, onBlur, pag
     const t = setTimeout(() => {
       // A maths, plot or working editor that just opened in this block keeps the focus it took.
       if (editor.isDestroyed || editor.isFocused || box.current?.contains(document.activeElement)) return
-      editor.commands.focus('end')
+      // A blank page: start in its title line, not after it.
+      editor.commands.focus(isEmptyDoc(editor.getJSON()) ? 'start' : 'end')
       editor.view.focus()
     }, 30)
     return () => clearTimeout(t)

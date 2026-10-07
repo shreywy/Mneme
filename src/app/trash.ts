@@ -22,8 +22,17 @@ export async function deleteWithUndo(kind: TrashKind, id: string): Promise<boole
     if (!c) return false
     withKids = c === 'all'
   }
+  // Kept sub-pages move up a level; Undo puts them back where they were.
+  const kept = n && !withKids ? (await db.sheets.where('parentId').equals(id).toArray()).filter((s) => !s.archived && !s.deletedAt) : []
   await trashPage(kind, id, withKids)
-  toastAction(`${NOUN[kind]} deleted`, { label: 'Undo', run: () => { void restorePage(kind, id) } }, 'trash')
+  const undo = async () => {
+    await restorePage(kind, id)
+    for (const k of kept) await db.sheets.where('id').equals(k.id).modify((s) => {
+      s.parentId = k.parentId; s.box = k.box; s.rank = k.rank; s.folderId = k.folderId; s.updatedAt = Date.now()
+      if (k.unit) s.unit = k.unit; else delete s.unit
+    })
+  }
+  toastAction(n && withKids ? `${n + 1} pages deleted` : `${NOUN[kind]} deleted`, { label: 'Undo', run: () => { void undo() } }, 'trash')
   return true
 }
 

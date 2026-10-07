@@ -14,6 +14,8 @@ function newId(): string {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+/** Where to go back to after signing in from a share link (sessionStorage key). */
+export const AFTER_SIGN_IN = 'mneme.afterSignIn'
 export const shareUrl = (id: string) => `${location.origin}/s/${id}`
 
 /** This user's share of a page, if it has one. */

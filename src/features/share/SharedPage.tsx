@@ -8,7 +8,7 @@ import { Markdown } from '../../content/Markdown'
 import { promptText } from '../../engine/exercises'
 import { parseAnyText } from '../../notes-format/parse'
 import { accountsEnabled, useAccount } from '../../sync/account'
-import { openShare } from '../../sync/share'
+import { AFTER_SIGN_IN, openShare } from '../../sync/share'
 import { Icon } from '../../ui/Icons'
 import { toast } from '../../ui/toasts'
 import { BlockView } from '../notes/blocks'
@@ -17,7 +17,6 @@ import { parsePagePayload } from '../../sheets/sharepage'
 import type { ShareKind } from '../../sync/share'
 import { SharedSheet } from '../sheet/SharedSheet'
 
-export const AFTER_SIGN_IN = 'mneme.afterSignIn'
 
 /** A shared deck or notes page, read-only. Anyone with the link can see it; saving needs an account. */
 export function SharedPage() {

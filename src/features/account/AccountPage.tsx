@@ -18,7 +18,7 @@ import { confirmAction } from '../../ui/confirm'
 import { toast } from '../../ui/toasts'
 import { SlideToConfirm } from '../../ui/SlideToConfirm'
 import { friendly, SignIn, STATUS } from './SignIn'
-import { AFTER_SIGN_IN } from '../share/SharedPage'
+import { AFTER_SIGN_IN } from '../../sync/share'
 import { TwoStepCard } from './TwoStep'
 import { deviceName, endSession, listActivity, listSessions, signOutOthers, type AccountEvent, type Session } from '../../sync/devices'
 

@@ -12,7 +12,6 @@ import { FlashcardsPage } from '../features/flashcards/FlashcardsPage'
 import { AccountPage } from '../features/account/AccountPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { CheatSheetPage } from '../features/cheatsheet/CheatSheetPage'
-import { SharedPage } from '../features/share/SharedPage'
 import { TestPage } from '../features/test/TestPage'
 import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
@@ -21,6 +20,8 @@ import { SnapLayer } from '../features/ai/SnapLayer'
 import { ConfirmHost } from '../ui/confirm'
 
 // Pages bring the editor with them, so they load on first use.
+// Share links can hold a page, which needs the whole editor: only loaded when one is opened.
+const SharedPage = lazy(() => import('../features/share/SharedPage').then((m) => ({ default: m.SharedPage })))
 const SheetPage = lazy(() => import('../features/sheet/SheetPage').then((m) => ({ default: m.SheetPage })))
 // The introduction and docs are their own pages, loaded when visited.
 const AboutPage = lazy(() => import('../features/site/AboutPage').then((m) => ({ default: m.AboutPage })))
@@ -42,7 +43,7 @@ export function App() {
           <Route path="account" element={<AccountPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="cheatsheet" element={<CheatSheetPage />} />
-          <Route path="s/:shareId" element={<SharedPage />} />
+          <Route path="s/:shareId" element={<Suspense fallback={<div className="page" />}><SharedPage /></Suspense>} />
           <Route path="*" element={<LibraryPage />} />
         </Route>
         <Route path="about" element={<Suspense fallback={null}><AboutPage /></Suspense>} />

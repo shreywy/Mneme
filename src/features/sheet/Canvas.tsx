@@ -141,6 +141,13 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   const live = useRef({ blocks, selected, view, size, shown, strokes, selInk, spots, prefs })
   live.current = { blocks, selected, view, size, shown, strokes, selInk, spots, prefs }
   const main = blocks.find((b) => b.role === 'main')
+  // A blank page opens ready to type in (otherwise focus stays on the New page button, and a space makes another page).
+  const typedInto = useRef<string | null>(null)
+  useEffect(() => {
+    if (!main || typedInto.current === sheet.id) return
+    typedInto.current = sheet.id
+    if (sheets.isEmptyDoc(main.data.doc) && !matchMedia('(pointer: coarse)').matches) setFocusId(main.id)
+  }, [main, sheet.id])
   const theme = usePaperTheme(sheet)
   // Pages layout: sheets behind the main column, which breaks between them.
   const pageSize = sheet.paper.size ?? 'a4'
@@ -243,7 +250,9 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     const c = at ?? freeSpot(live.current.shown, middleCell(), MAIN_BLOCK.w, 4)
     const b = await addBox(sheet.id, '', c)
     history.record({ kind: 'add', block: b })
-    select([b.id])
+    // Not selected: the selection frame would sit over its buttons. Ready to be named instead.
+    select([])
+    setTimeout(() => document.querySelector<HTMLInputElement>(`[data-block-id="${CSS.escape(b.id)}"] .sbox-label`)?.focus(), 60)
   }, [sheet.id, history]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What the toolbar, dock and Insert can ask of the canvas.
