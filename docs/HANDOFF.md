@@ -177,10 +177,11 @@ Built from §8 of the [main spec](superpowers/specs/2026-09-30-mneme-design.md) 
 - **Client:** `src/ai/gemini.ts`. `fetch` to `generativelanguage.googleapis.com` with `x-goog-api-key`, streamed (`?alt=sse`), no SDK.
   - Models: `gemini-flash-latest`, falling back to `gemini-flash-lite-latest` on 429 or 5xx.
   - `thinkingLevel: 'low'`. The default thinking took about 14 s for a two-sentence answer; low takes about 3 s.
+  - After Flash answers 429 or 5xx it's skipped for a minute (`flashBackAt`), so a used-up free tier doesn't cost a wasted request every time.
   - A stream that ends without a `finishReason` is "cut off" (seen once). `askJson` retries once on that or on unreadable JSON.
 - **Key:** `src/ai/key.ts`.
   - Sealed in `db.secrets` with a non-extractable AES-GCM key.
-  - Signed in, also an owner-only `user_settings` row `gemini-key` (no migration needed), pulled with each sync and forgotten on sign-out.
+  - Signed in, also an owner-only `user_settings` row `gemini-key` (no migration needed), fetched at sign-in and whenever `user_settings` changes (realtime), not on every sync, and forgotten on sign-out.
   - `VITE_GEMINI_DEV_KEY` from `.env.local` is used only under `import.meta.env.DEV`. Build output was checked: neither the key nor the variable name is in `dist`.
 - **Chats:** `src/ai/chat.ts`. Pinned context goes in the system instruction.
   - Past 60% of a 32k-token budget, all but the last 4 turns are folded into a summary.
@@ -203,6 +204,17 @@ Built from §8 of the [main spec](superpowers/specs/2026-09-30-mneme-design.md) 
   - Semantic search of public decks: there are no public decks yet.
   - Sentry: not AI.
   - Snapshot on phones: the shortcut needs a keyboard.
+
+## Bundle splitting (2026-10-07)
+
+- `vite.config.ts` puts the page editor in its own chunks with `codeSplitting.groups`:
+  - `editor-libs`: TipTap, ProseMirror, lowlight and highlight.js.
+  - `editor`: everything in `src/features/sheet/`.
+  - `includeDependenciesRecursively: false` keeps shared app code (Markdown, data/pages) out of those chunks.
+- Without that, Rolldown hoisted TextBlock (used by both pages and share links) into the first chunk, and the whole editor loaded on every screen.
+- Startup JS went from 607 KB to 464 KB gzipped.
+- **Gotcha:** importing anything from `features/share/SharedPage` or `features/sheet/*` into a startup module pulls the editor back into the first load. The sign-in redirect key moved to `sync/share.ts` for this reason.
+- To check, run `npx vite build`, then look at the `modulepreload` links in `dist/index.html`. No `editor` file should be among them.
 
 ## Site, docs, README and security (2026-10-02)
 
