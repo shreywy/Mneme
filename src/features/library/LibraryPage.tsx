@@ -334,7 +334,7 @@ export function ArchivePage() {
                 const left = trash.daysLeft(x.at)
                 return (
                   <div className="drow static" key={`${x.kind}:${x.id}`}>
-                    <b><Icon name={x.icon} size={14} />{x.title}</b><span className="muted">deleted {relTime(x.at)}</span><span /><span className="muted">{left <= 1 ? 'goes today' : `${left} days left`}</span>
+                    <b><Icon name={x.icon} size={14} />{x.title}{x.kind === 'sheet' && bin.sheetKids[x.id] ? <span className="muted"> and {plural(bin.sheetKids[x.id], 'sub-page')}</span> : null}</b><span className="muted">deleted {relTime(x.at)}</span><span /><span className="muted">{left <= 1 ? 'goes today' : `${left} days left`}</span>
                     <span className="acts">
                       <button className="btn sm" onClick={async () => { await trash.restorePage(x.kind, x.id); toast('Restored', 'It’s back where it was') }}>Restore</button>
                       <button className="btn sm ghost danger" onClick={async () => {
@@ -366,7 +366,7 @@ export function ArchivePage() {
             <div className="dlist">
               {data.sheets.map((s) => (
                 <div className="drow static" key={s.id}>
-                  <b><Icon name="page" size={14} />{s.title}</b><span className="muted">{all.find((f) => f.id === s.folderId)?.name ?? 'No folder'}{s.unit ? ` · ${s.unit}` : ''}</span><span /><span className="muted">archived {relTime(s.archivedAt)}</span>
+                  <b><Icon name="page" size={14} />{s.title}{data.sheetKids[s.id] ? <span className="muted"> and {plural(data.sheetKids[s.id], 'sub-page')}</span> : null}</b><span className="muted">{all.find((f) => f.id === s.folderId)?.name ?? 'No folder'}{s.unit ? ` · ${s.unit}` : ''}</span><span /><span className="muted">archived {relTime(s.archivedAt)}</span>
                   <span className="acts">
                     <button className="btn sm" onClick={async () => { await sheetsRepo.setSheetArchived(s.id, false); toast('Page restored') }}>Restore</button>
                     <button className="btn sm ghost danger" onClick={() => deleteWithUndo('sheet', s.id)}>Delete</button>

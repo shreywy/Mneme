@@ -38,9 +38,35 @@ export function confirmAction(o: { title: string; body?: string; confirm: string
   return new Promise((resolve) => useConfirm.getState().set({ ...o, resolve }))
 }
 
+type Choose = { title: string; body?: string; choices: { value: string; label: string; danger?: boolean }[]; resolve: (v: string | null) => void }
+const useChoose = create<{ ask: Choose | null }>(() => ({ ask: null }))
+
+/** A question with several answers as buttons. Resolves to the picked value, or null on Cancel. */
+export function chooseAction<T extends string>(o: { title: string; body?: string; choices: { value: T; label: string; danger?: boolean }[] }): Promise<T | null> {
+  return new Promise((resolve) => useChoose.setState({ ask: { ...o, resolve: resolve as (v: string | null) => void } }))
+}
+
+function ChooseHost() {
+  const ask = useChoose((s) => s.ask)
+  if (!ask) return null
+  const done = (v: string | null) => { useChoose.setState({ ask: null }); ask.resolve(v) }
+  return (
+    <Sheet onClose={() => done(null)} label={ask.title} width={460}>
+      <h2 style={{ fontSize: 22, paddingRight: 30 }}>{ask.title}</h2>
+      {ask.body && <p className="lede" style={{ fontSize: 14 }}>{ask.body}</p>}
+      <div className="actions">
+        <button className="btn ghost" onClick={() => done(null)}>Cancel</button>
+        {ask.choices.map((c, i) => (
+          <button key={c.value} className={`btn ${c.danger ? 'danger-solid' : i === 0 ? 'primary' : ''}`} autoFocus={i === 0} onClick={() => done(c.value)}>{c.label}</button>
+        ))}
+      </div>
+    </Sheet>
+  )
+}
+
 export function ConfirmHost() {
   const { ask } = useConfirm()
-  if (!ask) return <AskNameHost />
+  if (!ask) return <><AskNameHost /><ChooseHost /></>
   return <ConfirmSheet key={ask.title} ask={ask} />
 }
 function ConfirmSheet({ ask }: { ask: Ask }) {

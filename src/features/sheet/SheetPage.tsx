@@ -1,4 +1,4 @@
-import { deleteWithUndo } from '../../app/trash'
+import { archiveSheet, deleteWithUndo } from '../../app/trash'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -81,11 +81,10 @@ export function SheetPage() {
             <button role="menuitem" onClick={() => { close(); setPrinting(true) }}><Icon name="print" size={15} />Print…<span className="kbd">Ctrl P</span></button>
             <button role="menuitem" onClick={() => { close(); toast('Choose "Save as PDF" as the printer', 'Text in the PDF stays selectable', 'down'); setPrinting(true) }}><Icon name="down" size={15} />Save as PDF…</button>
             <div className="ctx-sep" role="separator" />
-            <button role="menuitem" onClick={async () => { close(); await sheets.setSheetArchived(sheet.id, true); toast('Page archived', 'Find it under Archive in the sidebar', 'archive'); nav('/') }}><Icon name="archive" size={15} />Archive</button>
+            <button role="menuitem" onClick={async () => { close(); if (await archiveSheet(sheet.id)) nav('/') }}><Icon name="archive" size={15} />Archive</button>
             <button role="menuitem" className="danger" onClick={async () => {
               close()
-              nav('/')
-              await deleteWithUndo('sheet', sheet.id)
+              if (await deleteWithUndo('sheet', sheet.id)) nav('/')
             }}><Icon name="trash" size={15} />Delete</button>
           </>}
         </DropMenu>

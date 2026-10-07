@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
 import { listNotes } from '../data/notes'
 import { groupByUnit, PAGE_DRAG, pageIcon, pagesOf, pageUrl, topLevel, type Page, type PageKind } from '../data/pages'
-import { createSheet, listSheets, setSheetArchived, updateSheet } from '../data/sheets'
+import { createSheet, listSheets, updateSheet } from '../data/sheets'
 import { createFolder, deleteFolder, descendants, listArchive, listLibrary, moveFolder, renameFolder } from '../data/repo'
 import { useSettings } from '../settings/store'
 import { Icon, Wordmark } from '../ui/Icons'
@@ -19,7 +19,7 @@ import { toast } from '../ui/toasts'
 import { setNoteArchived, updateNote } from '../data/notes'
 import { renameDeck, setArchived } from '../data/repo'
 import { placePage } from '../data/arrange'
-import { deleteWithUndo } from './trash'
+import { archiveSheet, deleteWithUndo } from './trash'
 import { listTrash, purgeTrash } from '../data/trash'
 
 export function Shell() {
@@ -381,11 +381,11 @@ export function PageMenu() {
       ] : []),
       ...(kind !== 'sheet' ? [{ label: 'Make a cheat sheet', icon: 'list', onSelect: () => nav(`/cheatsheet?${kind === 'deck' ? 'd' : 'n'}=${id}`) }] : []),
       { sep: true as const },
-      { label: 'Archive', icon: 'archive', onSelect: async () => { await (kind === 'deck' ? setArchived('deck', id, true) : kind === 'note' ? setNoteArchived(id, true) : setSheetArchived(id, true)); toast(`${noun} archived`, 'Find it under Archive in the sidebar', 'archive') } },
+      { label: 'Archive', icon: 'archive', onSelect: async () => { if (kind === 'sheet') { await archiveSheet(id); return } await (kind === 'deck' ? setArchived('deck', id, true) : setNoteArchived(id, true)); toast(`${noun} archived`, 'Find it under Archive in the sidebar', 'archive') } },
       {
         label: 'Delete', icon: 'trash', danger: true, onSelect: async () => {
-          if (location.pathname.startsWith(url)) nav('/')
-          await deleteWithUndo(kind, id)
+          const here = location.pathname.startsWith(url)
+          if (await deleteWithUndo(kind, id) && here) nav('/')
         },
       },
     ]

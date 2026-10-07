@@ -5,6 +5,7 @@ import * as sheets from './sheets'
 import * as ink from './ink'
 import { decodePoints, encodePoints as ink2 } from '../sheets/ink'
 import * as repo from './repo'
+import * as sub from './subpages'
 import { DEFAULT_PAPER } from '../sheets/types'
 
 beforeEach(async () => { await Promise.all(db.tables.map((t) => t.clear())) })
@@ -149,5 +150,19 @@ describe('sheets', () => {
     const got = Object.fromEntries((await sheets.blocksFor(id)).map((x) => [x.id, [x.x, x.y]]))
     expect(got[a.id]).toEqual([31, 4])
     expect(got[b.id]).toEqual([31, 8])
+  })
+})
+
+describe('archiving with sub-pages', () => {
+  it('archiving a page archives its sub-pages; the archive lists the top with a count; restoring brings them all back', async () => {
+    const cps = await sheets.createSheet()
+    const kid = await sub.createSubPage(cps, await sub.ensureBox(cps))
+    await sheets.setSheetArchived(cps, true)
+    expect(await sheets.listSheets()).toEqual([])
+    const a = await repo.listArchive()
+    expect(a.sheets.map((s) => s.id)).toEqual([cps])
+    expect(a.sheetKids[cps]).toBe(1)
+    await sheets.setSheetArchived(cps, false)
+    expect((await sheets.listSheets()).map((s) => s.id).sort()).toEqual([cps, kid].sort())
   })
 })

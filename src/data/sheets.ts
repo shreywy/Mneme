@@ -5,6 +5,7 @@ import { decodePoints, shiftPoints, strokeBounds } from '../sheets/ink'
 import { copyInk, deleteStrokes, inkFor, inkOnBlocks } from './ink'
 import type { PagePayload } from '../sheets/sharepage'
 import { titleFrom } from '../sheets/order'
+import { subtree } from '../sheets/tree'
 
 // The user's own pages (Text notes). A page is a row in `sheets`; everything on it is a row in
 // `sheetBlocks`, so two devices editing different blocks never overwrite each other.
@@ -57,8 +58,18 @@ export async function markOpened(id: string) {
   await db.sheets.update(id, { lastOpenedAt: Date.now() })
 }
 
-export async function setSheetArchived(id: string, archived: boolean) {
-  await db.sheets.update(id, archived ? { archived: true, archivedAt: Date.now() } : { archived: false })
+/** Archives a page with its sub-pages (or, `withKids` false, after moving them up); un-archiving brings back the ones archived with it. */
+export async function setSheetArchived(id: string, archived: boolean, withKids = true) {
+  // Imported when used: subpages and trash both import this file.
+  if (archived) {
+    if (!withKids) await (await import('./subpages')).liftChildren(id)
+    const now = Date.now()
+    const all = await db.sheets.toArray()
+    const ids = [id, ...(withKids ? subtree(id, all).filter((x) => !all.find((s) => s.id === x)?.archived) : [])]
+    for (const x of ids) await db.sheets.update(x, { archived: true, archivedAt: now })
+  } else {
+    for (const x of await (await import('./trash')).sameStamp(id, 'archivedAt')) await db.sheets.update(x, { archived: false })
+  }
 }
 
 export async function deleteSheet(id: string) {
