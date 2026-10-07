@@ -5,7 +5,7 @@ import { decodePoints, shiftPoints, strokeBounds } from '../sheets/ink'
 import { copyInk, deleteStrokes, inkFor, inkOnBlocks } from './ink'
 import type { PagePayload } from '../sheets/sharepage'
 import { titleFrom } from '../sheets/order'
-import { subtree } from '../sheets/tree'
+import { parentsOf, rootOf, subtree } from '../sheets/tree'
 
 // The user's own pages (Text notes). A page is a row in `sheets`; everything on it is a row in
 // `sheetBlocks`, so two devices editing different blocks never overwrite each other.
@@ -46,7 +46,11 @@ export async function importPage(p: PagePayload, folderId: string | null = null)
 export async function listSheets(): Promise<SheetRow[]> {
   const [folders, all] = await Promise.all([db.folders.toArray(), db.sheets.toArray()])
   const hidden = hiddenFolderIds(folders)
-  return all.filter((s) => !s.archived && !s.hidden && !(s.folderId && hidden.has(s.folderId)))
+  // A sub-page has no folder of its own: it's hidden when its top page's folder is.
+  const rows = all.filter((s) => !s.archived && !s.hidden)
+  const parents = parentsOf(rows)
+  const byId = new Map(rows.map((s) => [s.id, s]))
+  return rows.filter((s) => { const top = byId.get(rootOf(s.id, parents))!; return !(top.folderId && hidden.has(top.folderId)) })
 }
 
 export async function updateSheet(id: string, patch: Partial<Omit<SheetRow, 'id' | 'createdAt'>>) {

@@ -4,6 +4,7 @@ import { db } from './db'
 import * as sheets from './sheets'
 import * as sub from './subpages'
 import { placePage } from './arrange'
+import * as repo from './repo'
 
 beforeEach(async () => { await Promise.all(db.tables.map((t) => t.clear())) })
 
@@ -107,3 +108,17 @@ describe('sub-pages', () => {
     expect(s.folderId).toBe('fall')
   })
 })
+
+describe('sub-pages and archived folders', () => {
+  it("a folder's archive hides its pages' sub-pages too; a sub-page whose parent is archived on its own still shows", async () => {
+    const f = await repo.createFolder('Fall')
+    const cps = await sheets.createSheet({ folderId: f })
+    const kid = await sub.createSubPage(cps, await sub.ensureBox(cps))
+    await repo.setArchived('folder', f, true)
+    expect((await sheets.listSheets()).map((s) => s.id)).toEqual([])
+    await repo.setArchived('folder', f, false)
+    await db.sheets.update(cps, { archived: true })
+    expect((await sheets.listSheets()).map((s) => s.id)).toEqual([kid])
+  })
+})
+
