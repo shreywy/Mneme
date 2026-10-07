@@ -6,7 +6,7 @@ Approved in conversation on 2026-10-07. Preview: https://claude.ai/artifact/MBWm
 
 - A page (Pages, the user's own writing) can hold other pages. Adding a new page inside one, or moving an existing page into it, nests it under that page in the sidebar.
 - Inside a page, boxes group the sub-pages, e.g. CPS721 has boxes "Week 1" and "Week 2", and each box holds chapter pages. The sidebar shows the same tree: CPS721 › Week 1 › Ch 1. He organizes it himself.
-- Opening a sub-page from its card is quick and snappy: the card moves to the middle of the page area and grows to fill it. A folded corner on the sub-page goes back.
+- Opening a sub-page from its card: the card grows from where it sits until it fills the page area. A folded corner on the sub-page goes back.
 - Import a zipped Google Drive folder: folders keep the tree, and documents (Word, PDF, text) become pages. A Drive folder becomes a page that can hold an overview.
 
 ## Decisions
@@ -75,9 +75,9 @@ box?: string        // the id of the box block on the parent that shows it
 
 ## 5. Opening and going back
 
-- **Grow:** when a page is opened from a card, a link, a sidebar row or a path crumb, the clicked element's box moves to the centre of the page area at its own size, then grows to fill it. About 340 ms in total. The page under it dims slightly.
-- **Back:** the page shrinks to the middle, then into its card on the parent (about 300 ms). If the parent has no card for it, it shrinks toward the middle and fades.
-- **How it's done:** the View Transitions API. The clicked element and the page sheet share `view-transition-name: page` for that one navigation. After `transition.ready`, `::view-transition-group(page)` gets three computed keyframes (source rect, the same size centred, the full sheet) through `element.animate({ pseudoElement })`. The browser's own cross-fade of the old and new images handles the content. Navigation goes through React Router's `viewTransition` option with `flushSync` so the new page is rendered when the browser snapshots it.
+- **Grow:** when a page is opened from a card, a link, a sidebar row or a path crumb, the clicked element grows from where it sits straight to the full page area (no stop in the middle). About 520 ms, eased out. The page under it dims slightly.
+- **Back:** the page shrinks straight into its card on the parent (about 460 ms). If the parent has no card for it, it shrinks toward the middle and fades.
+- **How it's done:** the View Transitions API. The clicked element and the page sheet share `view-transition-name: page` for that one navigation. The browser's default group animation already morphs the source rect into the sheet; only its duration and easing are set in CSS on `::view-transition-group(page)`, kept as constants that are easy to tune. The browser's own cross-fade of the old and new images handles the content. Navigation goes through React Router's `viewTransition` option with `flushSync` so the new page is rendered when the browser snapshots it.
 - **Fallbacks:** browsers without the API, and `prefers-reduced-motion`, switch instantly.
 - **Folded corner:** sub-pages show a folded top-left corner, fixed to the page area (not the canvas world). Hover or keyboard focus grows the fold and shows "Back to CPS721". Click or Alt+← goes back. It's a real button with an aria-label.
 - **Path bar:** the top bar shows the path (CPS721 › Ch 3 · Prolog basics › Practice set 3), each part a link.
