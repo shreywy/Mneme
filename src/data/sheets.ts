@@ -95,6 +95,12 @@ export async function updateBlock(id: string, patch: Partial<Omit<SheetBlock, 'i
 }
 export const deleteBlock = (id: string) => db.sheetBlocks.delete(id)
 
+/** Moves blocks down (or up) by `dy` lines, from wherever they are now. */
+export async function shiftBlocks(ids: string[], dy: number) {
+  const now = Date.now()
+  await db.sheetBlocks.where('id').anyOf(ids).modify((b) => { b.y += dy; b.updatedAt = now })
+}
+
 /** Patches many blocks in one write (the end of a drag), so the page redraws once, not once per block. */
 export async function updateBlocks(list: { id: string; patch: Partial<Omit<SheetBlock, 'id' | 'sheetId' | 'createdAt'>> }[]) {
   if (!list.length) return

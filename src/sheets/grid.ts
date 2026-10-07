@@ -105,3 +105,27 @@ export function paperStyle(p: Paper, v: View): CSSProperties {
     backgroundRepeat: repeats.join(', ') || undefined,
   }
 }
+
+type Box = { id: string; x: number; y: number; w: number; h: number }
+/**
+ * When a block grows to `newH` lines, the blocks that start under its top line and overlap it sideways move
+ * down by the same amount, so the main text never runs under a box placed below it.
+ */
+export function pushBelow(grown: Box, newH: number, blocks: Box[]): { id: string; y: number }[] {
+  const dh = newH - grown.h
+  if (dh <= 0) return []
+  // Under its top line rather than its bottom: while typing, positions just shifted may not have arrived yet.
+  return blocks.filter((b) => b.id !== grown.id && b.y > grown.y && b.x < grown.x + grown.w && b.x + b.w > grown.x).map((b) => ({ id: b.id, y: b.y + dh }))
+}
+
+/**
+ * A box placed while the main column's real height wasn't known can start inside it. Moves the first
+ * such box to the line after the column ends, with everything under it in the column. Null: nothing in the way.
+ */
+export function clearUnder(main: Box, h: number, blocks: (Box & { kind?: string })[]): { ids: string[]; dy: number } | null {
+  const across = (b: Box) => b.id !== main.id && b.x < main.x + main.w && b.x + b.w > main.x
+  const inside = blocks.filter((b) => across(b) && b.kind === 'box' && b.y > main.y && b.y < main.y + h)
+  if (!inside.length) return null
+  const top = Math.min(...inside.map((b) => b.y))
+  return { ids: blocks.filter((b) => across(b) && b.y >= top).map((b) => b.id), dy: main.y + h + 1 - top }
+}

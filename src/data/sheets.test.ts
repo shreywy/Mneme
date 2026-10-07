@@ -166,3 +166,14 @@ describe('archiving with sub-pages', () => {
     expect((await sheets.listSheets()).map((s) => s.id).sort()).toEqual([cps, kid].sort())
   })
 })
+
+describe('shiftBlocks', () => {
+  it('moves blocks down from where they are now', async () => {
+    const id = await sheets.createSheet()
+    const a = await sheets.addBlock({ sheetId: id, x: 3, y: 6, w: 24, h: 4, kind: 'box', data: { doc: null }, z: 1 })
+    await sheets.shiftBlocks([a.id], 2)
+    await sheets.shiftBlocks([a.id], 1)
+    expect((await sheets.getBlock(a.id))?.y).toBe(9)
+  })
+})
+

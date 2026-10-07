@@ -5,7 +5,7 @@ import { forgetLater, imagesIn } from '../../data/images'
 import { imageNodes } from './editor/image'
 import { anchorFor, distToStroke, encodePoints, insidePolygon, lassoPicks, recogniseShape, rubOut, shiftPoints, straightenHighlight, strokeBounds, textLineMid, type Pt } from '../../sheets/ink'
 import { listMyBlocks, placeMyBlock, saveMyBlock } from '../../data/myblocks'
-import { blocksInRect, boundsOf, cellAt, freeSpot, settle, type Place, paperStyle, pinchView, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
+import { blocksInRect, boundsOf, cellAt, clearUnder, freeSpot, pushBelow, settle, type Place, paperStyle, pinchView, snapUnits, toScreen, toWorld, zoomAt, type View } from '../../sheets/grid'
 import { applyChange, createHistory, type Change } from '../../sheets/history'
 import { titleFrom } from '../../sheets/order'
 import { pageCount, pageLines, sheetFrame } from '../../sheets/pages'
@@ -360,6 +360,27 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     return sheets.updateBlock(b.id, { data: after.data })
   }
   const renameMark = async (b: SheetBlock) => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label && label !== b.data.label) await editMark(b, { label }) }
+  // The main column's tallest measured height while being typed in.
+  const pushedAt = useRef<Record<string, number>>({})
+  /**
+   * The main column changed height. Typing in it pushes the blocks under it (a box of pages, say) down
+   * by what it grew. Otherwise (the page loading, an edit from another device) it only moves a box that
+   * ended up inside the column, which happens to one made while its real height wasn't known.
+   */
+  const growMain = (b: SheetBlock, h: number) => {
+    const from = pushedAt.current[b.id]
+    pushedAt.current[b.id] = Math.max(from ?? h, h)
+    const at = live.current.shown.find((x) => x.id === b.id) ?? b
+    const typing = !!document.querySelector(`[data-block-id="${b.id}"]`)?.contains(document.activeElement)
+    if (typing && from !== undefined) {
+      if (h <= from) return
+      const ids = pushBelow({ ...at, h: from }, h, live.current.shown).map((x) => x.id)
+      if (ids.length) void sheets.shiftBlocks(ids, h - from)
+    } else {
+      const fix = clearUnder(at, h, live.current.shown)
+      if (fix) void sheets.shiftBlocks(fix.ids, fix.dy)
+    }
+  }
   /** A box's title works like a bookmark's name: one undo puts it back. */
   const renameBox = (b: SheetBlock, label: string) => void editMark(b, { label })
   const toFront = (b: SheetBlock) => sheets.updateBlock(b.id, { z: nextZ() })
@@ -864,6 +885,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
                 onDoc={(doc) => onDoc(b, doc)}
                 onHeight={(h) => {
                   setHeights((m) => (m[b.id] === h ? m : { ...m, [b.id]: h }))
+                  if (b.role === 'main') growMain(b, h)
                   if (h !== b.h && focusId === b.id) void sheets.updateBlock(b.id, { h })
                 }}
                 onBlur={(doc) => onBlockBlur(b, doc)} />

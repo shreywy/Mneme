@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAPER } from './types'
-import { blocksInRect, boundsOf, freeSpot, settle, cellAt, clampZoom, linesFor, paperStyle, pinchView, snapUnits, toScreen, toWorld, zoomAt } from './grid'
+import { blocksInRect, boundsOf, clearUnder, freeSpot, pushBelow, settle, cellAt, clampZoom, linesFor, paperStyle, pinchView, snapUnits, toScreen, toWorld, zoomAt } from './grid'
 
 const v = { x: -100, y: 50, zoom: 2 }
 
@@ -93,3 +93,31 @@ describe('grid', () => {
     expect(settle({}, blocks)).toEqual({})
   })
 })
+
+describe('pushBelow', () => {
+  const main = { id: 'm', x: 3, y: 2, w: 24, h: 1 }
+  it('moves blocks under a growing block down by what it grew, leaving ones beside or above alone', () => {
+    const others = [
+      { id: 'box', x: 3, y: 4, w: 24, h: 6 },
+      { id: 'side', x: 30, y: 4, w: 10, h: 2 },
+      { id: 'note', x: 20, y: 12, w: 10, h: 1 },
+      { id: 'above', x: 3, y: 0, w: 5, h: 1 },
+    ]
+    expect(pushBelow(main, 5, [main, ...others])).toEqual([{ id: 'box', y: 8 }, { id: 'note', y: 16 }])
+  })
+  it('does nothing when the block shrinks or stays the same', () => {
+    expect(pushBelow(main, 1, [main, { id: 'box', x: 3, y: 4, w: 24, h: 6 }])).toEqual([])
+  })
+})
+
+describe('clearUnder', () => {
+  const main = { id: 'm', x: 3, y: 2, w: 24, h: 1 }
+  it('moves a box the main column runs into to just below it, with what is under the box', () => {
+    const blocks = [main, { id: 'box', x: 3, y: 4, w: 24, h: 6, kind: 'box' }, { id: 'note', x: 3, y: 12, w: 10, h: 1, kind: 'text' }, { id: 'side', x: 30, y: 3, w: 8, h: 1, kind: 'box' }]
+    expect(clearUnder(main, 5, blocks)).toEqual({ ids: ['box', 'note'], dy: 4 })
+  })
+  it('leaves things alone when no box is in the way', () => {
+    expect(clearUnder(main, 5, [main, { id: 'box', x: 3, y: 8, w: 24, h: 6, kind: 'box' }])).toBeNull()
+  })
+})
+
