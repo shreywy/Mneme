@@ -153,3 +153,9 @@ box?: string        // the id of the box block on the parent that shows it
 - Slides (`.pptx`) and spreadsheets.
 - Keeping PDF pages as pictures.
 - Importing straight from Google Drive with sign-in (the Drive API).
+
+## Changed while building
+
+- Phase 2: React Router's `viewTransition` needs a data router, and the app uses `<BrowserRouter>`. `src/app/pagenav.ts` calls `document.startViewTransition` itself, and navigates anyway after 300 ms if the browser isn't drawing frames.
+- Phase 3: there was no Markdown → editor path to reuse (smart paste only handles tables, LaTeX, code and links). Markdown goes through react-markdown → HTML → the same `generateJSON` path as Word.
+- Phase 3: mammoth's command-line tool pulls in a sprintf-js that `npm audit` flags. `package.json` overrides argparse to 2.x, which the browser build never uses.

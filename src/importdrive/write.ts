@@ -39,7 +39,10 @@ async function storePictures(sheetId: string, c: Converted, keep: boolean): Prom
 
 /** The page's main column gets the title and the content; a long document continues in text blocks below it. */
 async function fill(sheetId: string, title: string, content: JSONContent[]) {
-  const [first, ...rest] = splitNodes([heading(title), ...content])
+  // Google Docs usually start with the document's name as a heading: that is the title line then.
+  const lead = content[0]
+  const named = lead?.type === 'heading' && (lead.content ?? []).map((t) => t.text ?? '').join('').trim().toLowerCase() === title.toLowerCase()
+  const [first, ...rest] = splitNodes(named ? [{ ...lead, attrs: { ...lead.attrs, level: 1 } }, ...content.slice(1)] : [heading(title), ...content])
   const main = (await blocksFor(sheetId)).find((b) => b.role === 'main')!
   await saveBlockDoc(main.id, { type: 'doc', content: first })
   let y = MAIN_BLOCK.y + linesOf(first) + 1

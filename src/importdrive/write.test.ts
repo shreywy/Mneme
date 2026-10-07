@@ -40,6 +40,12 @@ describe('writing a Drive folder as pages', () => {
     expect(await titles(r.top!)).toEqual(['good'])
   })
 
+  it('a document that starts with its own name as a heading doesn’t get it twice', async () => {
+    const r = await importDrive(buildTree([file('C/Ch 1.md', '## Ch 1\n\nText')], 'x'), { folderId: null })
+    const doc = (await blocksFor((await kidsOf(r.top!))[0].id)).find((b) => b.role === 'main')!.data.doc as { content: { type: string; attrs?: { level: number } }[] }
+    expect(doc.content.map((n) => [n.type, n.attrs?.level])).toEqual([['heading', 1], ['paragraph', undefined]])
+  })
+
   it('into a page: a new "Imported" box on it holds the folder', async () => {
     const host = await sheets.createSheet()
     const r = await importDrive(buildTree([file('C/a.txt', 'a')], 'x'), { pageId: host })
@@ -55,5 +61,24 @@ describe('writing a Drive folder as pages', () => {
     expect(texts.length).toBeGreaterThan(1)
     for (const b of texts) expect(JSON.stringify(b.data.doc).length).toBeLessThan(200_000)
     for (let i = 1; i < texts.length; i++) expect(texts[i].y).toBeGreaterThan(texts[i - 1].y + (texts[i - 1].role === 'main' ? 0 : texts[i - 1].h))
+  })
+})
+
+describe('the Drive fixture zip', () => {
+  it('imports as CPS721 › Week 1 / Week 2, with the Word file’s headings and bold', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { listZip, readEntry } = await import('./zip')
+    const blob = new Blob([readFileSync('fixtures/drive/CPS721-20261007T120000Z-001.zip')])
+    const items = (await listZip(blob)).map((e) => ({ path: e.path, size: e.size, read: () => readEntry(blob, e) }))
+    const t = buildTree(items, 'x')
+    // The PDF is checked in the browser: pdf.js wants a real one.
+    const r = await importDrive(t, { folderId: null }, { off: new Set(['/CPS721/Week 2/Lecture 3.pdf']) })
+    expect(r.failed).toEqual([])
+    expect(await titles(r.top!)).toEqual(['Week 1', 'Week 2', 'Overview'])
+    const w1 = (await kidsOf(r.top!))[0]
+    expect(await titles(w1.id)).toEqual(['Ch 1 Logic', 'Ch 2 Proofs'])
+    const doc = JSON.stringify((await blocksFor((await kidsOf(w1.id))[0].id)).find((b) => b.role === 'main')!.data.doc)
+    expect(doc).toContain('"text":"Propositional logic"')
+    expect(doc).toContain('{"type":"bold"}')
   })
 })

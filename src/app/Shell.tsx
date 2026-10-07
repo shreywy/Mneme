@@ -452,6 +452,7 @@ export function PageMenu() {
         : []
     const tree = kind === 'sheet' ? [
       { label: 'New sub-page', icon: 'plus', onSelect: async () => nav(`/write/${await createSubPage(id, await ensureBox(id), paper())}`) },
+      { label: 'Import a Drive folder here', icon: 'upload', onSelect: () => useUI.setState({ dialog: 'drive', drivePage: id }) },
       ...(parent ? [{ label: 'Move out a level', icon: 'upload', onSelect: async () => { await moveOutALevel(id); toast('Moved out a level') } }] : []),
     ] : []
     return [

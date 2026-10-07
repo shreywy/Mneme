@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 
-type Dialog = null | 'import' | 'prompt'
+type Dialog = null | 'import' | 'prompt' | 'drive'
 type UI = {
   dialog: Dialog
+  /** The page a Drive import goes into, when it was started from that page's menu. */
+  drivePage: string | null
   focus: boolean
   peek: boolean
   drawer: boolean
@@ -17,11 +19,12 @@ type UI = {
 
 export const useUI = create<UI>((set) => ({
   dialog: null,
+  drivePage: null,
   focus: false,
   peek: false,
   drawer: false,
   setDrawer: (drawer) => set({ drawer }),
-  open: (dialog) => set({ dialog }),
+  open: (dialog) => set({ dialog, drivePage: null }),
   close: () => set({ dialog: null }),
   setFocus: (focus) => set({ focus }),
   setPeek: (peek) => set({ peek }),

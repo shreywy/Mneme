@@ -68,6 +68,14 @@ To link a page in the middle of a sentence, type **[[** and part of its title, t
 
 Sub-pages belong to the folder of the page at the top. Search finds them and shows where they sit. Deleting or archiving a page with sub-pages asks whether they go too; kept ones move up to where the page was, and restoring brings back the whole tree.
 
+## Bringing in a Google Drive folder
+
+In Drive, right-click the folder and choose **Download**. Drive gives you a `.zip`; a big folder comes as several, and you can drop them all at once. In Mneme, open **Import → Import a Google Drive folder** (or right-click a page and choose **Import a Drive folder here**) and drop the zip. **Pick a folder instead** works with a folder already on your computer.
+
+You see the tree before anything is made. Untick what you don't want. Each folder becomes a page with an empty space at the top for an overview, and a box holding what was in the folder. Word files keep their headings, lists, tables, bold, links and pictures. PDFs come in as text, with headings where the type is bigger. Text and Markdown files come in as they are. Spreadsheets, slides and loose pictures are listed as skipped, with the reason.
+
+Signed in, the dialog shows roughly how much of your space it'll take, and won't start an import that doesn't fit. A file that can't be read is skipped and listed at the end; the rest still come in.
+
 ## Pages layout and printing
 
 **Page settings → Layout → Pages** lays the main column out on A4 or Letter sheets, with page numbers if you like. Something that would cross the bottom of a sheet moves whole to the next one.

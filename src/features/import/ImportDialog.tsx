@@ -112,6 +112,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       <div style={{ marginTop: 10, fontSize: 13 }}>
         <button className="btn ghost sm" onClick={() => { setPaste(!paste); setParsed([]) }}>{paste ? 'Upload a file instead' : 'Paste text instead'}</button>
         <button className="btn ghost sm" onClick={() => openDialog('prompt')}>Don't have a file yet? Get the prompt</button>
+        <button className="btn ghost sm" onClick={() => openDialog('drive')}><Icon name="folder" size={14} />Import a Google Drive folder</button>
       </div>
 
       {parsed.map((p, i) => p.any.kind === 'notes' && p.any.result.ok

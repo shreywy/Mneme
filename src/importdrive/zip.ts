@@ -99,7 +99,9 @@ export async function readEntry(blob: Blob, e: ZipEntry, max = LIMITS.file): Pro
       return new Uint8Array(await raw.arrayBuffer())
     }
     if (e.method !== 8) throw new ZipError('It’s packed in a way Mneme can’t open')
-    const reader = raw.stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader()
+    const packed = new Uint8Array(await raw.arrayBuffer())
+    const source = new ReadableStream<BufferSource>({ start(c) { c.enqueue(packed); c.close() } })
+    const reader = source.pipeThrough(new DecompressionStream('deflate-raw')).getReader()
     const parts: Uint8Array[] = []
     let got = 0
     for (;;) {

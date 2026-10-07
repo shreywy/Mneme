@@ -2,7 +2,7 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-07 (sub-pages phase 2)._
+_Last updated 2026-10-07 (Drive import, sub-pages phase 3)._
 
 ## Where we are
 
@@ -17,7 +17,7 @@ _Last updated 2026-10-07 (sub-pages phase 2)._
 - **Imgur is on hold** (no client id). Signed-in pictures use the private bucket instead; the Imgur path stays for signed-out use.
 - **No QC checklist files any more.** Shrey asked (2026-10-06) for QC to be done here and reported, not handed over as a file.
 - **Not yet tried signed in:** picture upload/download between devices, signed picture links in a share, the devices and activity cards, two-step setup and the code prompt. Everything else was checked in the browser.
-- **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): phases 1 and 2 done 2026-10-07 ([plan 1](superpowers/plans/2026-10-07-subpages-phase1.md), [plan 2](superpowers/plans/2026-10-07-subpages-phase2.md)). Next is phase 3 (Google Drive zip import).
+- **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): all three phases done 2026-10-07 ([plan 1](superpowers/plans/2026-10-07-subpages-phase1.md), [plan 2](superpowers/plans/2026-10-07-subpages-phase2.md)).
 - **Then:** AI (phase 5), or end-to-end encrypted decks (designed below, waiting on Shrey's call).
 
 ## Text notes: what's built
@@ -148,6 +148,26 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - The `[[` menu is `PageLinkSuggest` in `slash.tsx`. It uses the same popup as `/`, with its own plugin key.
   - `publicDoc` turns links into plain text for shares.
   - Clipboard HTML is `<a data-page-link>` with no href.
+
+## Google Drive import (phase 3)
+
+- **Code:** `src/importdrive/`, plus the dialog in `src/features/import/DriveImport.tsx` (`useUI` dialog `'drive'`, with `drivePage` set from a page's right-click menu).
+  - `zip.ts` is a hand-rolled zip reader: central directory, zip64, and `DecompressionStream('deflate-raw')`. Its limits are 2,000 files, 50 MB per file and 300 MB in total. Inflating stops at an entry's stated size, which catches zip bombs. Anything malformed is a `ZipError`, and fast-check holds it to that.
+  - `tree.ts` maps paths to `DriveNode`s: names cleaned, `__MACOSX` and dotfiles dropped, several zips merged by path, a skip reason per file, and the size estimate behind the 20 MB check.
+  - `convert.ts`:
+    - Word goes through mammoth → HTML → `generateJSON` with `textExtensions`. The schema is the sanitiser, and the HTML is only ever parsed in DOMParser's inert document.
+    - Markdown goes through react-markdown + `renderToStaticMarkup` → the same path. The app had no Markdown → editor converter; the spec assumed one.
+    - PDF goes through pdf.js text runs → `pdfNodes`, which builds lines by y, paragraphs by gap, and headings at 1.2×/1.5× the body size, and drops lone page numbers.
+    - `splitNodes` keeps each text block under 180 KB.
+  - `write.ts` writes pages one at a time with `createSheet`/`createSubPage`, `addBox(id, '')`, `saveBlockDoc` and `addImage` + `uploadImage`. A file that fails goes in `failed`, and the rest carry on.
+- **Lazy-loaded:** mammoth, pdf.js (its worker comes from `?url`, same origin) and react-dom/server only load once an import starts. The main bundle doesn't grow.
+- **`package.json` override `argparse: ^2.0.1`:** mammoth's command-line tool pulls in argparse 1 → sprintf-js, which `npm audit` flags. The browser build never touches it.
+- **Fixture:** `fixtures/drive/CPS721-…-001.zip`. It was made by a script from text written for it: md, docx, txt, a one-page PDF, an xlsx to skip, and Mac junk. `write.test.ts` imports it (all but the PDF, which pdf.js won't read under Node; the PDF was checked in the browser).
+- **Dev only:** the first import after a fresh `npm run dev` reloads the page while Vite pre-bundles mammoth and pdf.js.
+- **Known:**
+  - Word pictures in formats the browser can't draw (.emf/.wmf) are dropped.
+  - A PDF with no text layer (a scan) fails with "No text in it".
+  - The stacked text blocks of a very long document use guessed heights.
 
 ## Site, docs, README and security (2026-10-02)
 

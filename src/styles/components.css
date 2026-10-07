@@ -446,3 +446,17 @@ a.drow:hover { background: var(--surface2); }
 .tsubrow { display: flex; align-items: center; }
 .tsubrow .twist { width: 18px; height: 20px; }
 .tsubrow .tdeck { flex: 1; min-width: 0; }
+
+/* Import a Google Drive folder */
+.drive-tree { margin-top: 16px; max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13.5px; }
+.drive-row { display: flex; align-items: center; gap: 6px; min-height: 28px; min-width: 0; }
+.drive-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; }
+.drive-why { font-style: normal; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.drive-row.skip { color: var(--muted); }
+.drive-sum { margin-top: 10px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.drive-error { margin-top: 10px; color: var(--bad); font-size: 13px; }
+.drive-dest { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13.5px; }
+.drive-dest select { flex: 1; min-width: 0; }
+.drive-progress { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+.drive-progress progress { width: 100%; accent-color: var(--accent); }
+.drive-failed { margin-top: 10px; padding-left: 18px; font-size: 13px; color: var(--muted); }
