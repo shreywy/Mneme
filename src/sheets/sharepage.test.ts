@@ -84,3 +84,16 @@ describe('sharing a page', () => {
     expect((await sheets.getSheet(copy))?.title).toBe('Untitled page')
   })
 })
+
+describe('links to pages in a shared page', () => {
+  it('become their title as plain text: the other person has none of your pages', async () => {
+    const id = await sheets.createSheet()
+    const link = { type: 'pageLink', attrs: { id: 'secret-page-id', title: 'Ch 3' } }
+    await sheets.addBlock({ sheetId: id, x: 30, y: 4, w: 8, h: 2, kind: 'text', data: { doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'See ' }, link] }] } }, z: 1 })
+    const p = pagePayload((await sheets.getSheet(id))!, await sheets.blocksFor(id), [], false)
+    const text = JSON.stringify(p)
+    expect(text).not.toContain('secret-page-id')
+    expect(text).not.toContain('pageLink')
+    expect(text).toContain('{"type":"text","text":"Ch 3"}')
+  })
+})

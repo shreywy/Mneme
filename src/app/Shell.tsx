@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { growClick } from './pagenav'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Folder } from '../data/db'
 import { listNotes } from '../data/notes'
@@ -307,6 +308,7 @@ function FolderTree() {
       <Link to={pageUrl(p)} className={`tdeck ${isActive(p) ? 'active' : ''}`} style={{ paddingLeft: kids.length ? 2 : pad }} title={p.kind === 'note' ? `Notes: ${p.title}` : p.title} data-page-kind={p.kind} data-page-id={p.id} data-page-title={p.title}
         data-page-folder={p.folderId ?? ''} data-page-unit={p.unit ?? ''}
         {...(p.kind === 'sheet' && p.parentId ? { 'data-page-parent': p.parentId, 'data-page-box': p.sheet.box ?? '' } : {})}
+        onClick={(e) => { if (p.kind === 'sheet' && !isActive(p)) growClick(e, nav, pageUrl(p), p.id) }}
         draggable onDragStart={(e) => { e.dataTransfer.setData(PAGE_DRAG, JSON.stringify({ kind: p.kind, id: p.id })); e.dataTransfer.setData(`${PAGE_DRAG}-${p.kind}`, ''); e.dataTransfer.effectAllowed = 'move' }}
         {...dropOnPage(p)}>
         <Icon name={pageIcon(p.kind)} size={13} /><span className="t">{p.title}</span>

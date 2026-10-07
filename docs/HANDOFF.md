@@ -2,7 +2,7 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-07 (sub-pages phase 1)._
+_Last updated 2026-10-07 (sub-pages phase 2)._
 
 ## Where we are
 
@@ -17,7 +17,7 @@ _Last updated 2026-10-07 (sub-pages phase 1)._
 - **Imgur is on hold** (no client id). Signed-in pictures use the private bucket instead; the Imgur path stays for signed-out use.
 - **No QC checklist files any more.** Shrey asked (2026-10-06) for QC to be done here and reported, not handed over as a file.
 - **Not yet tried signed in:** picture upload/download between devices, signed picture links in a share, the devices and activity cards, two-step setup and the code prompt. Everything else was checked in the browser.
-- **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): phase 1 done 2026-10-07 ([plan](superpowers/plans/2026-10-07-subpages-phase1.md)). Next is phase 2 (the grow-from-card animation, the folded back corner, the path bar, `[[` links), then phase 3 (Google Drive zip import).
+- **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): phases 1 and 2 done 2026-10-07 ([plan 1](superpowers/plans/2026-10-07-subpages-phase1.md), [plan 2](superpowers/plans/2026-10-07-subpages-phase2.md)). Next is phase 3 (Google Drive zip import).
 - **Then:** AI (phase 5), or end-to-end encrypted decks (designed below, waiting on Shrey's call).
 
 ## Text notes: what's built
@@ -130,6 +130,24 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 - **Known:**
   - Undo can't bring back a box deleted together with its pages; the pages are in Recently deleted.
   - Decks and notes pages can't be sub-pages.
+
+## Sub-pages: opening, going back, links (phase 2)
+
+- **Grow and back:** `src/app/pagenav.ts` (`openPage`, `goBack`, `growClick`), with the timing in `src/styles/sheet.css` (`--grow-ms`, `--shrink-ms`, `--grow-ease`).
+  - The app uses `<BrowserRouter>`, so React Router's `viewTransition` does nothing. `morph` calls `document.startViewTransition` itself.
+  - The name `page` is set inline on the clicked element, then moved to `main.main` inside the update callback (or the other way round going back). Two elements must never hold it in the same snapshot.
+  - The new page counts as ready when `[data-open="<id>"]` (on the path in the top bar) exists. Polling uses `setTimeout`, because frames are on hold during the swap and `requestAnimationFrame` never fires.
+  - If the swap hasn't started after 300 ms (a window not drawing frames, like the hidden in-app pane), it skips the transition and navigates anyway.
+  - Reduced motion (the OS setting or the app's own `data-motion`), or no API: plain navigation.
+- **Corner and path:** in `SheetPage`.
+  - `.fold-back` sits at the top left of `main`, and the toolbar moves right to make room.
+  - Alt+← goes up a level; it's ignored while typing.
+  - The crumbs are folder / ancestors › page. An ancestor crumb shrinks into the card on the path (`cardFor` in `src/sheets/tree.ts`).
+- **`[[` links:** the inline atom `pageLink {id, title}` in `nodes.tsx`.
+  - The view reads the title live and writes it back into `title` without an undo step, so copy, share and a deleted page have the last known title.
+  - The `[[` menu is `PageLinkSuggest` in `slash.tsx`. It uses the same popup as `/`, with its own plugin key.
+  - `publicDoc` turns links into plain text for shares.
+  - Clipboard HTML is `<a data-page-link>` with no href.
 
 ## Site, docs, README and security (2026-10-02)
 

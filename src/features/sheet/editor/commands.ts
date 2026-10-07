@@ -4,6 +4,14 @@ import type { PasteResult } from '../../../sheets/paste'
 import { codeLang, opening, pickPage, pickTableSize } from './nodes'
 import { imageNodes, pickFiles } from './image'
 import { useSheetUI } from '../store'
+import { db } from '../../../data/db'
+
+/** "Link to page": one of your pages (not this one), as a pageLink's attributes. */
+async function pickSheet() {
+  const t = await pickPage({ kinds: ['sheet'], exclude: [useSheetUI.getState().sheetId ?? ''], title: 'Link to page' })
+  const s = t && await db.sheets.get(t.id)
+  return s ? { id: s.id, title: s.title } : null
+}
 
 /** The node (as JSON) an insert makes when it lands in a new block of its own; null for text styles. Pictures can be several. */
 export async function nodeFor(id: InsertId): Promise<object | object[] | null> {
@@ -23,6 +31,7 @@ export async function nodeFor(id: InsertId): Promise<object | object[] | null> {
     case 'heading1': case 'heading2': case 'heading3': return { type: 'heading', attrs: { level: Number(id.slice(-1)) } }
     case 'inlineMath': return { type: 'paragraph', content: [{ type: 'inlineMath', attrs: { latex: '' } }] }
     case 'link': { const t = await pickPage(); return t ? { type: 'linkCard', attrs: t } : null }
+    case 'pageLink': { const a = await pickSheet(); return a ? { type: 'paragraph', content: [{ type: 'pageLink', attrs: a }] } : null }
     case 'box': return null // a canvas block, not a node: see insertNow and runInsert
   }
 }
@@ -50,6 +59,7 @@ export async function runInsert(editor: Editor, id: InsertId) {
     case 'divider': return chain().setHorizontalRule().run()
     case 'table': { const z = await pickTableSize(); return z ? editor.chain().focus().insertTable({ rows: z.rows, cols: z.cols, withHeaderRow: true }).run() : undefined }
     case 'inlineMath': return chain().insertContent(opening({ type: 'inlineMath', attrs: { latex: '' } })).run()
+    case 'pageLink': { const a = await pickSheet(); return a ? chain().insertContent([{ type: 'pageLink', attrs: a }, { type: 'text', text: ' ' }]).run() : undefined }
   }
   const node = await nodeFor(id)
   if (!node) return

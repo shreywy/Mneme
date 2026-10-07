@@ -51,3 +51,10 @@ export function subtree(id: string, rows: TreeRow[]): string[] {
 
 /** True when putting `id` under `newParent` would make a loop. */
 export const wouldCycle = (id: string, newParent: string, rows: TreeRow[]) => newParent === id || subtree(id, rows).includes(newParent)
+
+/** Going from `from` up to `to`: the page just below `to` on that path, whose card on `to` to shrink into. */
+export function cardFor(from: string, to: string, parents: Map<string, string>): string | null {
+  const chain = [from, ...ancestors(from, parents)]
+  const i = chain.indexOf(to)
+  return i > 0 ? chain[i - 1] : null
+}

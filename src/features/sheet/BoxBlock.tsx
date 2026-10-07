@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { growClick } from '../../app/pagenav'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../data/db'
 import { createSubPage, kidsOf, moveIntoBox } from '../../data/subpages'
@@ -97,6 +98,7 @@ export function BoxBlock({ block, onHeight, onRename }: { block: SheetBlock; onH
       {cards.map((c, i) => (
         <Link key={c.s.id} to={`/write/${c.s.id}`} className={`sbox-card ${dropAt === i ? 'drop-before' : ''}`} draggable
           data-page-kind="sheet" data-page-id={c.s.id} data-page-title={c.s.title} data-page-parent={sheetId} data-page-box={block.id}
+          onClick={(e) => growClick(e, nav, `/write/${c.s.id}`, c.s.id)}
           onDragStart={(e) => { e.dataTransfer.setData(PAGE_DRAG, JSON.stringify({ kind: 'sheet', id: c.s.id })); e.dataTransfer.setData(`${PAGE_DRAG}-sheet`, ''); e.dataTransfer.effectAllowed = 'move' }}>
           <b>{c.s.title}</b>
           <small>{[c.line || 'Empty page', c.n ? `${c.n} sub-page${c.n === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</small>

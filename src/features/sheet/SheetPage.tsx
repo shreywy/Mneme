@@ -1,6 +1,9 @@
 import { archiveSheet, deleteWithUndo } from '../../app/trash'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
+import { goBack } from '../../app/pagenav'
+import { isTyping } from '../../app/ui'
+import { ancestors, cardFor, parentsOf } from '../../sheets/tree'
 import { useLiveQuery } from 'dexie-react-hooks'
 import '../../styles/sheet.css'
 import { TopBar } from '../../app/Shell'
@@ -40,6 +43,22 @@ export function SheetPage() {
   const strokes = useLiveQuery(() => inkFor(sheetId), [sheetId])
   const kids = useLiveQuery(() => kidsOf(sheetId), [sheetId]) ?? []
   const folders = useLiveQuery(() => db.folders.toArray(), [])
+  // The pages above this one, top first, for the path and the back corner.
+  const up = useLiveQuery(async () => {
+    const rows = (await db.sheets.toArray()).filter((s) => s.id === sheetId || (!s.archived && !s.deletedAt))
+    const parents = parentsOf(rows)
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    return { parents, chain: ancestors(sheetId, parents).reverse().map((id) => byId.get(id)!) }
+  }, [sheetId])
+  const back = (to: string) => goBack(nav, to, up ? cardFor(sheetId, to, up.parents) : null)
+  const parent = up?.chain.at(-1)
+  // Alt+← goes up a level (not while typing: on a Mac that's Option+←, a word to the left).
+  useEffect(() => {
+    if (!parent) return
+    const onKey = (e: KeyboardEvent) => { if (e.altKey && e.key === 'ArrowLeft' && !e.ctrlKey && !e.metaKey && !isTyping(e)) { e.preventDefault(); goBack(nav, parent.id, sheetId) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [parent, nav, sheetId])
   const [mode, setMode] = useState<'canvas' | 'read'>(() => (matchMedia(PHONE).matches ? 'read' : 'canvas'))
   const [dialog, setDialog] = useState<null | 'settings' | 'share'>(null)
   const [withInk, setWithInk] = useState(false)
@@ -57,7 +76,7 @@ export function SheetPage() {
   if (sheet === null || blocks === undefined || strokes === undefined || blocks.some((b) => b.sheetId !== sheetId) || strokes.some((s) => s.sheetId !== sheetId)) return null
   if (!sheet || sheet.hidden) return <><TopBar crumbs={<b>Page</b>} /><div className="page"><h1 className="title">Page not found</h1><p className="muted" style={{ marginTop: 10 }}>It may have been deleted on another device.</p></div></>
 
-  const folder = folders?.find((f) => f.id === sheet.folderId)
+  const folder = folders?.find((f) => f.id === (up?.chain[0] ?? sheet).folderId)
   const rename = (title: string) => {
     const t = title.trim()
     setRenaming(false)
@@ -65,13 +84,14 @@ export function SheetPage() {
   }
   return (
     <>
-      <TopBar crumbs={<>
+      <TopBar crumbs={<span className="path" data-open={sheet.id}>
         {folder && <>{folder.name} / </>}
+        {up?.chain.map((a) => <span key={a.id}><Link to={`/write/${a.id}`} onClick={(e) => { if (e.button || e.ctrlKey || e.metaKey || e.shiftKey) return; e.preventDefault(); back(a.id) }}>{a.title}</Link> › </span>)}
         {renaming
           ? <input className="input crumb-input" autoFocus defaultValue={sheet.title} aria-label="Page title" onBlur={(e) => rename(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenaming(false) }} />
           : <b onDoubleClick={() => setRenaming(true)} title="Double-click to rename">{sheet.title}</b>}
-      </>}>
+      </span>}>
         <SaveState sheet={sheet} blocks={blocks} />
         <Contents blocks={blocks} unit={sheet.paper.spacing} mode={mode} />
         <Seg className="sheet-mode" value={mode} onChange={setMode} options={[{ value: 'read', label: 'Read' }, { value: 'canvas', label: 'Canvas' }]} />
@@ -92,6 +112,11 @@ export function SheetPage() {
           </>}
         </DropMenu>
       </TopBar>
+      {parent && (
+        <button type="button" className="fold-back" onClick={() => back(parent.id)} aria-label={`Back to ${parent.title}`} title="Alt ←">
+          <span>Back to {parent.title}</span>
+        </button>
+      )}
       {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} />}
       {dialog === 'share' && (
         <ShareDialog kind="sheet" sourceId={sheet.id} title={sheet.title} onClose={() => setDialog(null)} payload={async () => pagePayload(sheet, boxesAsText(blocks, kids), strokes, withInk, await signPictures(blocks.flatMap((b) => storedIn(b.data.doc))))}>

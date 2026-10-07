@@ -63,6 +63,8 @@ export function publicDoc(doc: unknown, signed: Record<string, string> = {}): un
       if (!src) return null
       return { ...n, attrs: { ...n.attrs, src, stored: null, hash: null, local: null } }
     }
+    // A link to one of your pages means nothing to someone else: just its title.
+    if (n.type === 'pageLink') { const { attrs, ...rest } = n; return { ...rest, type: 'text', text: String(attrs?.title || 'Page') } as Node }
     return n.content ? { ...n, content: n.content.map(walk).filter((x): x is Node => !!x) } : n
   }
   return doc && typeof doc === 'object' ? walk(doc as Node) : doc

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ancestors, parentsOf, rootOf, subtree, wouldCycle } from './tree'
+import { ancestors, cardFor, parentsOf, rootOf, subtree, wouldCycle } from './tree'
 
 const rows = [
   { id: 'cps' },
@@ -45,5 +45,15 @@ describe('page tree', () => {
     expect(wouldCycle('cps', 'cps', rows)).toBe(true)
     expect(wouldCycle('cps', 'ps3', rows)).toBe(true)
     expect(wouldCycle('ps3', 'ch1', rows)).toBe(false)
+  })
+})
+
+describe('cardFor', () => {
+  it('is the page on the path just below the one you go back to', () => {
+    const p = parentsOf(rows)
+    expect(cardFor('ps3', 'ch3', p)).toBe('ps3')
+    expect(cardFor('ps3', 'cps', p)).toBe('ch3')
+    expect(cardFor('ps3', 'ch1', p)).toBeNull() // not above it
+    expect(cardFor('cps', 'cps', p)).toBeNull()
   })
 })

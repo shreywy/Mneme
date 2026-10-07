@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { growClick } from '../../../app/pagenav'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { create } from 'zustand'
 import { Extension, InputRule, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, mergeAttributes, type NodeViewProps } from '@tiptap/react'
@@ -374,6 +375,44 @@ export const LinkCard = Node.create({
     })]
   },
   addNodeView() { return ReactNodeViewRenderer(LinkCardView, { stopEvent: stopInside }) },
+})
+
+// ---------- link to a page, inside a sentence ([[) ----------
+
+function PageLinkView({ node, editor, getPos }: NodeViewProps) {
+  const { id, title: stored } = node.attrs as { id: string; title: string }
+  const nav = useNavigate()
+  // null while reading, false when the page is gone.
+  const title = useLiveQuery(async () => { const s = await db.sheets.get(id); return s && !s.deletedAt ? s.title : false }, [id], null)
+  // Keep the last known title in the doc, for copying, sharing and a page that's later deleted. Not an undo step.
+  useEffect(() => {
+    if (typeof title !== 'string' || title === stored || !editor.isEditable) return
+    const pos = getPos()
+    if (typeof pos === 'number') editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, title }).setMeta('addToHistory', false))
+  }, [title, stored, editor, getPos, node.attrs])
+  return (
+    <NodeViewWrapper as="span" className="page-link-wrap">
+      {title === false
+        ? <s className="page-link gone" contentEditable={false} title="This page was deleted">{stored || 'Deleted page'}</s>
+        : <a href={`/write/${id}`} className="page-link" data-id={id} contentEditable={false} draggable={false} onClick={(e) => growClick(e, nav, `/write/${id}`, id)}>
+            <Icon name="page" size={13} />{title ?? stored}
+          </a>}
+    </NodeViewWrapper>
+  )
+}
+
+export const PageLink = Node.create({
+  name: 'pageLink',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes: () => ({ id: { default: '', rendered: false }, title: { default: '', rendered: false } }),
+  // Outside Mneme it pastes as its title; inside, it's a link again.
+  parseHTML: () => [{ tag: 'a[data-page-link]', getAttrs: (el) => ({ id: el.getAttribute('data-id') ?? '', title: el.getAttribute('data-title') ?? el.textContent ?? '' }) }],
+  renderHTML: ({ node }) => ['a', { 'data-page-link': '', 'data-id': node.attrs.id, 'data-title': node.attrs.title }, node.attrs.title],
+  renderText: ({ node }) => node.attrs.title,
+  addNodeView() { return ReactNodeViewRenderer(PageLinkView) },
 })
 
 /** "Link a deck or page": a promise that resolves to what was picked. Its dialog is mounted once on the page. */

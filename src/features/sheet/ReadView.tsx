@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import { growClick } from '../../app/pagenav'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { kidsOf } from '../../data/subpages'
 import * as sheets from '../../data/sheets'
@@ -47,10 +48,11 @@ export function ReadView({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: 
 /** A box in the one-column view: its title and its pages as links. */
 function BoxRead({ block }: { block: SheetBlock }) {
   const kids = useLiveQuery(async () => (await kidsOf(block.sheetId)).filter((s) => s.box === block.id), [block.sheetId, block.id]) ?? []
+  const nav = useNavigate()
   return (
     <section className="rblock rbox">
       <h3>{block.data.label || 'Pages'}</h3>
-      {kids.length ? <ul>{kids.map((k) => <li key={k.id}><Link to={`/write/${k.id}`} data-page-kind="sheet" data-page-id={k.id} data-page-title={k.title}>{k.title}</Link></li>)}</ul> : <p className="muted">No pages yet.</p>}
+      {kids.length ? <ul>{kids.map((k) => <li key={k.id}><Link to={`/write/${k.id}`} onClick={(e) => growClick(e, nav, `/write/${k.id}`, k.id)} data-page-kind="sheet" data-page-id={k.id} data-page-title={k.title}>{k.title}</Link></li>)}</ul> : <p className="muted">No pages yet.</p>}
     </section>
   )
 }

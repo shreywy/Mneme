@@ -3,7 +3,7 @@
 
 export type InsertId =
   | 'equation' | 'plot' | 'table' | 'working' | 'code' | 'checklist' | 'axes' | 'link' | 'quote'
-  | 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'numbered' | 'divider' | 'inlineMath' | 'image' | 'box'
+  | 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'numbered' | 'divider' | 'inlineMath' | 'image' | 'box' | 'pageLink'
 
 export type InsertItem = { id: InsertId; label: string; letter?: string; group: 'Text' | 'Maths' | 'Pictures' | 'Other'; hint?: string; words: string[] }
 
@@ -25,7 +25,8 @@ export const INSERTS: InsertItem[] = [
   { id: 'table', label: 'Table', letter: 'T', group: 'Other', hint: '|a|b|', words: ['grid', 'rows', 'columns', 'spreadsheet'] },
   { id: 'code', label: 'Code', letter: 'C', group: 'Other', hint: '```', words: ['snippet', 'program', 'syntax'] },
   { id: 'box', label: 'Box of pages', letter: 'B', group: 'Other', words: ['sub-pages', 'subpage', 'pages', 'section', 'week', 'container', 'folder'] },
-  { id: 'link', label: 'Link a deck or page', letter: 'L', group: 'Other', hint: '[[', words: ['card', 'deck', 'notes', 'page'] },
+  { id: 'pageLink', label: 'Link to page', group: 'Other', hint: '[[', words: ['link', 'page', 'sub-page', 'wiki', 'reference'] },
+  { id: 'link', label: 'Link a deck or page', letter: 'L', group: 'Other', words: ['card', 'deck', 'notes', 'page'] },
 ]
 
 export const byLetter = (key: string) => INSERTS.find((i) => i.letter === key.toUpperCase())
@@ -44,4 +45,12 @@ export function searchInserts(query: string): InsertItem[] {
     return -1
   }
   return INSERTS.map((i) => ({ i, s: score(i) })).filter((x) => x.s >= 0).sort((a, b) => a.s - b.s).map((x) => x.i)
+}
+
+/** Pages for the [[ menu: titles that start with it first, then ones with a word that does, then any that contain it. */
+export function searchTitles<T extends { title: string }>(rows: T[], query: string): T[] {
+  const q = query.trim().toLowerCase()
+  const byName = (a: T, b: T) => a.title.localeCompare(b.title, undefined, { numeric: true })
+  const score = (t: string) => (t.startsWith(q) ? 0 : t.split(/\s+/).some((w) => w.startsWith(q)) ? 1 : t.includes(q) ? 2 : -1)
+  return rows.map((r) => ({ r, s: score(r.title.toLowerCase()) })).filter((x) => x.s >= 0).sort((a, b) => a.s - b.s || byName(a.r, b.r)).map((x) => x.r)
 }

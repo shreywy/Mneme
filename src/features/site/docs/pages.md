@@ -62,6 +62,10 @@ A page can hold other pages. Add a **Box of pages** (**B** in Insert, or right-c
 
 The sidebar shows the same tree: CPS721, then Week 1, then the chapter pages. Drag a page onto another page to put it inside, onto a box name to put it in that box, or between pages to reorder them. Drag cards between boxes on the page the same way. Right-click a page for **New sub-page** and **Move out a level**. Drop a page on a folder to make it a top-level page again.
 
+Opening a page from its card grows the card into the page. A sub-page has a folded corner at the top left: click it (or press **Alt+←**) to go back up, and the page shrinks back into its card. The bar at the top shows the whole path, like CPS721 › Ch 3 › Practice set 3, and each part takes you there.
+
+To link a page in the middle of a sentence, type **[[** and part of its title, then pick it (or **Insert → Link to page**). The link keeps up with renames. If the page is deleted, the link shows its old title crossed out. Shared and printed pages show the title as plain text.
+
 Sub-pages belong to the folder of the page at the top. Search finds them and shows where they sit. Deleting or archiving a page with sub-pages asks whether they go too; kept ones move up to where the page was, and restoring brings back the whole tree.
 
 ## Pages layout and printing
