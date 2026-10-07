@@ -21,6 +21,8 @@ import { storedIn } from '../../sheets/image'
 import { signPictures } from '../../sync/pictures'
 import { PaperSettings } from './PaperSettings'
 import { readingOrder } from '../../sheets/order'
+import { boxesAsText } from '../../sheets/box'
+import { kidsOf } from '../../data/subpages'
 import type { SheetBlock } from '../../sheets/types'
 import { useSheetUI } from './store'
 import type { SheetRow } from '../../sheets/types'
@@ -36,6 +38,7 @@ export function SheetPage() {
   const sheet = useLiveQuery(() => sheets.getSheet(sheetId), [sheetId], null)
   const blocks = useLiveQuery(() => sheets.blocksFor(sheetId), [sheetId])
   const strokes = useLiveQuery(() => inkFor(sheetId), [sheetId])
+  const kids = useLiveQuery(() => kidsOf(sheetId), [sheetId]) ?? []
   const folders = useLiveQuery(() => db.folders.toArray(), [])
   const [mode, setMode] = useState<'canvas' | 'read'>(() => (matchMedia(PHONE).matches ? 'read' : 'canvas'))
   const [dialog, setDialog] = useState<null | 'settings' | 'share'>(null)
@@ -91,7 +94,7 @@ export function SheetPage() {
       </TopBar>
       {mode === 'canvas' ? <Canvas key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} /> : <ReadView key={sheet.id} sheet={sheet} blocks={blocks} strokes={strokes} />}
       {dialog === 'share' && (
-        <ShareDialog kind="sheet" sourceId={sheet.id} title={sheet.title} onClose={() => setDialog(null)} payload={async () => pagePayload(sheet, blocks, strokes, withInk, await signPictures(blocks.flatMap((b) => storedIn(b.data.doc))))}>
+        <ShareDialog kind="sheet" sourceId={sheet.id} title={sheet.title} onClose={() => setDialog(null)} payload={async () => pagePayload(sheet, boxesAsText(blocks, kids), strokes, withInk, await signPictures(blocks.flatMap((b) => storedIn(b.data.doc))))}>
           {strokes.length > 0 && (
             <label className="confirm-check" style={{ marginTop: 14 }}>
               <input type="checkbox" checked={withInk} onChange={(e) => setWithInk(e.target.checked)} />
@@ -100,7 +103,7 @@ export function SheetPage() {
           )}
         </ShareDialog>
       )}
-      {printing && <PrintView sheet={sheet} blocks={blocks} strokes={strokes} onDone={() => setPrinting(false)} />}
+      {printing && <PrintView sheet={sheet} blocks={boxesAsText(blocks, kids)} strokes={strokes} onDone={() => setPrinting(false)} />}
       {dialog === 'settings' && folders && (
         <PageSettings title={sheet.title} folders={folders} folderId={sheet.folderId} unit={sheet.unit} onClose={() => setDialog(null)}
           onFolder={(folderId) => sheets.updateSheet(sheet.id, { folderId })} onUnit={(unit) => sheets.updateSheet(sheet.id, { unit: unit || undefined })}>
