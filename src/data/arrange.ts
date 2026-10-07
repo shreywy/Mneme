@@ -18,7 +18,8 @@ export async function placePage(page: Ref, to: { folderId: string | null; unit: 
       } else if (r.kind === 'sheet') {
         const s = await db.sheets.get(r.id)
         if (!s) continue
-        const { unit: _u, ...rest } = s
+        // Placed at folder level, a sub-page becomes a top-level page.
+        const { unit: _u, parentId: _p, box: _b, ...rest } = s
         await db.sheets.put(isPage ? { ...rest, folderId: to.folderId, ...(to.unit ? { unit: to.unit } : {}), rank } : { ...s, rank })
       } else {
         const n = await db.notes.get(r.id)
