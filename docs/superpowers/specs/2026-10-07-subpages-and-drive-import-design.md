@@ -28,9 +28,10 @@ box?: string        // the id of the box block on the parent that shows it
 - A sub-page's own `folderId` and `unit` are ignored and written as `null`. Its folder is its top page's folder, so moving CPS721 to another folder is one write.
 - `rank` orders pages inside a box, the same field the sidebar already uses for hand order.
 - **Missing parent** (deleted on another device, or not synced yet): the page shows at the top level of the library, with no folder. Nothing is lost.
-- **Missing box** (the box block was deleted elsewhere): the page shows under its parent with no heading in the sidebar. On the parent's canvas it appears in a "Pages" box made the next time the parent is edited. Viewing alone never writes.
+- **Missing box** (the box block was deleted elsewhere): the page shows under its parent with no heading in the sidebar. When the parent is opened in the editor, sub-pages whose box has been missing for over a minute move into its last box (or a new "Pages" box), the same way `pruneLeftovers` tidies a page on open.
 - **Cycles:** a move that would put a page under itself or one of its sub-pages is refused, in the data layer, with a toast.
-- Pure helpers live in `src/sheets/tree.ts` (new, unit-tested): `childrenOf`, `ancestors`, `rootOf`, `wouldCycle`, `subtree`, `pathTitles`.
+- `sheets` gets a Dexie index on `parentId` (db version 7), so a page's sub-pages are one indexed query.
+- Pure helpers live in `src/sheets/tree.ts` (new, unit-tested): `parentsOf`, `rootOf`, `ancestors`, `subtree`, `wouldCycle`.
 
 ## 2. Boxes on the canvas
 
@@ -45,8 +46,7 @@ box?: string        // the id of the box block on the parent that shows it
   - Right-click a card: Open, Rename, Move out a level, Delete.
 - **Deleting a box** asks: "Delete the box and its 3 pages" or "Keep the pages" (they move into another box on the page, or a new "Pages" box if none is left).
 - **Read view** (phones): a box is its title as a heading and its cards as a list.
-- **Print:** a box prints its title and its page titles.
-- **Shares:** a box shows its title and its page titles as plain text, since sub-pages aren't part of the share. The share payload's zod schema gains the box kind with a label only.
+- **Print and shares:** a box is turned into a plain text block first (its title as a heading, its page titles as a list), so print, the share payload and its schema need no new block kind. Sub-pages aren't part of a share.
 - Insert panel and `/` menu get "Box" (new box with an empty title, focused for typing).
 
 ## 3. Sidebar and library
@@ -67,7 +67,7 @@ box?: string        // the id of the box block on the parent that shows it
 
 ## 4. Links
 
-- Typing `[[` in a text block opens a page search (the existing suggestion setup from the `/` menu). Picking a page inserts an inline `pageLink` node holding the page id. The label is read live from the page, so renames carry over.
+- Link cards to decks and pages already exist (`linkCard`, "Link a deck or page" in Insert). Phase 2 adds an inline chip version: typing `[[` in a text block opens a page search (the existing suggestion setup from the `/` menu). Picking a page inserts an inline `pageLink` node holding the page id. The label is read live from the page, so renames carry over.
 - Clicking a link opens the page with the grow animation from the chip.
 - A link to a page that's deleted or missing shows its last known title struck through and does nothing.
 - Shares, print and clipboard HTML show the title as plain text.
