@@ -16,6 +16,7 @@ import { SharedPage } from '../features/share/SharedPage'
 import { TestPage } from '../features/test/TestPage'
 import { NotesPage } from '../features/notes/NotesPage'
 import { Dialogs } from './Dialogs'
+import { AiPanel } from '../features/ai/AiPanel'
 import { ConfirmHost } from '../ui/confirm'
 
 // Pages bring the editor with them, so they load on first use.
@@ -51,6 +52,7 @@ export function App() {
         <Route path="deck/:deckId/test" element={<TestPage />} />
       </Routes>
       <Dialogs />
+      <AiPanel />
       <SecondStepGate />
       <ConfirmHost />
       <Toasts />

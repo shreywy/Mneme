@@ -85,6 +85,8 @@ class MnemeDB extends Dexie {
   sheetBlocks!: Table<SheetBlock, string>
   sheetInk!: Table<SheetStroke, string>
   images!: Table<LocalImage, string>
+  secrets!: Table<Secret, string>
+  chats!: Table<Chat, string>
 
   constructor() {
     super('mneme')
@@ -122,7 +124,17 @@ class MnemeDB extends Dexie {
     this.version(7).stores({
       sheets: 'id, folderId, updatedAt, parentId',
     })
+    // v8: AI. The Gemini key (encrypted) and the tutor's chats, one per card. Neither syncs nor goes in backups.
+    this.version(8).stores({
+      secrets: 'id',
+      chats: 'id, updatedAt',
+    })
   }
 }
+
+/** The Gemini key sealed with a non-extractable AES key (`wrap`), which IndexedDB keeps but nothing can read out. */
+export type Secret = { id: string; key?: CryptoKey; iv?: Uint8Array; data?: ArrayBuffer }
+/** An AI chat: the pinned context, a summary of older turns, and the recent turns. */
+export type Chat = { id: string; title: string; summary: string; turns: { role: 'user' | 'model'; text: string }[]; tokens: number; updatedAt: number }
 
 export const db = new MnemeDB()

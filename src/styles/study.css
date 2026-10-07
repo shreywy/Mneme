@@ -429,3 +429,7 @@
 @media (hover: none), (max-width: 760px) {
   html.lock-scroll, html.lock-scroll body { overflow: hidden; overscroll-behavior: none; }
 }
+.ai-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.ai-row .btn { color: var(--accent); }
+.ai-note { display: flex; gap: 8px; align-items: baseline; margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--surface2); font-size: 14px; }
+.ai-note .icon, .ai-note svg { flex: none; color: var(--accent); }

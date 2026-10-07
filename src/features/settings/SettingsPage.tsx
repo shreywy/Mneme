@@ -13,9 +13,11 @@ import { downloadJson } from '../../deck-format/export'
 import { confirmAction } from '../../ui/confirm'
 import { accountsEnabled, useAccount } from '../../sync/account'
 import { describeUsage, loadStorage, useStorage } from '../../sync/storage'
+import { removeKey, setKey, useAiKey } from '../../ai/key'
 
 export function SettingsPage() {
   const s = useSettings()
+  const aiKey = useAiKey()
   const [confirmReset, setConfirmReset] = useState(false)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -113,10 +115,8 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section id="ai" icon="spark" title="AI" summary="Coming later">
-        <div className="srow"><div className="l"><b>Gemini API key</b><span>Optional. Unlocks the tutor and other AI tools in a later update.</span></div>
-          <button className="btn sm" disabled>Coming soon</button>
-        </div>
+      <Section id="ai" icon="spark" title="AI" summary={aiKey.has ? 'Gemini key added' : 'Add a free Gemini key'}>
+        <AiKeyRow />
       </Section>
     </div>
     </>
@@ -146,6 +146,7 @@ function CloudSpace() {
 
 function Section({ id, icon, title, summary, defaultOpen = false, children }: { id: string; icon: string; title: string; summary: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(() => {
+    if (location.hash === `#${id}`) return true
     try { const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? 'null') as Record<string, boolean> | null; return v?.[id] ?? defaultOpen } catch { return defaultOpen }
   })
   const toggle = () => {
@@ -154,7 +155,7 @@ function Section({ id, icon, title, summary, defaultOpen = false, children }: { 
     try { localStorage.setItem(OPEN_KEY, JSON.stringify({ ...JSON.parse(localStorage.getItem(OPEN_KEY) ?? '{}'), [id]: next })) } catch { /* private mode */ }
   }
   return (
-    <section className={`sset ${open ? 'open' : ''}`}>
+    <section className={`sset ${open ? 'open' : ''}`} id={id} ref={(el) => { if (el && location.hash === `#${id}`) el.scrollIntoView({ block: 'start' }) }}>
       <button type="button" className="sset-head" onClick={toggle} aria-expanded={open}>
         <span className="sico"><Icon name={icon} size={16} /></span><span className="t">{title}</span><span className="sum">{summary}</span><Icon name="chev" className="sch" />
       </button>
@@ -174,4 +175,37 @@ function useEffectiveDark() {
     return () => mq.removeEventListener('change', on)
   }, [])
   return isDarkTheme(s)
+}
+
+/** Paste a Gemini key: checked with Google, sealed on this device and, signed in, kept on the account. */
+function AiKeyRow() {
+  const signedIn = !!useAccount((a) => a.user)
+  const [saved, setSaved] = useState<boolean | null>(null)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const has = useAiKey((k) => k.has)
+  useEffect(() => { void db.secrets.get('gemini').then((x) => setSaved(!!x)) }, [has])
+  const save = async () => {
+    setBusy(true)
+    try { await setKey(draft); setDraft(''); setSaved(true); toast('Gemini key added', signedIn ? 'Your other devices get it too' : 'Kept on this device') }
+    catch (e) { toast('Key not added', e instanceof Error ? e.message : 'Try again', 'x') }
+    finally { setBusy(false) }
+  }
+  const remove = async () => {
+    if (!await confirmAction({ title: 'Remove your Gemini key?', body: signedIn ? 'It’s removed from this device and your account. AI buttons go quiet until you add one again.' : 'AI buttons go quiet until you add one again.', confirm: 'Remove' })) return
+    await removeKey(); setSaved(false); toast('Gemini key removed')
+  }
+  return (
+    <>
+      <div className="srow"><div className="l"><b>Gemini API key</b>
+        <span>{saved ? `Added${signedIn ? ', and kept on your account' : ' on this device'}. ` : ''}Unlocks the tutor, “Was I right?”, mnemonics, Explain, Ask Gemini on a page, and snapshots. Free from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>.</span></div>
+        {saved && <button className="btn sm danger" onClick={remove}>Remove</button>}
+      </div>
+      <form className="srow ai-keyrow" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) void save() }}>
+        <input type="password" autoComplete="off" spellCheck={false} placeholder={saved ? 'Paste a new key to replace it' : 'Paste your key'} value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Gemini API key" />
+        <button className="btn sm primary" disabled={busy || !draft.trim()}>{busy ? 'Checking…' : saved ? 'Replace' : 'Add key'}</button>
+      </form>
+      <p className="muted" style={{ fontSize: 12.5, margin: '2px 0 4px' }}>Requests go from your browser straight to Google, and your notes are only sent when you ask. {signedIn ? 'The key is kept on your account so you only paste it once.' : 'Signed in, the key is kept on your account so you only paste it once.'}</p>
+    </>
+  )
 }

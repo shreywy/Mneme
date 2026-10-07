@@ -19,6 +19,12 @@ import { isTyping, studyBack } from '../../app/ui'
 import { QuestionView } from '../study/QuestionView'
 import { burst, MILESTONES, pulse, smoke } from '../study/effects'
 import { MatchRound, type MatchResult } from './MatchRound'
+import { AiButton } from '../ai/AiButton'
+import { openAi, useAiPanel } from '../../ai/panel'
+import { cardContext } from '../../ai/study'
+import { ASK_MNEMONIC, ASK_SUMMARY, ASK_WHY_WRONG, GENERATED, gradeTyped, LEECH, moreLikeThis, sessionContext } from '../../ai/actions'
+import { getKey } from '../../ai/key'
+import { db } from '../../data/db'
 
 type Loaded = { deck: DeckRow; all: Item[]; pool: Item[]; byKey: Map<string, Item> }
 type Stats = { answered: number; correct: number; misses: string[] }
@@ -192,9 +198,59 @@ export function LearnPage() {
     nav(back)
   }, [commit, deckId, nav, back])
 
+  const tutor = (ask?: string) => {
+    if (!cur || !data || data === 'missing') return
+    openAi({
+      ask,
+      id: `card:${deckId}:${cur.ex.item.key}`,
+      title: promptText(cur.ex.item).replace(/\s+/g, ' ').slice(0, 80),
+      pinned: { context: cardContext(data.deck, cur.ex, revealed ? { response, grade } : undefined) },
+    })
+  }
+
+  // An open tutor follows the session: the next card, and the answer once it's in.
+  useEffect(() => {
+    if (useAiPanel.getState().cur?.id.startsWith('card:')) tutor()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur?.n, revealed])
+  useEffect(() => setAiNote(null), [cur?.n])
+
+  const [aiNote, setAiNote] = useState<string | null>(null)
+  const [aiBusy, setAiBusy] = useState<'grade' | 'more' | null>(null)
+  const aiRun = async (what: 'grade' | 'more', fn: (key: string) => Promise<void>) => {
+    const key = await getKey()
+    if (!key || aiBusy) return
+    setAiBusy(what)
+    try { await fn(key) } catch (e) { toast('Gemini couldn’t help', e instanceof Error ? e.message : 'Try again', 'x') } finally { setAiBusy(null) }
+  }
+  const askGrade = () => aiRun('grade', async (key) => {
+    if (!cur || !data || data === 'missing') return
+    const g = await gradeTyped(key, data.deck, cur.ex, response)
+    if (g.right) { iWasRight(); toast('Gemini counts it as right', g.why) } else setAiNote(g.why || 'Gemini agrees it’s not right.')
+  })
+  const askMore = () => aiRun('more', async (key) => {
+    if (!cur || !data || data === 'missing') return
+    const items = await moreLikeThis(key, data.deck, cur.ex.item)
+    if (!data.deck.topics.some((t) => t.id === GENERATED.id)) {
+      data.deck.topics = [...data.deck.topics, GENERATED]
+      await db.decks.update(deckId, { topics: data.deck.topics })
+    }
+    for (const it of items) await repo.saveItem(deckId, it)
+    toast(`${items.length} new card${items.length === 1 ? '' : 's'} in “Generated”`, 'They come up in your next session')
+  })
+  const summary = () => {
+    if (!data || data === 'missing') return
+    const missed = stats.misses.map((k) => data.byKey.get(k)).filter((i): i is Item => !!i)
+    openAi({
+      id: `session:${deckId}:${started.current}`, title: `This session: ${data.deck.title}`, ask: ASK_SUMMARY,
+      pinned: { context: sessionContext(data.deck, { answered: stats.answered, correct: stats.correct, best: best.current, seconds: (Date.now() - started.current) / 1000 }, missed) },
+    })
+  }
+
   const canContinue = revealed || !!match?.done
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest?.('.aipanel')) return
       if (e.key === 'Escape') { e.preventDefault(); exit(); return }
       if (isTyping(e) && !revealed) return
       if ((e.key === 'Enter' || e.key === ' ') && canContinue && performance.now() - revealedAt.current > 150) { e.preventDefault(); next() }
@@ -263,20 +319,30 @@ export function LearnPage() {
                 )}
               </ContinueRow>
             )}
+            {revealed && (
+              <div className="ai-row">
+                {grade && !grade.correct && ['typed', 'numeric', 'cloze'].includes(cur.ex.kind) && hasInput(response) && (
+                  <AiButton className="btn ghost sm" onClick={askGrade} disabled={!!aiBusy}><Icon name="spark" size={14} />{aiBusy === 'grade' ? 'Checking…' : 'Was I right?'}</AiButton>
+                )}
+                {grade && !grade.correct && <AiButton className="btn ghost sm" onClick={() => tutor(ASK_WHY_WRONG)}><Icon name="spark" size={14} />Why was I wrong?</AiButton>}
+                {(states.current.get(cur.ex.key)?.lapses ?? 0) >= LEECH && (
+                  <AiButton className="btn ghost sm" onClick={() => tutor(ASK_MNEMONIC)}><Icon name="spark" size={14} />Make a mnemonic</AiButton>
+                )}
+                <AiButton className="btn ghost sm" onClick={askMore} disabled={!!aiBusy}><Icon name="spark" size={14} />{aiBusy === 'more' ? 'Writing cards…' : 'More like this'}</AiButton>
+              </div>
+            )}
+            {revealed && aiNote && <p className="ai-note"><Icon name="spark" size={14} />{aiNote}</p>}
             {revealed && <Why item={cur.ex.item} />}
           </div>
         )}
       </div>
 
-      {learnPanel && <StatsPanel stats={stats} m={m} total={total} best={best.current} started={started.current} byKey={data.byKey} closing={panelClosing} onClose={closePanel} />}
+      {learnPanel && <StatsPanel onSummary={summary} stats={stats} m={m} total={total} best={best.current} started={started.current} byKey={data.byKey} closing={panelClosing} onClose={closePanel} />}
 
       <div className="dock"><div className="in">
         <div className="left" />
         <div className="center">
-          <span className="tipwrap">
-            <button className="ai" aria-disabled="true"><Icon name="spark" />Ask the tutor</button>
-            <span className="tip">Add a free Gemini API key in Settings to use the tutor (coming soon)</span>
-          </span>
+          <AiButton onClick={() => tutor()} title="Ask Gemini about this card"><Icon name="spark" />Ask the tutor</AiButton>
           <button className={`ai ${learnPanel ? 'on' : ''}`} onClick={() => (learnPanel ? closePanel() : setSettings({ learnPanel: true }))} aria-pressed={learnPanel}>
             <Icon name="chart" />Session stats
           </button>
@@ -296,8 +362,8 @@ function ContinueRow({ onNext, children }: { onNext: () => void; children?: Reac
   )
 }
 
-function StatsPanel({ stats, m, total, best, started, byKey, closing, onClose }: {
-  stats: Stats; m: ReturnType<typeof countMastery>; total: number; best: number; started: number; byKey: Map<string, Item>; closing: boolean; onClose: () => void
+function StatsPanel({ onSummary, stats, m, total, best, started, byKey, closing, onClose }: {
+  onSummary: () => void; stats: Stats; m: ReturnType<typeof countMastery>; total: number; best: number; started: number; byKey: Map<string, Item>; closing: boolean; onClose: () => void
 }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
@@ -330,6 +396,7 @@ function StatsPanel({ stats, m, total, best, started, byKey, closing, onClose }:
       {stats.misses.length === 0 ? <p className="empty-note">None yet.</p> : (
         <ul className="sp-misses">{stats.misses.map((k) => { const it = byKey.get(k); return it ? <li key={k}><Markdown inline>{promptText(it)}</Markdown></li> : null })}</ul>
       )}
+      {stats.answered > 0 && <div style={{ marginTop: 12 }}><AiButton className="btn sm" onClick={onSummary}><Icon name="spark" size={14} />Summarise this session</AiButton></div>}
       </div></div>
     </aside>
   )

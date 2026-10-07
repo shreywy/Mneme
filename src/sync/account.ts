@@ -5,6 +5,7 @@ import { useSettings } from '../settings/store'
 import { installHooks, markAll, pendingCount, pull, push, resetSyncState, setOnDirty, SPECS } from './engine'
 import { enabledProviders, supabase, supabaseRemote } from './supabase'
 import { forgetProfile, loadProfile, removeAvatars } from './profile'
+import { forgetAiKey, pullAiKey } from '../ai/key'
 import { removeAllPictures } from './pictures'
 import { forgetStorage, isStorageFull, loadStorage } from './storage'
 
@@ -147,7 +148,7 @@ export async function syncNow(withPull = true): Promise<void> {
       // Out of space: new data waits here, but deletions went up and other devices' changes still come in.
       let full = false
       try { await push(remote()) } catch (e) { if (!isStorageFull(e)) throw e; full = true }
-      if (withPull) { await pull(remote()); await pullSettings() }
+      if (withPull) { await pull(remote()); await pullSettings(); await pullAiKey().catch(() => { /* next pull */ }) }
       set({ status: full ? 'full' : 'synced', lastSync: Date.now(), error: null })
       loadStorage(full ? 0 : 60_000).catch(() => { /* shown again on the next sync */ })
     } catch (e) {
@@ -228,6 +229,7 @@ async function forgetLocally(scope: 'global' | 'local') {
   await wipeLocal()
   localStorage.removeItem(OWNER_KEY)
   forgetProfile()
+  forgetAiKey()
   forgetStorage()
   set({ user: null, status: 'off', lastSync: null })
 }
