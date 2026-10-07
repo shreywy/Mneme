@@ -22,6 +22,11 @@ import { useNavigate } from 'react-router'
 import { BoxBlock } from './BoxBlock'
 import { toast } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
+import { AiButton } from '../ai/AiButton'
+import { openAi } from '../../ai/panel'
+import { getKey } from '../../ai/key'
+import { pictureIn, snap } from '../../ai/snap'
+import { linesToDoc, transcribe } from '../../ai/transcribe'
 import { PagePickerHost, TableSizeHost } from './editor/nodes'
 import { Dock, MYBLOCK_DRAG, insertNow } from './Dock'
 import { INSERT_DRAG, TextBlock } from './TextBlock'
@@ -838,6 +843,35 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   const sel = selCount ? boundsOf([...shown.filter((b) => selected.has(b.id)), ...inkBoxes]) : null
   const many = selCount > 1
   const selMark = selCount === 1 && selected.size === 1 ? shown.find((b) => selected.has(b.id) && b.kind === 'bookmark') : undefined
+
+  // Gemini on the selection: what's written there as text, what's drawn as a picture.
+  const selBox = () => document.querySelector('.sheet-sel')?.getBoundingClientRect() ?? null
+  const askAboutSel = async () => {
+    const box = selBox()
+    if (!box) return
+    const { text, image } = await snap(box)
+    openAi({
+      id: `sheet:${sheet.id}:${Date.now()}`,
+      title: `About your selection on ${sheet.title || 'this page'}`,
+      pinned: { context: `Page: ${sheet.title || 'Untitled'}\n\nText in the selection:\n${text || '(none, just drawing)'}${image ? '\n\nA picture of the selection is attached: it shows the handwriting and drawings.' : ''}`, images: image ? [image] : [] },
+    })
+  }
+  const [reading, setReading] = useState(false)
+  const inkToText = async () => {
+    const box = selBox(), key = await getKey()
+    if (!box || !key || !sel || reading) return
+    setReading(true)
+    try {
+      const img = await pictureIn(box)
+      if (!img) throw new Error('There’s no ink in the selection to read.')
+      const lines = await transcribe(key, img)
+      if (!lines.length) throw new Error('Gemini couldn’t make out the writing.')
+      const b = await sheets.addBlock({ sheetId: sheet.id, x: Math.floor(sel.x), y: Math.ceil(sel.y + sel.h) + 1, w: Math.max(12, Math.ceil(sel.w)), h: 1, kind: 'text', data: { doc: linesToDoc(lines) }, z: nextZ() })
+      history.record({ kind: 'add', block: b })
+      toast('Written out below', 'Your ink is still there to keep or delete')
+    } catch (e) { toast('Couldn’t read it', e instanceof Error ? e.message : 'Try again', 'x') }
+    finally { setReading(false) }
+  }
   const panning = (gesture?.kind === 'pan' && gesture.moved) || gesture?.kind === 'pinch'
   const inking = isInkTool(tool) && !space
   const cursor = panning ? 'panning' : space || tool === 'pan' ? 'can-pan' : tool === 'select' ? 'can-select' : inking ? `inking ink-${tool}` : ''
@@ -911,7 +945,8 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
                     {[...new Set([...prefs.pens, ...HIGHLIGHTERS])].map((c) => <button key={c} className="ink-swatch sm" style={{ '--c': inkColor(c) } as React.CSSProperties} aria-label={`Colour ${c === 'ink' ? 'like the text' : c}`} onClick={() => void recolor(c)} />)}
                   </span>
                 )}
-                {selInk.size > 0 && <button disabled title="Ask Gemini about what you selected. Comes with AI."><Icon name="spark" size={14} />Ask Gemini</button>}
+                {!selMark && <AiButton className="" onClick={() => void askAboutSel()} title="Ask Gemini about what you selected"><Icon name="spark" size={14} />Ask Gemini</AiButton>}
+                {selInk.size > 0 && <AiButton className="" onClick={() => void inkToText()} disabled={reading} title="Write the handwriting out as text, maths as equations"><Icon name="text" size={14} />{reading ? 'Reading…' : 'To text'}</AiButton>}
                 <button className="danger" disabled={!many && main !== undefined && selected.has(main.id)} onClick={() => removeSelection(selected, selInk)} title="Delete  Del"><Icon name="trash" size={14} />Delete</button>
               </div>
             </div>

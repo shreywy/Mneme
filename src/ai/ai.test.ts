@@ -21,7 +21,9 @@ describe('talking to Gemini', () => {
     expect(seen).toEqual(['Hel', 'Hello'])
   })
 
-  it('falls back to Flash-Lite when Flash is out of free requests', async () => {
+  it('falls back to Flash-Lite when Flash is out of free requests or overloaded', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (url.includes('flash-latest') ? new Response('{}', { status: 503 }) : sse(part('ok', 1, true)))))
+    expect((await ask('k', { contents: [] })).text).toBe('ok')
     const f = vi.fn(async (url: string) => (url.includes('flash-latest') ? new Response('{}', { status: 429 }) : sse(part('ok', 1, true))))
     vi.stubGlobal('fetch', f)
     expect((await ask('k', { contents: [] })).text).toBe('ok')
@@ -115,5 +117,16 @@ describe('study actions', () => {
     expect(await gradeTyped('k', deck, ex, { kind: 'text', value: 'three' })).toEqual({ right: true, why: 'Three is 3.' })
     reply({ right: 'yes' })
     expect((await gradeTyped('k', deck, ex, { kind: 'text', value: '9' })).right).toBe(false)
+  })
+})
+
+describe('handwriting to text', () => {
+  it('writes maths lines as equations and $…$ in a line as inline maths', async () => {
+    const { linesToDoc } = await import('./transcribe')
+    expect(linesToDoc([{ text: 'Area is $\pi r^2$ here' }, { math: true, text: '$$E = mc^2$$' }, { text: '  ' }])).toEqual({ type: 'doc', content: [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Area is ' }, { type: 'inlineMath', attrs: { latex: '\pi r^2' } }, { type: 'text', text: ' here' }] },
+      { type: 'equation', attrs: { latex: 'E = mc^2' } },
+    ] })
+    expect(linesToDoc([])).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] })
   })
 })

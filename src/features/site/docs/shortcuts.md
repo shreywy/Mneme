@@ -8,6 +8,7 @@
 | **F** | Focus mode |
 | **Esc** | Close, go back, or leave focus mode |
 | **Right-click** | The menu for whatever is under the pointer |
+| **Ctrl+Shift+E** | Snapshot: drag over anything and Gemini explains it (needs a key) |
 
 ## Studying
 

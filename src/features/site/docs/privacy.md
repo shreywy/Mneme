@@ -30,9 +30,14 @@ Pictures are stored in a private folder that only your account can open; the sam
 
 A share link can't use your folder, so sharing a page puts a signed link to each picture in the shared copy. Signed links work for a year; **Update to the current version** makes new ones. Stopping the share doesn't cancel links someone has already copied, so delete a picture if it must go.
 
-## Your AI key (coming)
+## Your Gemini key
 
-When AI arrives you'll bring your own Gemini key. It will be stored encrypted in your browser and sent only to Google, never to Mneme's servers.
+AI in Mneme runs on your own free Gemini key, added in **Settings → AI**.
+
+- Requests go from your browser straight to Google. Mneme has no server in between, and nothing is sent until you press an AI button.
+- On your device the key is sealed with a browser key that can't be read out, so a copied browser profile doesn't give it away.
+- Signed in, the key is also kept on your account (only you can read it, like your settings) so you paste it once for all your devices. Removing it in Settings removes it everywhere.
+- What gets sent: the card, the selection or the snapshot you asked about, and your question. Tutor chats stay on the device.
 
 ## How it's tested
 

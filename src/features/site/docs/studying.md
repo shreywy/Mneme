@@ -35,3 +35,17 @@ A practice test: pick how many questions and, if you like, a time limit per ques
 | **M** | Sound on or off |
 | **F** | Focus mode (hides everything else) |
 | **Esc** | Leave |
+
+## With a Gemini key
+
+Add a free key in **Settings → AI** and these appear in Learn:
+
+- **Ask the tutor**: a chat about the card in front of you. It knows the question, the answer and what you put, and gives hints before answers. Each card keeps its own chat; long chats are summarised so they stay quick.
+- **Was I right?**: after a typed answer is marked wrong, Gemini checks whether it means the same thing.
+- **Why was I wrong?**: explains the mistake in your thinking.
+- **Make a mnemonic**: on cards you've missed three or more times.
+- **More like this**: two or three new cards on the same idea, saved in a "Generated" topic.
+- **Summarise this session**: in Session stats, what you know and what to review.
+
+The free tier has a limit per minute. When the main model is busy or out of requests, Mneme switches to a lighter one.
+

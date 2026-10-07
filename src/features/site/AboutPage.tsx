@@ -161,11 +161,11 @@ export function AboutPage() {
       </section>
 
       <section id="next" className="next reveal">
-        <h2>AI with your own key, and a desktop app</h2>
+        <h2>AI on your own free key, and next, a desktop app</h2>
         <div className="next-grid">
-          <div><b>Gemini, your key</b><span>A tutor on any card, “why is this wrong?”, grading of typed answers, and lasso part of a page to ask about it. The key is stored encrypted in your browser and sent only to Google.</span></div>
-          <div><b>Handwriting to text</b><span>Turn pen writing and drawn maths into text and LaTeX.</span></div>
-          <div><b>Desktop app</b><span>Fully offline, no limits, with your own files next to your notes.</span></div>
+          <div><b>Gemini, your key</b><span>A tutor on any card, “why was I wrong?”, grading of typed answers, mnemonics, new cards like one you’re stuck on, and Explain on notes. Requests go straight from your browser to Google.</span></div>
+          <div><b>Ink to text, and snapshots</b><span>Lasso your handwriting and get text, with maths as equations. Ctrl+Shift+E over anything to have it explained.</span></div>
+          <div><b>Coming: desktop app</b><span>Fully offline, no limits, with your own files next to your notes.</span></div>
         </div>
       </section>
 

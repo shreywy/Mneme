@@ -52,6 +52,13 @@ Press **I** or **/**, or the **+** beside an empty line.
 
 **Ctrl+Z** undoes typing inside a block; on the paper it undoes moves, deletes and drawing, in order.
 
+### With a Gemini key
+
+Select ink or blocks (lasso or Select) and the selection bar has:
+
+- **Ask Gemini**: a chat about the selection. Gemini gets its text and a picture of the drawing.
+- **To text**: writes your handwriting out in a text block below it, with maths as equations. The ink stays until you delete it.
+
 ## Pictures
 
 Paste, drop or insert a picture. It's shrunk to 2000 px on its longest side and kept on your device. Signed in, it's also stored in your account's private picture folder, so it shows on your other devices too. Signed out, it stays on the device you added it on. Drag the corner to resize; add a caption and alt text. Deleting a picture deletes the stored copy as well.

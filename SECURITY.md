@@ -17,7 +17,7 @@ Mneme is a single-page app on Cloudflare Pages that talks to a Supabase project 
 | Pictures on pages | IndexedDB, and the private `pictures` bucket when signed in |
 | Shared copies | `shares`, readable only by id |
 | The account's sessions and activity | Supabase Auth sessions, `account_events` |
-| A Gemini API key (planned) | The user's browser only |
+| A Gemini API key | IndexedDB, sealed with a non-extractable AES-GCM key; signed in, also the owner-only `user_settings` row `gemini-key`. Sent only to Google |
 
 ### Who we defend against
 

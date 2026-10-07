@@ -2,12 +2,12 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-07 (Drive import, sub-pages phase 3)._
+_Last updated 2026-10-07 (AI with a Gemini key)._
 
 ## Where we are
 
 - **Live:** https://mnemee.pages.dev, auto-deployed from `main` (Cloudflare Pages). Everything below is merged and deployed.
-- **Current feature:** Text notes ("Pages"), the user's own writing pages. Phases 1–4 are built: everything but AI, which is phase 5. Plus two rounds of Shrey's feedback.
+- **Current feature:** Text notes ("Pages"), the user's own writing pages. All five phases are built, AI included (2026-10-07). Plus two rounds of Shrey's feedback.
 - **Shrey needs to run `npx supabase db push`** for four migrations from 2026-10-06, then `npm run test:db`:
   - `20261009000000_pictures.sql`: the private `pictures` bucket. Until then, signed-in pictures stay on the device and say "Upload failed".
   - `20261009000100_rate_limits.sql`: 30 share publishes an hour.
@@ -18,7 +18,8 @@ _Last updated 2026-10-07 (Drive import, sub-pages phase 3)._
 - **No QC checklist files any more.** Shrey asked (2026-10-06) for QC to be done here and reported, not handed over as a file.
 - **Not yet tried signed in:** picture upload/download between devices, signed picture links in a share, the devices and activity cards, two-step setup and the code prompt. Everything else was checked in the browser.
 - **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): all three phases done 2026-10-07 ([plan 1](superpowers/plans/2026-10-07-subpages-phase1.md), [plan 2](superpowers/plans/2026-10-07-subpages-phase2.md)).
-- **Then:** AI (phase 5), or end-to-end encrypted decks (designed below, waiting on Shrey's call).
+- **AI (Gemini, bring your own key):** built 2026-10-07. See "AI" below.
+- **Then:** end-to-end encrypted decks (designed below, waiting on Shrey's call), public decks (semantic search waits for them), Sentry.
 
 ## Text notes: what's built
 
@@ -30,7 +31,7 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
 | 2. Blocks and Insert | Done. |
 | 3. Ink (pen, highlighter, eraser, lasso, shapes, palm rejection) | Done. |
 | 4. Images (private bucket; Imgur on hold), Pages layout, Print/PDF, share links | Done. |
-| 5. AI (lasso → Gemini, handwriting/maths to text) | Later |
+| 5. AI (lasso → Gemini, handwriting/maths to text) | Done 2026-10-07. |
 
 ### Where the code is
 
@@ -169,14 +170,45 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - A PDF with no text layer (a scan) fails with "No text in it".
   - The stacked text blocks of a very long document use guessed heights.
 
+## AI (2026-10-07)
+
+Built from §8 of the [main spec](superpowers/specs/2026-09-30-mneme-design.md) and text-notes phase 5, design approved in chat.
+
+- **Client:** `src/ai/gemini.ts`. `fetch` to `generativelanguage.googleapis.com` with `x-goog-api-key`, streamed (`?alt=sse`), no SDK.
+  - Models: `gemini-flash-latest`, falling back to `gemini-flash-lite-latest` on 429 or 5xx.
+  - `thinkingLevel: 'low'`. The default thinking took about 14 s for a two-sentence answer; low takes about 3 s.
+  - A stream that ends without a `finishReason` is "cut off" (seen once). `askJson` retries once on that or on unreadable JSON.
+- **Key:** `src/ai/key.ts`.
+  - Sealed in `db.secrets` with a non-extractable AES-GCM key.
+  - Signed in, also an owner-only `user_settings` row `gemini-key` (no migration needed), pulled with each sync and forgotten on sign-out.
+  - `VITE_GEMINI_DEV_KEY` from `.env.local` is used only under `import.meta.env.DEV`. Build output was checked: neither the key nor the variable name is in `dist`.
+- **Chats:** `src/ai/chat.ts`. Pinned context goes in the system instruction.
+  - Past 60% of a 32k-token budget, all but the last 4 turns are folded into a summary.
+  - The meter uses `usageMetadata.promptTokenCount` instead of a `countTokens` call.
+  - At most 200 chats are kept in `db.chats`. They never sync and aren't in backups.
+- **Panel:** `src/features/ai/AiPanel.tsx`, opened with `openAi()` from `src/ai/panel.ts`. Esc closes it (in capture, so Learn doesn't exit). `AiButton` mutes AI buttons when there's no key.
+- **Learn:**
+  - Ask the tutor; it follows to the next card and learns your answer.
+  - Was I right?, Why was I wrong?, Make a mnemonic (3+ lapses), More like this, Summarise this session.
+  - More like this goes through `parseDeckText`, then into a "Generated" topic. See `src/ai/actions.ts`.
+- **Notes:** Explain with Gemini in the right-click menu and the phone selection bar. It sends the selection plus 3 blocks either side.
+- **Pages:** Ask Gemini and To text on the selection bar. To text puts a text block with `equation` / `inlineMath` under the selection and keeps the ink.
+- **Snapshot (Ctrl+Shift+E):** `src/ai/snap.ts` and `SnapLayer.tsx`.
+  - Text in the box is read from the DOM; KaTeX becomes `$tex$` from its annotation.
+  - SVGs, images and canvases in the box are drawn to a PNG. Each SVG is mapped through `getScreenCTM()`, because ink layers are 1px boxes that overflow.
+  - Images from other sites are skipped, so they can't taint the canvas.
+  - No screen-capture permission is needed.
+- **Maths and money:** the tutor prompt asks for `$$…$$` maths and `\$5` money, because app Markdown treats a single `$` as money.
+- **Not done:**
+  - Semantic search of public decks: there are no public decks yet.
+  - Sentry: not AI.
+  - Snapshot on phones: the shortcut needs a keyboard.
+
 ## Site, docs, README and security (2026-10-02)
 
 - **Introduction page:** `/about` (`src/features/site/AboutPage.tsx`). It has every feature with a real screenshot, the forgetting-curve chart, the security list and "coming next".
 - **Docs:** `/docs/:topic` (`DocsPage.tsx`, markdown in `src/features/site/docs/*.md`, rendered with internal links). `<forgetting-curve></forgetting-curve>` in a doc places the interactive chart. The sidebar's ? button opens the docs.
-- **Update both when AI lands:**
-  - the "Coming next" section
-  - the AI docs topic
-  - the screenshots
+- AI is in the docs (studying, pages, notes, privacy, shortcuts) and in "Coming next" on /about. The screenshots don't show it yet.
 - **Screenshots:** `public/site/*.webp` and `hero.jpg`, made by `scripts/screenshots/` (see its README). The README and the site use the same files.
 - **Security headers:** `public/_headers`.
   - A strict CSP with no inline scripts. Card demos load `/demo-frame.html` in a sandboxed frame and get their document by postMessage, because a srcdoc frame would inherit the app's CSP.

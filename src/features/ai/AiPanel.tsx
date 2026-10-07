@@ -109,7 +109,7 @@ function Panel({ o, n, hasKey }: { o: AiOpen; n: number; hasKey: boolean }) {
             ? <p key={i} className="ai-q">{t.text}</p>
             : (
               <div key={i} className="ai-a">
-                <Markdown dollarMath>{t.text}</Markdown>
+                <Markdown>{t.text}</Markdown>
                 <div className="ai-acts">
                   <button className="btn ghost sm" onClick={() => copy(t.text)}><Icon name="copy" size={14} />Copy</button>
                   {i === chat.turns.length - 1 && !live && <button className="btn ghost sm" onClick={redo}><Icon name="reset" size={14} />Retry</button>}
@@ -118,7 +118,7 @@ function Panel({ o, n, hasKey }: { o: AiOpen; n: number; hasKey: boolean }) {
             )
         ))}
         {(live || failed) && <p className="ai-q">{(live ?? failed)!.q}</p>}
-        {live && <div className="ai-a">{live.text ? <Markdown dollarMath>{live.text}</Markdown> : <span className="ai-dots" aria-label="Thinking"><i /><i /><i /></span>}</div>}
+        {live && <div className="ai-a">{live.text ? <Markdown>{live.text}</Markdown> : <span className="ai-dots" aria-label="Thinking"><i /><i /><i /></span>}</div>}
         {failed && (
           <div className="ai-err">
             {failed.why}
@@ -129,7 +129,7 @@ function Panel({ o, n, hasKey }: { o: AiOpen; n: number; hasKey: boolean }) {
       </div>
       <footer>
         <textarea
-          rows={1} autoFocus value={draft} placeholder={hasKey ? 'Ask a follow-up' : 'Add a key in Settings first'} disabled={!hasKey}
+          rows={1} autoFocus value={draft} placeholder={!hasKey ? 'Add a key in Settings first' : chat?.turns.length || live ? 'Ask a follow-up' : 'Ask about this'} disabled={!hasKey}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); submit() } }}
         />

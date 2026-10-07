@@ -5,6 +5,8 @@ import * as notesRepo from '../../data/notes'
 import { Icon } from '../../ui/Icons'
 import { useContextItems, type MenuItem } from '../../ui/ContextMenu'
 import { toast } from '../../ui/toasts'
+import { useAiKey } from '../../ai/key'
+import { NO_KEY, openAi } from '../../ai/panel'
 import type { KeyTerm } from '../../content/keyterms'
 import { describeSpan, locate, offsetsOf, rangeAt, textOf, type TextAnchor } from './anchor'
 
@@ -55,6 +57,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
   const [ranges, setRanges] = useState<Map<string, Range>>(new Map())
   const [gutter, setGutter] = useState<{ id: string; top: number; kind: NoteMark['kind'] }[]>([])
   const [sel, setSel] = useState<Sel | null>(null)
+  const hasKey = useAiKey((k) => k.has)
   const [pop, setPop] = useState<Pop | null>(null)
   const [tick, setTick] = useState(0) // bumps when the DOM under the page changes (sections open and close)
   const [hover, setHover] = useState<{ id: string; rect: DOMRect } | null>(null)
@@ -170,6 +173,22 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
     clearSelection()
     toast('Bookmarked', 'It’s in the contents, under Bookmarks', 'bookmark')
   }
+  const explain = (s: Sel) => {
+    const article = articleRef.current
+    if (!article) return
+    // The passage around the selection: a few blocks either side, which usually covers its section.
+    const blocks = [...article.querySelectorAll<HTMLElement>('[data-block]')]
+    const i = blocks.findIndex((b) => Number(b.dataset.block) === s.block)
+    const near = blocks.slice(Math.max(0, i - 3), i + 4).map(textOf).join('\n\n').slice(0, 8000)
+    const quote = s.anchor.quote.trim()
+    openAi({
+      id: `note:${noteId}:${s.block}:${quote.slice(0, 40)}`,
+      title: `Explain: ${quote.replace(/\s+/g, ' ').slice(0, 70)}`,
+      pinned: { context: `Notes page: ${article.querySelector('h1')?.textContent ?? 'Notes'}\n\nThe passage around it:\n${near}\n\nThe student selected: “${quote}”` },
+      ask: 'Explain what I selected in plain words, using the passage around it. Add a small example if it helps.',
+    })
+    clearSelection()
+  }
   const compose = (s: Sel) => { setPop({ kind: 'compose', rect: s.rect, draft: s, text: '' }); setSel(null) }
 
   // Right-click on the page.
@@ -182,7 +201,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
       items.push({ key: 'colors', custom: (close) => <ColorRow onPick={(c) => { close(); void highlight(s, c) }} onErase={() => { close(); void erase(s) }} canErase={overlapsHighlight(s)} label="Highlight" /> })
       items.push({ label: 'Add a note', icon: 'comment', onSelect: () => compose(s) })
       items.push({ label: 'Bookmark this', icon: 'bookmark', onSelect: () => bookmark(s) })
-      items.push({ label: 'Explain with Gemini', icon: 'spark', disabled: true, hint: 'Coming with AI: add a Gemini key in Settings', onSelect: () => {} })
+      items.push({ label: 'Explain with Gemini', icon: 'spark', disabled: !hasKey, hint: hasKey ? undefined : NO_KEY, onSelect: () => explain(s) })
       return items
     }
     const hit = hitMark(e.clientX, e.clientY)
@@ -220,6 +239,7 @@ export function ReadingTools({ noteId, articleRef, marks, terms, finding, setFin
           <span className="selbar-sep" />
           <button className="selbar-btn" onClick={() => compose(sel)} title="Add a note"><Icon name="comment" size={15} /><span>Note</span></button>
           <button className="selbar-btn" onClick={() => bookmark(sel)} title="Bookmark"><Icon name="bookmark" size={15} /></button>
+          {hasKey && <button className="selbar-btn" onClick={() => explain(sel)} title="Explain with Gemini"><Icon name="spark" size={15} /></button>}
           <button className="selbar-btn" onClick={async () => { await navigator.clipboard.writeText(sel.anchor.quote).catch(() => {}); toast('Copied') }} title="Copy"><Icon name="copy" size={15} /></button>
         </Floating>
       )}

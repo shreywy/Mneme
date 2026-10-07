@@ -1,5 +1,5 @@
 // Gemini, called straight from the browser with the user's own key. The key goes to Google and nowhere
-// else. Flash first; if its free-tier limit is hit before anything came back, Flash-Lite instead.
+// else. Flash first; if it's out of free requests or overloaded, Flash-Lite instead.
 
 export const MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest'] as const
 const API = 'https://generativelanguage.googleapis.com/v1beta/models'
@@ -60,7 +60,7 @@ export async function ask(key: string, a: Ask, { signal, onText }: { signal?: Ab
     }
     if (!res.ok) {
       const err = errorFor(res.status, await res.text())
-      if (err.kind === 'quota' && i < MODELS.length - 1) continue
+      if ((err.kind === 'quota' || res.status >= 500) && i < MODELS.length - 1) continue
       throw err
     }
     let text = '', tokens = 0, buf = '', finished = false

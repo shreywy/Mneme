@@ -13,6 +13,8 @@ A notes page is a readable version of your course material, written by the AI ch
 
 Select text to **highlight** it in one of four colours, add an **annotation** to it, or **bookmark** the spot. They sync with your account and stay private when you share the page.
 
+With a Gemini key, select some text and pick **Explain with Gemini** (right-click, or the spark on the selection bar on phones). Gemini explains it using the passage around it.
+
 ## What's on a notes page
 
 Besides text, notes use blocks that Mneme draws in its own style, from plain data the AI writes:

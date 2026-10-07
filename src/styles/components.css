@@ -491,3 +491,7 @@ a.drow:hover { background: var(--surface2); }
 }
 @media print { .aipanel { display: none; } }
 .ai-keyrow input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+.snap-layer { position: fixed; inset: 0; z-index: 9500; cursor: crosshair; background: var(--scrim); touch-action: none; }
+.snap-layer:has(.snap-box) { background: none; }
+.snap-box { position: fixed; border: 1.5px solid var(--accent); border-radius: 4px; box-shadow: 0 0 0 100vmax var(--scrim); pointer-events: none; }
+.snap-hint { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-size: 13.5px; pointer-events: none; }

@@ -12,7 +12,7 @@ export type Img = { mimeType: string; data: string }
 export type Pinned = { context: string; images?: Img[] }
 
 export const TUTOR = `You are a patient tutor inside Mneme, a study app. Answer the student's question about the material below.
-Be short and specific: a few sentences or a short list, longer only when asked. Use Markdown. Write maths in LaTeX between $ signs.
+Be short and specific: a few sentences or a short list, longer only when asked. Use Markdown. Write all maths in LaTeX between double dollar signs, $$like this$$, even inside a sentence. Write money with a backslash, like \\$5.
 If the material doesn't settle something, say so rather than guessing.`
 
 export const systemFor = (pinned: Pinned, chat: Pick<Chat, 'summary'>, base = TUTOR) =>
