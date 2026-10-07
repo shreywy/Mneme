@@ -2,7 +2,7 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-06 (site polish, private pictures, the security list; then highlighter, bookmarks and the phone canvas)._
+_Last updated 2026-10-07 (sub-pages phase 1)._
 
 ## Where we are
 
@@ -17,6 +17,7 @@ _Last updated 2026-10-06 (site polish, private pictures, the security list; then
 - **Imgur is on hold** (no client id). Signed-in pictures use the private bucket instead; the Imgur path stays for signed-out use.
 - **No QC checklist files any more.** Shrey asked (2026-10-06) for QC to be done here and reported, not handed over as a file.
 - **Not yet tried signed in:** picture upload/download between devices, signed picture links in a share, the devices and activity cards, two-step setup and the code prompt. Everything else was checked in the browser.
+- **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): phase 1 done 2026-10-07 ([plan](superpowers/plans/2026-10-07-subpages-phase1.md)). Next is phase 2 (the grow-from-card animation, the folded back corner, the path bar, `[[` links), then phase 3 (Google Drive zip import).
 - **Then:** AI (phase 5), or end-to-end encrypted decks (designed below, waiting on Shrey's call).
 
 ## Text notes: what's built
@@ -102,6 +103,33 @@ Spec: [superpowers/specs/2026-10-01-text-notes-design.md](superpowers/specs/2026
   - A stroke with 60% of its points over a text block is anchored to it.
   - Undo is one history for blocks and ink (`sheets/history.ts`).
 - **Pictures:** Mneme never stores picture bytes on its servers. The Imgur delete hash lives in the synced doc but is stripped from share links and from clipboard HTML.
+
+## Sub-pages: what's built (phase 1)
+
+- **Data:** `SheetRow.parentId` (the page above) and `SheetRow.box` (the box block on that page). They sync inside the existing JSON, so there's no server migration. Dexie v7 indexes `sheets.parentId`.
+- `src/sheets/tree.ts`: pure tree helpers.
+  - `parentsOf` skips a missing parent or a loop; those pages show at the top level.
+  - `rootOf`, `ancestors`, `subtree`, `wouldCycle`.
+- `src/data/subpages.ts`: `boxesOf`, `addBox`, `ensureBox` (the last box, or a new "Pages" one), `kidsOf`, `createSubPage`, `moveIntoBox` (refuses loops, returns false), `moveOutALevel`, `liftChildren`, `deleteBox`, `adoptOrphans` (pages whose box is gone, after a minute, on open).
+- `src/data/pages.ts`: `pagesOf` gives a sub-page its top page's folder and no unit. `topLevel()` is what folders, the library and the sidebar list. `pagePath()` gives the titles above a page (search shows it). `PAGE_DRAG` is the drag type for sidebar rows and box cards.
+- `src/features/sheet/BoxBlock.tsx`: the box on the canvas.
+  - Its cards are a live query of the sub-pages; nothing is stored in the box.
+  - New page, Add existing (`pickPage({ kinds, exclude, title })`), and drag to reorder or in from the sidebar.
+  - The title is a draft only while focused, so undo shows straight away.
+- **Canvas:** `removeSelection` asks before deleting boxes that hold pages; the old one is `removeNow`. Box titles undo through `editMark`.
+- **Main column pushes things down** (`pushBelow`, `clearUnder` in `grid.ts`, `growMain` in `Canvas.tsx`).
+  - The stored `h` of an existing text block isn't updated while typing (only the canvas's `heights` state is), so this follows the measured height.
+  - Typing in the main column moves the blocks in its column below its top line down by what it grew.
+  - On load, or for edits from another device, it only moves a box found inside the column.
+- **Delete, archive and restore** work on whole trees. Rows deleted or archived together share the same `deletedAt`/`archivedAt` (`sameStamp`, `tops` in `src/data/trash.ts`). Recently deleted and Archive show only the top page with "and N sub-pages". `deleteWithUndo` and `archiveSheet` (`src/app/trash.ts`) ask through `chooseAction` (`src/ui/confirm.tsx`) when there are sub-pages.
+- **Read view** lists a box's pages as links. Print and shares get boxes turned into text (`boxesAsText`, `src/sheets/box.ts`), so the share schema has no box kind.
+- **Sidebar** (`Shell.tsx`):
+  - Pages with sub-pages get a twist, and open state lives in `openFolders`.
+  - Sub-pages are grouped by box, with headings for named boxes.
+  - A drop on the middle third of a page row nests the page, and a drop on a box heading puts it in that box. The dragged kind rides along as an extra drag type (`${PAGE_DRAG}-sheet`), because dragover can't read the data.
+- **Known:**
+  - Undo can't bring back a box deleted together with its pages; the pages are in Recently deleted.
+  - Decks and notes pages can't be sub-pages.
 
 ## Site, docs, README and security (2026-10-02)
 

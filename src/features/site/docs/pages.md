@@ -56,6 +56,14 @@ Press **I** or **/**, or the **+** beside an empty line.
 
 Paste, drop or insert a picture. It's shrunk to 2000 px on its longest side and kept on your device. Signed in, it's also stored in your account's private picture folder, so it shows on your other devices too. Signed out, it stays on the device you added it on. Drag the corner to resize; add a caption and alt text. Deleting a picture deletes the stored copy as well.
 
+## Pages inside a page
+
+A page can hold other pages. Add a **Box of pages** (**B** in Insert, or right-click the paper) and give it a name, like "Week 1". Click **New page** in the box, or **Add existing** to move a page you already have into it. Each page in the box shows as a card; click it to open the page.
+
+The sidebar shows the same tree: CPS721, then Week 1, then the chapter pages. Drag a page onto another page to put it inside, onto a box name to put it in that box, or between pages to reorder them. Drag cards between boxes on the page the same way. Right-click a page for **New sub-page** and **Move out a level**. Drop a page on a folder to make it a top-level page again.
+
+Sub-pages belong to the folder of the page at the top. Search finds them and shows where they sit. Deleting or archiving a page with sub-pages asks whether they go too; kept ones move up to where the page was, and restoring brings back the whole tree.
+
 ## Pages layout and printing
 
 **Page settings → Layout → Pages** lays the main column out on A4 or Letter sheets, with page numbers if you like. Something that would cross the bottom of a sheet moves whole to the next one.
