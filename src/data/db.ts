@@ -118,6 +118,10 @@ class MnemeDB extends Dexie {
       sheetInk: 'id, sheetId, blockId',
       images: 'id, sheetId',
     })
+    // v7: sub-pages. An index on parentId so a page's sub-pages are one query.
+    this.version(7).stores({
+      sheets: 'id, folderId, updatedAt, parentId',
+    })
   }
 }
 

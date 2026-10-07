@@ -49,11 +49,11 @@ export type PagePayload = z.infer<typeof PayloadSchema>
 
 /** The shareable copy of a page. `signed` maps each stored picture's path to its signed link. */
 export function pagePayload(sheet: SheetRow, blocks: SheetBlock[], strokes: SheetStroke[], withInk: boolean, signed: Record<string, string> = {}): PagePayload {
-  const list = [...readingOrder(blocks.filter((b) => b.kind === 'text')), ...blocks.filter((b) => b.kind !== 'text')]
+  const list = [...readingOrder(blocks.filter((b) => b.kind === 'text')), ...blocks.filter((b) => b.kind === 'bookmark')] // boxes arrive as text (boxesAsText)
   const index = new Map(list.map((b, i) => [b.id, i]))
   return {
     format: 'mneme.page', version: 1, title: sheet.title, paper: sheet.paper,
-    blocks: list.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind, ...(b.role ? { role: b.role } : {}), data: { doc: publicDoc(b.data.doc, signed), ...(b.data.label ? { label: b.data.label } : {}), ...(b.data.color ? { color: b.data.color } : {}) } })),
+    blocks: list.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: b.kind as 'text' | 'bookmark', ...(b.role ? { role: b.role } : {}), data: { doc: publicDoc(b.data.doc, signed), ...(b.data.label ? { label: b.data.label } : {}), ...(b.data.color ? { color: b.data.color } : {}) } })),
     ink: withInk
       ? strokes.filter((s) => !s.blockId || index.has(s.blockId)).map((s) => ({
         block: s.blockId ? index.get(s.blockId)! : null, tool: s.tool, color: s.color, size: s.size, pts: s.pts,

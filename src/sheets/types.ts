@@ -41,11 +41,16 @@ export type SheetRow = {
   deletedAt?: number
   /** Not shown anywhere in the library (the page that holds My blocks). */
   hidden?: boolean
+  /** The page this one sits under (sub-pages). Unset: a top-level page in `folderId`. */
+  parentId?: string
+  /** The box block on the parent page that shows this page. */
+  box?: string
 }
 
 /**
  * A block on the canvas. x, y, w, h are grid units (h is whole lines). Text blocks hold everything you
- * write or insert (maths, tables, code, plots are nodes in their document); a bookmark is a named spot.
+ * write or insert (maths, tables, code, plots are nodes in their document); a bookmark is a named spot;
+ * a box holds sub-page cards (its pages are the sheets whose `box` is its id; `data.label` is its title).
  */
 export type SheetBlock = {
   id: string
@@ -54,7 +59,7 @@ export type SheetBlock = {
   y: number
   w: number
   h: number
-  kind: 'text' | 'bookmark'
+  kind: 'text' | 'bookmark' | 'box'
   /** The page's main column: never removed when emptied. */
   role?: 'main'
   /** `label` and `color` (hex) name and mark a bookmark; `group` and `name` tie a saved block to its group in My blocks. */
