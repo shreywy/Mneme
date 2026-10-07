@@ -22,6 +22,7 @@ export async function insertNow(id: InsertId, at?: { x: number; y: number }) {
   const { editor, canvas } = useSheetUI.getState()
   useRecents.getState().push(id)
   useSheetUI.setState({ insertOpen: false })
+  if (id === 'box') { await canvas?.addBox(at); return }
   if (editor && !editor.isDestroyed && !at) return runInsert(editor, id)
   if (!canvas) { toast('Tap the line where it should go, then Insert'); return }
   const node = await nodeFor(id)

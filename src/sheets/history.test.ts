@@ -98,4 +98,11 @@ describe('history', () => {
     await applyChange(h.redo()!)
     expect((await sheets.blocksFor(id)).find((x) => x.id === b.id)?.data.doc).toBe('my notes')
   })
+  it("undo puts a box's old title back", async () => {
+    const box = await sheets.addBlock({ sheetId: 's', x: 0, y: 0, w: 4, h: 1, kind: 'box', data: { doc: null, label: 'Week 1' }, z: 0 })
+    const after = { ...box, data: { doc: null, label: 'Week one' } }
+    await sheets.updateBlock(box.id, { data: after.data })
+    await applyChange({ kind: 'update', before: after, after: box })
+    expect((await sheets.getBlock(box.id))?.data.label).toBe('Week 1')
+  })
 })

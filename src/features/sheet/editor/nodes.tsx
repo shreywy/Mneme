@@ -377,11 +377,13 @@ export const LinkCard = Node.create({
 })
 
 /** "Link a deck or page": a promise that resolves to what was picked. Its dialog is mounted once on the page. */
-const usePick = create<{ resolve: ((t: Target | null) => void) | null }>(() => ({ resolve: null }))
-export const pickPage = () => new Promise<Target | null>((resolve) => usePick.setState({ resolve }))
+type PickOpts = { kinds?: PageKind[]; exclude?: string[]; title?: string }
+const usePick = create<{ resolve: ((t: Target | null) => void) | null; opts: PickOpts }>(() => ({ resolve: null, opts: {} }))
+export const pickPage = (opts: PickOpts = {}) => new Promise<Target | null>((resolve) => usePick.setState({ resolve, opts }))
 
 export function PagePickerHost({ exclude }: { exclude?: string }) {
   const resolve = usePick((s) => s.resolve)
+  const opts = usePick((s) => s.opts)
   const [q, setQ] = useState('')
   const pages = useLiveQuery(async () => {
     const [{ decks }, notes, sheets] = await Promise.all([listLibrary(), listNotes(), listSheets()])
@@ -390,10 +392,10 @@ export function PagePickerHost({ exclude }: { exclude?: string }) {
   if (!resolve) return null
   const done = (t: Target | null) => { usePick.setState({ resolve: null }); setQ(''); resolve(t) }
   const needle = q.trim().toLowerCase()
-  const hits = (pages ?? []).filter((p) => p.id !== exclude && (!needle || p.title.toLowerCase().includes(needle))).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
+  const hits = (pages ?? []).filter((p) => p.id !== exclude && (!opts.kinds || opts.kinds.includes(p.kind)) && !opts.exclude?.includes(p.id) && (!needle || p.title.toLowerCase().includes(needle))).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
   return (
-    <Sheet onClose={() => done(null)} label="Link a deck or page" width={460}>
-      <h2 style={{ fontSize: 22 }}>Link a deck or page</h2>
+    <Sheet onClose={() => done(null)} label={opts.title ?? 'Link a deck or page'} width={460}>
+      <h2 style={{ fontSize: 22 }}>{opts.title ?? 'Link a deck or page'}</h2>
       <input className="input" autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} style={{ margin: '14px 0 10px' }}
         onKeyDown={(e) => { if (e.key === 'Enter' && hits[0]) done({ kind: hits[0].kind, id: hits[0].id }) }} />
       <div className="pick-list">

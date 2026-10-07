@@ -3,7 +3,7 @@
 
 export type InsertId =
   | 'equation' | 'plot' | 'table' | 'working' | 'code' | 'checklist' | 'axes' | 'link' | 'quote'
-  | 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'numbered' | 'divider' | 'inlineMath' | 'image'
+  | 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'numbered' | 'divider' | 'inlineMath' | 'image' | 'box'
 
 export type InsertItem = { id: InsertId; label: string; letter?: string; group: 'Text' | 'Maths' | 'Pictures' | 'Other'; hint?: string; words: string[] }
 
@@ -24,6 +24,7 @@ export const INSERTS: InsertItem[] = [
   { id: 'axes', label: 'Axes', letter: 'A', group: 'Pictures', words: ['graph', 'blank', 'sketch', 'free-body'] },
   { id: 'table', label: 'Table', letter: 'T', group: 'Other', hint: '|a|b|', words: ['grid', 'rows', 'columns', 'spreadsheet'] },
   { id: 'code', label: 'Code', letter: 'C', group: 'Other', hint: '```', words: ['snippet', 'program', 'syntax'] },
+  { id: 'box', label: 'Box of pages', letter: 'B', group: 'Other', words: ['sub-pages', 'subpage', 'pages', 'section', 'week', 'container', 'folder'] },
   { id: 'link', label: 'Link a deck or page', letter: 'L', group: 'Other', hint: '[[', words: ['card', 'deck', 'notes', 'page'] },
 ]
 

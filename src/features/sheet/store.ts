@@ -15,6 +15,8 @@ export type CanvasApi = {
   placeGroup: (group: string, at?: { x: number; y: number }) => Promise<void>
   /** A named bookmark at a grid cell (default: the middle of the view). */
   addBookmark: (at?: { x: number; y: number }) => Promise<void>
+  /** A box of sub-pages at a grid cell (default: a free spot in the middle of the view). */
+  addBox: (at?: { x: number; y: number }) => Promise<void>
   jumpTo: (b: { x: number; y: number }) => void
   undo: () => void
   redo: () => void

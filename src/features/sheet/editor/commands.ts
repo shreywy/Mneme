@@ -23,6 +23,7 @@ export async function nodeFor(id: InsertId): Promise<object | object[] | null> {
     case 'heading1': case 'heading2': case 'heading3': return { type: 'heading', attrs: { level: Number(id.slice(-1)) } }
     case 'inlineMath': return { type: 'paragraph', content: [{ type: 'inlineMath', attrs: { latex: '' } }] }
     case 'link': { const t = await pickPage(); return t ? { type: 'linkCard', attrs: t } : null }
+    case 'box': return null // a canvas block, not a node: see insertNow and runInsert
   }
 }
 
@@ -37,6 +38,7 @@ export function tableJSON(rows: string[][]) {
 
 /** Puts an insert at the editor's cursor. Text styles (headings, lists, quote) apply to the current line. */
 export async function runInsert(editor: Editor, id: InsertId) {
+  if (id === 'box') { await useSheetUI.getState().canvas?.addBox(); return }
   const chain = () => editor.chain().focus()
   switch (id) {
     case 'heading1': case 'heading2': case 'heading3': return chain().toggleHeading({ level: Number(id.slice(-1)) as 1 | 2 | 3 }).run()

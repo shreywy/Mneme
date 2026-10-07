@@ -11,12 +11,15 @@ import { titleFrom } from '../../sheets/order'
 import { pageCount, pageLines, sheetFrame } from '../../sheets/pages'
 import { fontCss } from '../../sheets/fonts'
 import type { InsertId } from '../../sheets/insert'
-import type { SheetBlock, SheetRow, SheetStroke } from '../../sheets/types'
+import { MAIN_BLOCK, type SheetBlock, type SheetRow, type SheetStroke } from '../../sheets/types'
 import type { Editor } from '@tiptap/react'
 import { isTyping } from '../../app/ui'
 import { isDarkTheme, useSettings } from '../../settings/store'
 import { useContextItems } from '../../ui/ContextMenu'
-import { askName } from '../../ui/confirm'
+import { askName, chooseAction } from '../../ui/confirm'
+import { addBox, adoptOrphans, createSubPage, deleteBox, kidsOf } from '../../data/subpages'
+import { useNavigate } from 'react-router'
+import { BoxBlock } from './BoxBlock'
 import { toast } from '../../ui/toasts'
 import { Icon } from '../../ui/Icons'
 import { PagePickerHost, TableSizeHost } from './editor/nodes'
@@ -85,6 +88,7 @@ export function usePaperTheme(s: SheetRow) {
  */
 export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: SheetBlock[]; strokes: SheetStroke[] }) {
   const unit = sheet.paper.spacing
+  const nav = useNavigate()
   const [view, setView] = useState<View>(() => loadView(sheet.id))
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [focusId, setFocusId] = useState<string | null>(null)
@@ -141,6 +145,8 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
   useEffect(() => { try { localStorage.setItem(viewKey(sheet.id), JSON.stringify(view)) } catch { /* private mode */ } }, [sheet.id, view])
   // Empty side blocks left behind (the tab closed while one was open) are cleared when the page opens.
   useEffect(() => { void sheets.pruneLeftovers(sheet.id) }, [sheet.id])
+  // Sub-pages whose box was deleted on another device go back into a box.
+  useEffect(() => { void adoptOrphans(sheet.id) }, [sheet.id])
   useEffect(() => {
     const el = host.current
     if (!el) return
@@ -178,7 +184,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     return { x: Math.floor(c.x / unit) - 6, y: Math.floor(c.y / unit) }
   }
   /** Deletes blocks (not the main column) with whatever is drawn on them, and any strokes in `inkIds`. One undo brings it all back. */
-  const removeSelection = useCallback(async (ids: Set<string>, inkIds: Set<string> = new Set()) => {
+  const removeNow = useCallback(async (ids: Set<string>, inkIds: Set<string> = new Set()) => {
     const gone = live.current.blocks.filter((b) => ids.has(b.id) && b.role !== 'main')
     const goneIds = new Set(gone.map((b) => b.id))
     const goneInk = live.current.strokes.filter((st) => inkIds.has(st.id) || (st.blockId && goneIds.has(st.blockId)))
@@ -192,6 +198,23 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     const what = gone.length === 1 ? 'Block deleted' : gone.length ? `${gone.length} blocks deleted` : 'Drawing deleted'
     toast(what, list.length === 1 ? 'Ctrl+Z brings it back' : 'Ctrl+Z brings them back', 'trash')
   }, [history])
+  /** Same, but boxes holding pages ask first: their pages go to Recently deleted, or move to another box. */
+  const removeSelection = useCallback(async (ids: Set<string>, inkIds: Set<string> = new Set()) => {
+    const boxes = live.current.blocks.filter((x) => ids.has(x.id) && x.kind === 'box')
+    const kids = boxes.length ? (await kidsOf(sheet.id)).filter((s) => boxes.some((bx) => bx.id === s.box)) : []
+    if (!kids.length) return removeNow(ids, inkIds)
+    const c = await chooseAction({
+      title: kids.length === 1 ? 'Delete the page in this box too?' : `Delete the ${kids.length} pages in ${boxes.length === 1 ? 'this box' : 'these boxes'} too?`,
+      body: 'Pages you keep move into another box on this page.',
+      choices: [{ value: 'keep', label: 'Keep them' }, { value: 'all', label: 'Delete them', danger: true }],
+    })
+    if (!c) return
+    for (const bx of boxes) await deleteBox(bx.id, c === 'all')
+    select([])
+    toast(c === 'all' ? 'Box and pages deleted' : 'Box deleted', c === 'all' ? 'The pages are in Recently deleted' : 'Its pages moved to another box', 'trash')
+    const rest = new Set([...ids].filter((x) => !boxes.some((bx) => bx.id === x)))
+    if (rest.size || inkIds.size) await removeNow(rest, inkIds)
+  }, [removeNow, sheet.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const removeBlocks = useCallback((ids: Set<string>) => removeSelection(ids), [removeSelection])
   const addMade = useCallback((made: { blocks: SheetBlock[]; ink: SheetStroke[] }) => {
     const list: Change[] = [...made.blocks.map((block) => ({ kind: 'add' as const, block })), ...made.ink.map((stroke) => ({ kind: 'ink-add' as const, stroke }))]
@@ -210,6 +233,12 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     const b = await sheets.addBlock({ sheetId: sheet.id, x: c.x, y: c.y, w: 1, h: 1, kind: 'bookmark', data: { doc: null, label }, z: nextZ() })
     history.record({ kind: 'add', block: b })
     toast('Bookmark added', 'Jump to it from Contents', 'flag')
+  }, [sheet.id, history]) // eslint-disable-line react-hooks/exhaustive-deps
+  const addBoxAt = useCallback(async (at?: { x: number; y: number }) => {
+    const c = at ?? freeSpot(live.current.shown, middleCell(), MAIN_BLOCK.w, 4)
+    const b = await addBox(sheet.id, '', c)
+    history.record({ kind: 'add', block: b })
+    select([b.id])
   }, [sheet.id, history]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What the toolbar, dock and Insert can ask of the canvas.
@@ -232,6 +261,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
           select(made.blocks.map((b) => b.id))
         },
         addBookmark,
+        addBox: addBoxAt,
         jumpTo,
         undo,
         redo,
@@ -330,6 +360,8 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
     return sheets.updateBlock(b.id, { data: after.data })
   }
   const renameMark = async (b: SheetBlock) => { const label = await askName({ title: 'Rename bookmark', value: b.data.label ?? '', confirm: 'Rename' }); if (label && label !== b.data.label) await editMark(b, { label }) }
+  /** A box's title works like a bookmark's name: one undo puts it back. */
+  const renameBox = (b: SheetBlock, label: string) => void editMark(b, { label })
   const toFront = (b: SheetBlock) => sheets.updateBlock(b.id, { z: nextZ() })
   const toBack = (b: SheetBlock) => sheets.updateBlock(b.id, { z: Math.min(0, ...live.current.blocks.map((x) => x.z)) - 1 })
 
@@ -340,7 +372,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
 
   // Right-click: blocks, bookmarks and empty paper each get their own menu.
   useContextItems((e, { target }) => {
-    if (!target.closest('.sheet-host')) return null
+    if (!target.closest('.sheet-host') || target.closest('.sbox-card')) return null // cards get the page menu
     const el = target.closest<HTMLElement>('[data-block-id]')
     const b = el && live.current.blocks.find((x) => x.id === el.dataset.blockId)
     if (b?.kind === 'bookmark') {
@@ -348,6 +380,14 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
         { key: 'colors', custom: (close) => <MarkColors current={markColor(b)} onPick={(color) => { close(); void editMark(b, { color }) }} /> },
         { label: 'Rename bookmark…', icon: 'edit', onSelect: () => renameMark(b) },
         { label: 'Delete bookmark', icon: 'trash', danger: true, onSelect: () => removeBlocks(new Set([b.id])) },
+      ]
+    }
+    if (b?.kind === 'box') {
+      return [
+        { label: 'New page in this box', icon: 'plus', onSelect: async () => nav(`/write/${await createSubPage(sheet.id, b.id, useSettings.getState().paperDefault ?? undefined)}`) },
+        { label: 'Rename box…', icon: 'edit', onSelect: async () => { const label = await askName({ title: 'Rename box', value: b.data.label ?? '', confirm: 'Rename' }); if (label && label !== b.data.label) renameBox(b, label) } },
+        { sep: true as const },
+        { label: 'Delete box', icon: 'trash', danger: true, onSelect: () => removeSelection(new Set([b.id])) },
       ]
     }
     if (b) {
@@ -373,6 +413,7 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
       { label: 'Write here', icon: 'text', onSelect: async () => { const nb = await sheets.addBlock({ sheetId: sheet.id, x: gx, y: gy, w: 12, h: 1, kind: 'text', data: { doc: EMPTY_PARAGRAPH }, z: nextZ() }); history.record({ kind: 'add', block: nb }); setFocusId(nb.id) } },
       { label: 'Insert here…', icon: 'plus', onSelect: () => useSheetUI.setState({ insertOpen: true }) },
       { label: 'Add a bookmark here', icon: 'flag', onSelect: () => addBookmark({ x: gx, y: gy }) },
+      { label: 'Add a box of pages here', icon: 'page', onSelect: () => addBoxAt({ x: gx, y: gy }) },
       { sep: true as const },
       { label: 'Select all', kbd: 'Ctrl A', onSelect: () => select(live.current.blocks.map((x) => x.id), live.current.strokes.map((x) => x.id)) },
       { label: 'Recenter page', icon: 'reset', onSelect: () => setView(START) },
@@ -799,6 +840,20 @@ export function Canvas({ sheet, blocks, strokes }: { sheet: SheetRow; blocks: Sh
               tabIndex={0} role="button" aria-label={`Bookmark: ${b.data.label}. Enter renames, arrows move it, Delete removes it.`} onKeyDown={keyMove(b, () => void renameMark(b))}
               title="Drag to move. Click for its name and colour">
               <Icon name="flag" size={14} /><span>{b.data.label}</span>
+            </div>
+          ) : b.kind === 'box' ? (
+            <div key={b.id} data-block-id={b.id} className={`sblock sblock-box ${selected.has(b.id) ? 'selected' : ''} ${many && selected.has(b.id) ? 'in-group' : ''}`}
+              style={{ left: at.x * unit, top: at.y * unit, width: at.w * unit, zIndex: b.z }}
+              onPointerDown={(e) => { if (e.button !== 1 && !space && tool !== 'pan') e.stopPropagation() }}>
+              <button className="sgrip" aria-label="Move box: arrow keys move it, Enter selects it, Delete removes it" title="Drag to move · click to select (then Delete)" onPointerDown={startDrag(b, 'move')} onKeyDown={keyMove(b)}><Icon name="grid" size={12} /></button>
+              <BoxBlock block={b}
+                onHeight={(px) => {
+                  const h = Math.max(1, Math.ceil(px / unit))
+                  setHeights((m) => (m[b.id] === h ? m : { ...m, [b.id]: h }))
+                  if (h !== b.h) void sheets.updateBlock(b.id, { h })
+                }}
+                onRename={(label) => renameBox(b, label)} />
+              <span className="swidth" aria-hidden="true" onPointerDown={startDrag(b, 'width')} />
             </div>
           ) : (
             <div key={b.id} data-block-id={b.id} className={`sblock ${focusId === b.id ? 'focus' : ''} ${selected.has(b.id) ? 'selected' : ''} ${many && selected.has(b.id) ? 'in-group' : ''}`}

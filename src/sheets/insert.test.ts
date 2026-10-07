@@ -22,4 +22,8 @@ describe('insert list', () => {
     expect(searchInserts('zzz')).toEqual([])
     expect(searchInserts('')).toHaveLength(INSERTS.length)
   })
+  it('has a box of pages on B', () => {
+    expect(byLetter('B')?.id).toBe('box')
+    expect(searchInserts('sub-page')[0].id).toBe('box')
+  })
 })

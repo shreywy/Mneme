@@ -46,8 +46,8 @@ export async function applyChange(c: Change): Promise<void> {
     if (now) Object.assign(c.block, now)
     await deleteBlock(c.block.id)
   } else if (c.kind === 'add') await putBlock({ ...c.block, updatedAt: Date.now() })
-  // A bookmark's name and colour undo too (a text block's doc never does: newer typing would be lost).
-  else if (c.kind === 'update') await updateBlock(c.after.id, { x: c.after.x, y: c.after.y, w: c.after.w, ...(c.after.kind === 'bookmark' ? { data: c.after.data } : {}) })
+  // A bookmark's or box's name undoes too (a text block's doc never does: newer typing would be lost).
+  else if (c.kind === 'update') await updateBlock(c.after.id, { x: c.after.x, y: c.after.y, w: c.after.w, ...(c.after.kind !== 'text' ? { data: c.after.data } : {}) })
   else if (c.kind === 'ink-remove') {
     const now = await getStroke(c.stroke.id)
     if (now) Object.assign(c.stroke, now)
