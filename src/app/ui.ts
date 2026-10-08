@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type Dialog = null | 'import' | 'prompt' | 'drive'
+type Dialog = null | 'import' | 'prompt' | 'drive' | 'feedback'
 type UI = {
   dialog: Dialog
   /** The page a Drive import goes into, when it was started from that page's menu. */

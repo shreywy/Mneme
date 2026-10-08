@@ -95,6 +95,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [x] Introduction page at /about with every feature and real screenshots (2026-10-02). AI added to its last section 2026-10-07; screenshots still to retake
 - [x] Docs at /docs: getting started, making a deck, studying (with an interactive forgetting curve), notes, pages, sync and sharing, privacy and security, shortcuts, how it's built (2026-10-02)
 - [ ] Changelog (patch notes) page, plus a "What's new" dot
+- [x] Send feedback button at the bottom of the sidebar; Claude triages it with `npm run feedback` and [feedback.md](feedback.md) (2026-10-08). Needs `npx supabase db push`
 - [ ] GoatCounter analytics and live README badges (users, decks, cards studied)
 - [x] Full README: hero image, screenshots, engineering and security highlights, mermaid architecture diagram, stack, setup (2026-10-02). Still to add: a GIF.
 - [ ] Deploy to Cloudflare Pages from `main`

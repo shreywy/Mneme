@@ -84,6 +84,7 @@ export function IconSprite() {
       <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></symbol>
       <symbol id="i-comment" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" /></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" /><path d="M12 8v3.5M12 13.5h.01" /></symbol>
       <symbol id="i-prompt" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z" /><path d="M9 9h6M9 12h4" /></symbol>
     </svg>
   )

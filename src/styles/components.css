@@ -156,6 +156,11 @@ h1.title { font-family: var(--serif); font-weight: 500; font-size: 42px; letter-
 .sheet .lede { color: var(--muted); margin-top: 6px; line-height: 1.5; font-size: 13.5px; }
 .sheet .close { position: absolute; top: 18px; right: 18px; }
 .sheet .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; flex-wrap: wrap; }
+.fb-kind { margin-top: 18px; max-width: 100%; overflow-x: auto; }
+.sheet .textarea.fb-text { margin-top: 10px; min-height: 140px; }
+.side-feedback { margin-top: 4px; }
+.sheet .fb-note { font-size: 12.5px; margin-top: 8px; }
+.fb-error { color: var(--bad); font-size: 13px; margin-top: 10px; }
 .srow { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-top: 1px solid var(--line); gap: 16px; }
 .srow:first-of-type { margin-top: 18px; }
 .srow.col { flex-direction: column; align-items: flex-start; gap: 12px; }

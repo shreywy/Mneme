@@ -39,6 +39,10 @@ AI in Mneme runs on your own free Gemini key, added in **Settings → AI**.
 - Signed in, the key is also kept on your account (only you can read it, like your settings) so you paste it once for all your devices. Removing it in Settings removes it everywhere.
 - What gets sent: the card, the selection or the snapshot you asked about, and your question. Tutor chats stay on the device.
 
+## Feedback
+
+**Send feedback** at the bottom of the sidebar sends your message with the kind of page you were on (`/write/:id`, never which page), your browser, screen size, the app version and any recent error messages. Signed in, it's linked to your account, and deleting the account deletes it. Nothing in the app can read feedback back, yours or anyone else's. Signed-in accounts can send 10 an hour.
+
 ## How it's tested
 
 - Known XSS payloads (script tags, event handlers, `javascript:` links, SVG tricks, hostile LaTeX) are thrown at every place text becomes markup, and at a hostile shared page.

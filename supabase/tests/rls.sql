@@ -462,5 +462,53 @@ begin
   if n <> 1 then raise exception 'FAIL: A''s profile was affected'; end if;
 end $$;
 
+-- Feedback: anyone can send it, nobody can read or change it through the API.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+select public.send_feedback('bug', 'rls test: signed in', '/write/:id', '{"w":800}');
+do $$
+declare n int;
+begin
+  begin
+    select count(*) into n from public.feedback;
+    raise exception 'FAIL: a signed-in user can read feedback';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.feedback set status = 'fixed';
+    raise exception 'FAIL: a signed-in user can change feedback';
+  exception when insufficient_privilege then null;
+  end;
+  -- Ten an hour per account.
+  for i in 2..10 loop perform public.send_feedback('idea', 'rls test ' || i); end loop;
+  begin
+    perform public.send_feedback('idea', 'rls test 11');
+    raise exception 'FAIL: feedback is not rate limited';
+  exception when raise_exception then
+    if sqlerrm <> 'rate_limited' then raise; end if;
+  end;
+end $$;
+reset role;
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+select public.send_feedback('other', 'rls test: signed out');
+do $$
+begin
+  begin
+    insert into public.feedback (kind, message) values ('bug', 'direct insert');
+    raise exception 'FAIL: anon can insert feedback directly';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from public.feedback where message like 'rls test%';
+  if n <> 11 then raise exception 'FAIL: expected 11 feedback rows, found %', n; end if;
+  select count(*) into n from public.feedback where message = 'rls test: signed out' and user_id is null;
+  if n <> 1 then raise exception 'FAIL: signed-out feedback was not kept without an account'; end if;
+end $$;
+
 select 'RLS tests passed' as result;
 rollback;

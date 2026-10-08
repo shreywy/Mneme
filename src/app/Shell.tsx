@@ -91,6 +91,11 @@ export function Shell() {
           </nav>
           <FolderTree />
           <PageMenu />
+          {accountsEnabled && (
+            <nav className="nav side-feedback">
+              <button onClick={() => { setDrawer(false); open('feedback') }} title="Report a bug or suggest a change"><Icon name="feedback" /><span className="lbl">Send feedback</span></button>
+            </nav>
+          )}
           <div className="foot">
             <AccountButton />
             <Link to="/docs" className="iconbtn" onClick={() => setDrawer(false)} title="Help and docs" aria-label="Help and docs"><Icon name="help" /></Link>

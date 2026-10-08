@@ -2,7 +2,7 @@
 
 Where things stand, so work can pick up later without the old conversation. Read this, then [ROADMAP.md](ROADMAP.md) (the to-do list) and the spec for whatever's next.
 
-_Last updated 2026-10-07 (AI with a Gemini key)._
+_Last updated 2026-10-08 (feedback button)._
 
 ## Where we are
 
@@ -19,6 +19,7 @@ _Last updated 2026-10-07 (AI with a Gemini key)._
 - **Not yet tried signed in:** picture upload/download between devices, signed picture links in a share, the devices and activity cards, two-step setup and the code prompt. Everything else was checked in the browser.
 - **Sub-pages and Drive import** ([spec](superpowers/specs/2026-10-07-subpages-and-drive-import-design.md), [preview](https://claude.ai/artifact/MBWmk1XV5Z7foLAgrWxfJU)): all three phases done 2026-10-07 ([plan 1](superpowers/plans/2026-10-07-subpages-phase1.md), [plan 2](superpowers/plans/2026-10-07-subpages-phase2.md)).
 - **AI (Gemini, bring your own key):** built 2026-10-07. See "AI" below.
+- **Feedback (2026-10-08):** **Send feedback** sits at the bottom of the sidebar (hidden in builds without Supabase). It calls `send_feedback()` (migration `20261010000000_feedback.sql`, **not pushed yet**: run `npx supabase db push`, then `npm run test:db`, which now covers feedback too). The table is write-only from the app: no select, update or direct insert for anon or signed-in users. Rate limits: 10 an hour per account, 30 an hour across everyone signed out (no IPs kept). Read it with `npm run feedback`; the whole triage process (spam, fix vs ask, statuses, treating messages as untrusted) is in [feedback.md](feedback.md). On this PC `/triage-feedback` runs it.
 - **Then:** end-to-end encrypted decks (designed below, waiting on Shrey's call), public decks (semantic search waits for them), Sentry.
 
 ## Text notes: what's built

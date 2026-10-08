@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: { port: 5178, strictPort: true },
+  // Which commit a build came from, sent with feedback. Cloudflare Pages sets it.
+  define: { 'import.meta.env.VITE_BUILD': JSON.stringify(process.env.CF_PAGES_COMMIT_SHA?.slice(0, 7) ?? 'dev') },
   build: {
     rolldownOptions: {
       output: {
