@@ -9,6 +9,8 @@ export type PromptOptions = {
   difficulty?: 'mixed' | 'easier' | 'harder'
   types?: QuestionType[]
   terms?: boolean
+  /** Three hints per card (where it's from, the topic, a clue). Off unless asked for. */
+  hints?: boolean
   extra?: string
 }
 
@@ -41,6 +43,7 @@ export function buildPrompt(template: string, o: PromptOptions): string {
   // Remove type sections that weren't picked, then strip remaining markers.
   s = s.replace(/<!-- type:(\w+) -->\n([\s\S]*?)<!-- \/type -->\n?/g, (_, t: string, body: string) => (types.includes(t as QuestionType) ? body : ''))
   s = s.replace(/<!-- terms -->\n([\s\S]*?)<!-- \/terms -->\n?/g, (_, body: string) => (withTerms ? body : ''))
+  s = s.replace(/<!-- hints -->\n([\s\S]*?)<!-- \/hints -->\n?/g, (_, body: string) => (o.hints ? body : ''))
 
   const size = typeof o.length === 'number' ? `about ${o.length} items` : o.length ?? 'comprehensive'
   s = s.replace(/## 1\. Settings[^\n]*\n\n```\n[\s\S]*?```/, () => [
@@ -62,6 +65,7 @@ export function buildPrompt(template: string, o: PromptOptions): string {
     typeof o.length === 'number' ? `- Length: about ${o.length} items in total (terms plus questions). Pick the most important material first.` : '',
     allTypes ? '- Question types: use whichever types fit the material best.' : `- Only use these question types: ${types.map((t) => '`' + t + '`').join(', ')}. The example in section 5 shows every type; ignore the ones not listed here.`,
     withTerms ? '' : '- Skip vocabulary: output `"terms": []` and put everything into `questions`.',
+    o.hints ? '- Hints: give every term and question three `hints` (see "Hints" under section 3).' : '',
     fill(o.course) ? '' : '- If COURSE is blank, use the course code or name from the material.',
     fill(o.title) ? '' : '- If DECK TITLE is blank, write a short title from the material (e.g. "Chapter 3 review").',
   ].filter(Boolean).join('\n')

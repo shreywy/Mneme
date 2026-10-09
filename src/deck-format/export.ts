@@ -6,7 +6,7 @@ type Json = Record<string, unknown>
 const opt = <T,>(k: string, v: T | undefined | '') => (v === undefined || v === '' ? {} : { [k]: v })
 
 function simple(q: SimpleQuestion, id: string): Json {
-  const base: Json = { id, type: q.qtype, prompt: q.prompt, explanation: q.explanation, difficulty: q.difficulty, ...opt('source', q.source), ...opt('demo', q.demo) }
+  const base: Json = { id, type: q.qtype, prompt: q.prompt, explanation: q.explanation, difficulty: q.difficulty, ...opt('source', q.source), ...opt('hints', q.hints), ...opt('demo', q.demo) }
   switch (q.qtype) {
     case 'multiple_choice': case 'multiple_select': return { ...base, choices: q.choices }
     case 'true_false': return { ...base, answer: q.answer }
@@ -21,7 +21,7 @@ export function question(q: QuestionItem): Json {
   if (q.qtype !== 'scenario') return { ...simple(q, q.key), topic: q.topic }
   return {
     id: q.key, type: 'scenario', topic: q.topic, difficulty: q.difficulty, prompt: q.prompt, explanation: q.explanation,
-    ...opt('source', q.source), ...opt('demo', q.demo),
+    ...opt('source', q.source), ...opt('hints', q.hints), ...opt('demo', q.demo),
     // Parts are stored as "<case>--<part>"; export the short part id so a re-import rebuilds the same keys.
     questions: q.parts.map((p) => simple(p, p.key.startsWith(`${q.key}--`) ? p.key.slice(q.key.length + 2) : p.key)),
   }
@@ -36,7 +36,7 @@ export function toDeckFile(meta: Meta, items: Item[]): Json {
     topics: meta.topics,
     terms: items.filter((i) => i.kind === 'term').map((t) => ({
       id: t.key, term: t.term, definition: t.definition, topic: t.topic, aliases: t.aliases,
-      ...opt('example', t.example), ...opt('explanation', t.explanation), ...opt('source', t.source), ...opt('demo', t.demo),
+      ...opt('example', t.example), ...opt('explanation', t.explanation), ...opt('source', t.source), ...opt('hints', t.hints), ...opt('demo', t.demo),
     })),
     questions: items.filter((i): i is QuestionItem => i.kind === 'question').map(question),
   }

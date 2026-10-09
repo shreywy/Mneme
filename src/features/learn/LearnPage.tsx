@@ -17,6 +17,7 @@ import { Icon } from '../../ui/Icons'
 import { toast } from '../../ui/toasts'
 import { isTyping, studyBack } from '../../app/ui'
 import { QuestionView } from '../study/QuestionView'
+import { Hints } from '../study/Hints'
 import { burst, MILESTONES, pulse, smoke } from '../study/effects'
 import { MatchRound, type MatchResult } from './MatchRound'
 import { AiButton } from '../ai/AiButton'
@@ -56,7 +57,8 @@ export function LearnPage() {
   const best = useRef(0)
   const [, setTick] = useState(0) // re-render after async state writes
   const [stats, setStats] = useState<Stats>({ answered: 0, correct: 0, misses: [] })
-  const pending = useRef<{ key: string; correct: boolean; ms: number } | null>(null)
+  const pending = useRef<{ key: string; correct: boolean; ms: number; hinted: boolean } | null>(null)
+  const hinted = useRef(false)
   const started = useRef(Date.now())
   const chip = useRef<HTMLSpanElement>(null)
   const termsSinceMatch = useRef(0)
@@ -97,7 +99,7 @@ export function LearnPage() {
     cardN.current++
     setMatch(null)
     setCur({ ex: buildExercise(item, data.all, pick.format), n: cardN.current, t0: performance.now() })
-    setResponse(undefined); setGrade(undefined); setRevealed(false)
+    setResponse(undefined); setGrade(undefined); setRevealed(false); hinted.current = false
   }, [data])
 
   const firstDrawn = useRef(false)
@@ -105,9 +107,9 @@ export function LearnPage() {
     if (data && data !== 'missing' && !firstDrawn.current) { firstDrawn.current = true; draw() }
   }, [data, draw])
 
-  const save = useCallback((key: string, correct: boolean, ms: number) => {
+  const save = useCallback((key: string, correct: boolean, ms: number, hinted = false) => {
     const prev = states.current.get(key)
-    const rating = rateAnswer({ correct, ms, medianMs: median.current, mastery: masteryOf(prev) })
+    const rating = rateAnswer({ correct, ms, medianMs: median.current, mastery: masteryOf(prev), hinted })
     session.current?.record(key, correct)
     setStats((s) => ({ answered: s.answered + 1, correct: s.correct + (correct ? 1 : 0), misses: correct ? s.misses : [key, ...s.misses.filter((k) => k !== key)].slice(0, 6) }))
     repo.recordAnswer({ deckId, key, correct, ms, mode: 'learn', rating }).then((ns) => { states.current.set(key, ns); setTick((t) => t + 1) })
@@ -117,7 +119,7 @@ export function LearnPage() {
     const p = pending.current
     if (!p) return
     pending.current = null
-    save(p.key, p.correct, p.ms)
+    save(p.key, p.correct, p.ms, p.hinted)
   }, [save])
 
   const onCorrectStreak = (s: number) => {
@@ -142,7 +144,7 @@ export function LearnPage() {
     setRevealed(true)
     revealedAt.current = performance.now()
     ;(document.activeElement as HTMLElement | null)?.blur?.()
-    pending.current = { key: cur.ex.key, correct: g.correct, ms: performance.now() - cur.t0 }
+    pending.current = { key: cur.ex.key, correct: g.correct, ms: performance.now() - cur.t0, hinted: hinted.current }
     prevStreak.current = streak
     if (cur.ex.item.kind === 'term') {
       termsSinceMatch.current++
@@ -312,6 +314,7 @@ export function LearnPage() {
               {data.deck.topics.length > 1 && <span>{data.deck.topics.find((t) => t.id === cur.ex.item.topic)?.name}</span>}
             </div>
             <QuestionView ex={cur.ex} mode="learn" response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
+            <Hints key={cur.n} hints={cur.ex.item.hints} done={revealed} onUse={() => { hinted.current = true }} />
             {revealed && (
               <ContinueRow onNext={next}>
                 {grade && !grade.correct && ['typed', 'numeric', 'cloze'].includes(cur.ex.kind) && hasInput(response) && (

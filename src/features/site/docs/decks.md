@@ -13,6 +13,7 @@ Mneme doesn't need an AI key to make decks. It writes a prompt; you take it to t
 | Focus | Topics to cover more, or leave out |
 | Length | How many terms and questions, or how long the notes are |
 | Difficulty | Mixed, easier or harder questions |
+| Hints | Three per card: the lecture, the topic, then a clue. On for a deck by itself, off when notes come too |
 | Plots and figures | For notes: none, some or lots |
 | Questions on the page | For notes: questions to check yourself as you read |
 | Maths | For notes: brief, or step by step |

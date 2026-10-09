@@ -109,6 +109,26 @@ export function parseDemo(v: unknown, id: string, warnings: string[]): Demo | un
   }
 }
 
+/**
+ * Up to three hints. One that names the answer (a typed answer, a blank, or the term) is dropped, since it
+ * would give the card away.
+ */
+export function parseHints(v: unknown, answers: string[], id: string, warnings: string[]): { hints?: string[] } {
+  const list = (Array.isArray(v) ? v : typeof v === 'string' ? [v] : []).filter((h): h is string => typeof h === 'string' && !!h.trim()).map((h) => h.trim().slice(0, 300))
+  const esc = (a: string) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const leaks = answers.map((a) => a.trim()).filter((a) => a.length >= 3).map((a) => new RegExp(`(^|\\W)${esc(a)}($|\\W)`, 'i'))
+  const kept = list.filter((h) => !leaks.some((r) => r.test(h)))
+  if (kept.length < list.length) warnings.push(`${id}: a hint gave the answer away, so it was dropped.`)
+  if (kept.length > 3) warnings.push(`${id}: only the first three hints are kept.`)
+  return kept.length ? { hints: kept.slice(0, 3) } : {}
+}
+/** What a hint mustn't say, per question type. */
+const answersOf = (q: Raw): string[] => {
+  if (q.type === 'short_answer') return [String(q.answer ?? ''), ...(Array.isArray(q.accept) ? q.accept.map(String) : [])]
+  if (q.type === 'cloze' && typeof q.prompt === 'string') return [...q.prompt.matchAll(/\{\{([^{}]+)\}\}/g)].flatMap((m) => m[1].split('|'))
+  return []
+}
+
 function normalizeSimple(q: Raw, id: string, topic: string, warnings: string[]): SimpleQuestion | null {
   const type = String(q.type ?? '')
   if (!QUESTION_TYPES.includes(type as QuestionType) || type === 'scenario') { warnings.push(`Skipped ${id}: question type "${type}" isn't supported yet.`); return null }
@@ -124,7 +144,7 @@ function normalizeSimple(q: Raw, id: string, topic: string, warnings: string[]):
   if (!r.success) { warnings.push(`Skipped ${id}: ${describeIssue(r.error)}`); return null }
   const d = r.data
   const demo = parseDemo(q.demo, id, warnings)
-  const common = { kind: 'question' as const, key: id, topic: d.topic, prompt: d.prompt, explanation: d.explanation, difficulty: d.difficulty, ...(d.source ? { source: d.source } : {}), ...(demo ? { demo } : {}) }
+  const common = { kind: 'question' as const, key: id, topic: d.topic, prompt: d.prompt, explanation: d.explanation, difficulty: d.difficulty, ...(d.source ? { source: d.source } : {}), ...parseHints(q.hints, answersOf(q), id, warnings), ...(demo ? { demo } : {}) }
   switch (d.type) {
     case 'multiple_choice': return { ...common, qtype: 'multiple_choice', choices: d.choices }
     case 'multiple_select': return { ...common, qtype: 'multiple_select', choices: d.choices }
@@ -155,6 +175,7 @@ function normalizeQuestion(q: Raw, id: string, topic: string, warnings: string[]
     kind: 'question', key: id, qtype: 'scenario', topic, prompt, parts, difficulty: difficulty as 1 | 2 | 3,
     explanation: typeof q.explanation === 'string' ? q.explanation : '',
     ...(typeof q.source === 'string' && q.source.trim() ? { source: q.source.trim() } : {}),
+    ...parseHints(q.hints, [], id, warnings),
     ...((() => { const demo = parseDemo(q.demo, id, warnings); return demo ? { demo } : {} })()),
   }
 }
@@ -223,7 +244,8 @@ export function parseDeckText(input: string): ParseResult {
     const d = r.data
     const demo = parseDemo(t.demo, id, warnings)
     keep(id, { kind: 'term', key: id, topic: d.topic, term: d.term, definition: d.definition, aliases: d.aliases, ...(demo ? { demo } : {}),
-      ...(d.example ? { example: d.example } : {}), ...(d.explanation ? { explanation: d.explanation } : {}), ...(d.source ? { source: d.source } : {}) })
+      ...(d.example ? { example: d.example } : {}), ...(d.explanation ? { explanation: d.explanation } : {}), ...(d.source ? { source: d.source } : {}),
+      ...parseHints(t.hints, [d.term, ...d.aliases], id, warnings) })
   })
 
   // questions

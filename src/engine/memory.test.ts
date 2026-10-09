@@ -6,6 +6,7 @@ const day = 86_400_000
 
 describe('rateAnswer', () => {
   it('maps wrong to Again', () => expect(rateAnswer({ correct: false, ms: 1000, medianMs: 3000, mastery: 'new' })).toBe(Rating.Again))
+  it('caps a right answer after a hint at Hard', () => expect(rateAnswer({ correct: true, ms: 500, medianMs: 3000, mastery: 'mastered', hinted: true })).toBe(Rating.Hard))
   it('maps a slow correct answer to Hard', () => expect(rateAnswer({ correct: true, ms: 9000, medianMs: 3000, mastery: 'learning' })).toBe(Rating.Hard))
   it('maps a fast correct answer on a familiar card to Easy', () => expect(rateAnswer({ correct: true, ms: 1000, medianMs: 3000, mastery: 'familiar' })).toBe(Rating.Easy))
   it('keeps a fast correct answer on a new card at Good', () => expect(rateAnswer({ correct: true, ms: 1000, medianMs: 3000, mastery: 'new' })).toBe(Rating.Good))

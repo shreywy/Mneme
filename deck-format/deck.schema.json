@@ -132,6 +132,14 @@
           },
           "source": {
             "$ref": "#/$defs/shortText"
+          },
+          "hints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/shortText"
+            },
+            "maxItems": 3,
+            "description": "Up to three hints, shown one at a time while studying: where it's from, the topic, then a specific clue that doesn't give the answer."
           }
         }
       }
@@ -216,6 +224,14 @@
         },
         "source": {
           "$ref": "#/$defs/shortText"
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shortText"
+          },
+          "maxItems": 3,
+          "description": "Up to three hints, shown one at a time while studying: where it's from, the topic, then a specific clue that doesn't give the answer."
         }
       }
     },
@@ -475,6 +491,14 @@
         },
         "source": {
           "$ref": "#/$defs/shortText"
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shortText"
+          },
+          "maxItems": 3,
+          "description": "Up to three hints, shown one at a time while studying: where it's from, the topic, then a specific clue that doesn't give the answer."
         },
         "questions": {
           "type": "array",

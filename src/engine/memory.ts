@@ -18,8 +18,10 @@ export type CardState = {
 
 const scheduler = fsrs({ request_retention: 0.9, enable_fuzz: true, enable_short_term: true })
 
-export function rateAnswer(a: { correct: boolean; ms: number; medianMs: number; mastery: Mastery }): Grade {
+export function rateAnswer(a: { correct: boolean; ms: number; medianMs: number; mastery: Mastery; hinted?: boolean }): Grade {
   if (!a.correct) return Rating.Again
+  // Right with a hint is right, but not yet known well enough to wait long before the next showing.
+  if (a.hinted) return Rating.Hard
   if (a.medianMs > 0 && a.ms > a.medianMs * 2) return Rating.Hard
   if (a.medianMs > 0 && a.ms < a.medianMs * 0.5 && (a.mastery === 'familiar' || a.mastery === 'mastered')) return Rating.Easy
   return Rating.Good

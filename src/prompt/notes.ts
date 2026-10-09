@@ -76,7 +76,7 @@ export function buildNotesPrompt(notesTemplate: string, deckTemplate: string, o:
     const deckPrompt = buildPrompt(deckTemplate, { ...o.deck, course: o.course, title: o.title, focus: o.focus })
     const choices = deckPrompt.match(/### Choices for this deck[\s\S]*?(?=\n---\n)/)?.[0] ?? ''
     const rules = deckPrompt.slice(deckPrompt.indexOf('## 3. File structure'), deckPrompt.indexOf('## 5. Complete example')).replace(/\n---\n*$/, '')
-    s += `\n\n---\n\n## Appendix: deck rules\n\nThese rules apply to the \`"deck"\` field only. Its structure is exactly a standalone Mneme deck.\n\n${choices}\n\n${rules.replace(/^## /gm, '### ').replace(/^### (Topics|Terms|Questions|Formatting)/gm, '#### $1')}\n`
+    s += `\n\n---\n\n## Appendix: deck rules\n\nThese rules apply to the \`"deck"\` field only. Its structure is exactly a standalone Mneme deck.\n\n${choices}\n\n${rules.replace(/^## /gm, '### ').replace(/^### (Topics|Terms|Questions|Hints|Formatting)/gm, '#### $1')}\n`
   }
   return s.replace(/\n{3,}/g, '\n\n')
 }

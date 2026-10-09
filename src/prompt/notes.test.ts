@@ -58,3 +58,11 @@ describe('notes choices', () => {
     expect(p).toContain('**Maths only where the course has it.**')
   })
 })
+
+describe('hints in a notes-and-deck prompt', () => {
+  it('carries the hints rules into the deck appendix', () => {
+    const p = buildNotesPrompt(NOTES, DECK, { withDeck: true, deck: { hints: true } })
+    expect(p).toContain('#### Hints')
+    expect(buildNotesPrompt(NOTES, DECK, { withDeck: true, deck: {} })).not.toContain('Hints')
+  })
+})

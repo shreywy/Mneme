@@ -246,3 +246,32 @@ describe('mergeParts', () => {
     }
   })
 })
+
+describe('hints', () => {
+  const H = ['Lecture 2', 'Balance sheet basics', 'Think of what a company owns']
+  it('keeps up to three hints on terms and questions, in order', () => {
+    const r = parseDeckText(JSON.stringify(minimal({
+      terms: [{ id: 't-a', term: 'Asset', definition: 'Something owned with future benefit.', topic: 'basics', hints: [...H, 'a fourth'] }],
+      questions: [{ id: 'q-1', type: 'true_false', topic: 'basics', difficulty: 1, prompt: 'Cash is an asset', explanation: 'It is.', answer: true, hints: 'Lecture 1' }],
+    })))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.deck.items[0].hints).toEqual(H)
+    expect(r.deck.items[1].hints).toEqual(['Lecture 1'])
+    expect(r.warnings.some((w) => w.includes('first three'))).toBe(true)
+  })
+  it('drops a hint that names the answer', () => {
+    const r = parseDeckText(JSON.stringify(minimal({
+      terms: [{ id: 't-a', term: 'Asset', definition: 'Something owned.', topic: 'basics', hints: ['Lecture 2', 'It is an asset.', 'Assets are listed first'] }],
+      questions: [
+        { id: 'q-1', type: 'short_answer', topic: 'basics', difficulty: 1, prompt: 'Opposite of debit?', explanation: '.', answer: 'Credit', accept: [], hints: ['Starts with C', 'credit side'] },
+        { id: 'q-2', type: 'cloze', topic: 'basics', difficulty: 1, prompt: 'A = {{Liabilities|Debts}} + E', explanation: '.', hints: ['Think debts'] },
+      ],
+    })))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    // "Assets" isn't the whole word "Asset", so it stays.
+    expect(r.deck.items.map((i) => i.hints)).toEqual([['Lecture 2', 'Assets are listed first'], ['Starts with C'], undefined])
+    expect(r.warnings.filter((w) => w.includes('gave the answer away'))).toHaveLength(3)
+  })
+})

@@ -9,6 +9,7 @@ Learn is an endless queue. It keeps going for as long as you do, and it asks wha
 - **A miss** comes back three or four cards later and stays close until you get it right twice in a row.
 - **A right answer** steps aside and comes back later, harder: a term you picked from a list comes back as one you type.
 - **Match rounds** turn up between questions: pair terms with their meanings.
+- **Hints**, if the deck has them: press **H** for one at a time, from the lecture it's from to the topic to a clue that stops short of the answer. A right answer after a hint still counts, but the card comes back sooner.
 
 The panel beside the queue shows how much of the deck is new, learning, familiar and mastered.
 
@@ -20,7 +21,7 @@ Every card has a **stability**: how many days until you'd have a 90% chance of s
 
 ## Flashcards
 
-Flip a card with **Space**, and use **←** and **→** to move. More options are behind the cog.
+Flip a card with **Space**, and use **←** and **→** to move. **H** shows a hint before you flip, if the deck has them. More options are behind the cog.
 
 ## Test
 
@@ -32,6 +33,7 @@ A practice test: pick how many questions and, if you like, a time limit per ques
 |---|---|
 | **1**–**9** | Pick an answer |
 | **Enter** or **Space** | Check, then continue |
+| **H** | A hint, if the card has them (Learn, Flashcards) |
 | **M** | Sound on or off |
 | **F** | Focus mode (hides everything else) |
 | **Esc** | Leave |

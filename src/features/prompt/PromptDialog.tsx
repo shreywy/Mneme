@@ -17,6 +17,8 @@ type Form = {
   difficulty: 'mixed' | 'easier' | 'harder'
   types: QuestionType[]
   terms: boolean
+  /** On by default for a deck on its own; off when notes come too. */
+  hints: boolean
   unit: string
   nLength: NonNullable<NotesPromptOptions['length']>
   visuals: NonNullable<NotesPromptOptions['visuals']>
@@ -24,12 +26,15 @@ type Form = {
   maths: NonNullable<NotesPromptOptions['maths']>
 }
 const DEFAULTS: Form = {
-  make: 'questions', course: '', title: '', focus: '', extra: '', length: 'comprehensive', count: '80', difficulty: 'mixed', types: [...QUESTION_TYPES], terms: true,
+  make: 'questions', course: '', title: '', focus: '', extra: '', length: 'comprehensive', count: '80', difficulty: 'mixed', types: [...QUESTION_TYPES], terms: true, hints: true,
   unit: '', nLength: 'standard', visuals: 'some', nQuestions: 'few', maths: 'steps',
 }
 
 function load(): Form {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORE) ?? '{}'), title: '', focus: '', unit: '' } } catch { return DEFAULTS }
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE) ?? '{}') as Partial<Form>
+    return { ...DEFAULTS, hints: (saved.make ?? DEFAULTS.make) === 'questions', ...saved, title: '', focus: '', unit: '' }
+  } catch { return DEFAULTS }
 }
 
 export function PromptDialog({ onClose }: { onClose: () => void }) {
@@ -41,7 +46,7 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
   const text = useMemo(() => {
     const n = parseInt(f.count, 10)
     const o: PromptOptions = {
-      course: f.course, title: f.title, focus: f.focus, extra: f.extra, difficulty: f.difficulty, terms: f.terms,
+      course: f.course, title: f.title, focus: f.focus, extra: f.extra, difficulty: f.difficulty, terms: f.terms, hints: f.hints,
       types: f.types.length ? f.types : undefined,
       length: f.length === 'custom' ? (n > 0 ? n : 'comprehensive') : f.length,
     }
@@ -49,7 +54,7 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
     return buildNotesPrompt(notesTemplate, template, {
       withDeck: f.make === 'both', course: f.course, unit: f.unit, title: f.title, focus: f.focus, extra: f.extra,
       length: f.nLength, visuals: f.visuals, questions: f.nQuestions, maths: f.maths,
-      deck: { difficulty: o.difficulty, terms: o.terms, types: o.types, length: o.length },
+      deck: { difficulty: o.difficulty, terms: o.terms, hints: o.hints, types: o.types, length: o.length },
     })
   }, [f])
   const notes = f.make !== 'questions'
@@ -85,7 +90,7 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
 
       <div className="formgrid">
         <div className="field full"><span>What to make</span>
-          <Seg value={f.make} onChange={(v) => up({ make: v })} options={[
+          <Seg value={f.make} onChange={(v) => up({ make: v, hints: v === 'questions' })} options={[
             { value: 'questions', label: 'Study deck' },
             { value: 'notes', label: 'Notes' },
             { value: 'both', label: 'Both', title: 'Notes and a deck in one file, linked when you import it' },
@@ -130,6 +135,10 @@ export function PromptDialog({ onClose }: { onClose: () => void }) {
         <div className="field full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <span style={{ color: 'var(--ink)', fontSize: 14 }}>Include vocabulary terms<br /><small className="muted">Terms power the definition drills, flashcards and matching.</small></span>
           <Toggle on={f.terms} onChange={(v) => up({ terms: v })} label="Include vocabulary terms" />
+        </div>
+        <div className="field full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ color: 'var(--ink)', fontSize: 14 }}>Add hints to every card<br /><small className="muted">Three per card, shown one at a time when you ask: the lecture it's from, the topic, then a clue that stops short of the answer.</small></span>
+          <Toggle on={f.hints} onChange={(v) => up({ hints: v })} label="Add hints to every card" />
         </div>
         </>}
         <label className="field full"><span>Anything else</span><input className="input" placeholder="e.g. my prof asks a lot of journal-entry questions" value={f.extra} onChange={(e) => up({ extra: e.target.value })} /></label>

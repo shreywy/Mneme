@@ -17,6 +17,7 @@
 | **1**–**9** | Pick an answer |
 | **Enter** / **Space** | Check, continue, flip a flashcard |
 | **←** / **→** | Previous / next (Flashcards, Test) |
+| **H** | Show a hint (Learn, Flashcards) |
 | **M** | Sound on or off |
 
 ## Notes pages

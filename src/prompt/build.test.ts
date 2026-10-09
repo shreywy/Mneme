@@ -45,3 +45,12 @@ describe('buildPrompt', () => {
     for (const o of combos) expect(parseDeckText(extractPromptExample(buildPrompt(TEMPLATE, o))).ok).toBe(true)
   })
 })
+
+describe('hints option', () => {
+  it('leaves hints out unless asked, and asks for three when on', () => {
+    expect(buildPrompt(TEMPLATE, {})).not.toContain('"hints"')
+    const on = buildPrompt(TEMPLATE, { hints: true })
+    expect(on).toContain('### Hints')
+    expect(on).toContain('- Hints: give every term and question three `hints`')
+  })
+})

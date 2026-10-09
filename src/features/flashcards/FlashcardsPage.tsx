@@ -13,6 +13,7 @@ import { Seg } from '../../ui/controls'
 import { isTyping, studyBack } from '../../app/ui'
 import { sizeClass } from '../study/QuestionView'
 import { hideHint, useSettings } from '../../settings/store'
+import { Hints } from '../study/Hints'
 import { Demo } from '../../content/Demo'
 import { Sheet } from '../../ui/controls'
 import { sfx } from '../../sound/sfx'
@@ -221,6 +222,7 @@ export function FlashcardsPage() {
                 </div>
               </div>
             </div>
+            <Hints key={i} hints={card.hints} done={flipped} />
             {card.demo && (
               <div style={{ textAlign: 'center', marginTop: 12 }}>
                 <button className="btn ghost sm" onClick={() => setDemoOpen(true)}><Icon name="spark" />Open the demo{card.demo.title ? `: ${card.demo.title}` : ''}</button>

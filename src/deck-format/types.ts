@@ -13,6 +13,8 @@ type Base = {
   explanation: string
   difficulty: 1 | 2 | 3
   source?: string
+  /** Up to three, shown one at a time: where it's from, the topic, then a clue that stops short of the answer. */
+  hints?: string[]
   demo?: Demo
 }
 
@@ -41,6 +43,7 @@ export type TermItem = {
   example?: string
   explanation?: string
   source?: string
+  hints?: string[]
   demo?: Demo
 }
 

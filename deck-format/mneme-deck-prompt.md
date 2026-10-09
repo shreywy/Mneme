@@ -187,6 +187,21 @@ Type-specific fields:
 ```
 <!-- /type -->
 
+<!-- hints -->
+### Hints
+Give every term and every question a `hints` array of exactly three short strings, vaguest first. Mneme shows them one at a time, only when the student asks. For a case, put them on the case, not on its questions.
+
+1. Where it comes from: the lecture, chapter or week, like "Lecture 3" or "Chapter 4.2".
+2. The topic or idea it belongs to, like "Adjusting entries at year end".
+3. A specific clue that should get them most of the way there: a first step, a related fact, what to compare it with, a memory hook. Never the answer, a word from the answer, the term itself or the definition reworded.
+
+```json
+"hints": ["Lecture 3", "Adjusting entries", "It sits next to an asset on the balance sheet but has the opposite normal balance."]
+```
+
+Keep each hint under about 15 words. A term can be asked either way round (term to definition or back), so its clue must give away neither.
+<!-- /hints -->
+
 ### Formatting inside text fields
 Mneme renders Markdown and LaTeX, so format for reading, not as one long line.
 
