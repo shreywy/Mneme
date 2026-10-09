@@ -26,6 +26,11 @@
   <img src="https://img.shields.io/badge/license-MIT-4F6B3A" alt="MIT">
 </p>
 
+<p align="center">
+  <a href="https://mnemee.pages.dev"><img src="https://mnemee.pages.dev/stats.svg" alt="Live usage: accounts, people studying this week, answers this week and cards" width="830"></a><br>
+  <sub>Live from the app's database, refreshed every 30 minutes. Guest use stays on people's devices and isn't counted.</sub>
+</p>
+
 ---
 
 ## What it does

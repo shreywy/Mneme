@@ -14,7 +14,8 @@
     "typecheck": "tsc -p .",
     "test:e2e": "playwright test",
     "test:db": "npx supabase db query --linked -f supabase/tests/rls.sql",
-    "feedback": "npx supabase db query --linked -f supabase/queries/new-feedback.sql"
+    "feedback": "npx supabase db query --linked -f supabase/queries/new-feedback.sql",
+    "stats": "npx supabase db query --linked -f supabase/queries/stats.sql"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",

@@ -43,6 +43,10 @@ AI in Mneme runs on your own free Gemini key, added in **Settings → AI**.
 
 **Send feedback** at the bottom of the sidebar sends your message with the kind of page you were on (`/write/:id`, never which page), your browser, screen size, the app version and any recent error messages. Signed in, it's linked to your account, and deleting the account deletes it. Nothing in the app can read feedback back, yours or anyone else's. Signed-in accounts can send 10 an hour.
 
+## Usage numbers
+
+The tiles on the GitHub page count accounts, how many studied this week, answers and cards. They're totals only, read by a database function that can't return anything about a person. Nothing is counted for guests, and there's no analytics script in the app.
+
 ## How it's tested
 
 - Known XSS payloads (script tags, event handlers, `javascript:` links, SVG tricks, hostile LaTeX) are thrown at every place text becomes markup, and at a hostile shared page.

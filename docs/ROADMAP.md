@@ -96,7 +96,8 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [x] Docs at /docs: getting started, making a deck, studying (with an interactive forgetting curve), notes, pages, sync and sharing, privacy and security, shortcuts, how it's built (2026-10-02)
 - [ ] Changelog (patch notes) page, plus a "What's new" dot
 - [x] Send feedback button at the bottom of the sidebar; Claude triages it with `npm run feedback` and [feedback.md](feedback.md) (2026-10-08). Needs `npx supabase db push`
-- [ ] GoatCounter analytics and live README badges (users, decks, cards studied)
+- [x] Live README tiles: accounts, studying this week, answers, cards (2026-10-08)
+- [ ] GoatCounter for visits (would count guests too; needs Shrey's call: a third-party script and a CSP change)
 - [x] Full README: hero image, screenshots, engineering and security highlights, mermaid architecture diagram, stack, setup (2026-10-02). Still to add: a GIF.
 - [ ] Deploy to Cloudflare Pages from `main`
 
@@ -120,6 +121,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 - [ ] Add documents and PDFs to folders; a file tree that can hold files next to notes and decks (tree-style storage across the whole app, with files only in the desktop app)
 
 ## Study features
+- [x] Hints: an option in the prompt (three per card: lecture, topic, a clue), shown one at a time with H in Learn and Flashcards; a right answer after a hint is rated Hard (2026-10-08). Not in Test, which is meant to be unaided
 - [ ] Weak spots: a virtual deck of the most-missed cards across all decks
 - [ ] Stats page (accuracy over time, weakest topics)
 - [ ] Trophies and a trophy case
