@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Rating } from 'ts-fsrs'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import type { DeckRow } from '../../data/db'
 import * as repo from '../../data/repo'
@@ -45,7 +46,9 @@ export function LearnPage() {
   const states = useRef(new Map<string, CardState>())
   const session = useRef<LearnSession | null>(null)
   const median = useRef(0)
-  const [cur, setCur] = useState<{ ex: Exercise; n: number; t0: number } | null>(null)
+  const [cur, setCur] = useState<{ ex: Exercise; n: number; t0: number; locked?: boolean[] } | null>(null)
+  // Case parts answered right on a case's last showing, so a retry only asks the parts that were missed.
+  const partsRight = useRef(new Map<string, boolean[]>())
   const [match, setMatch] = useState<{ terms: TermItem[]; n: number; done: boolean } | null>(null)
   const [response, setResponse] = useState<Response>()
   const [grade, setGrade] = useState<Grade>()
@@ -98,7 +101,7 @@ export function LearnPage() {
     const item = data.byKey.get(pick.key)!
     cardN.current++
     setMatch(null)
-    setCur({ ex: buildExercise(item, data.all, pick.format), n: cardN.current, t0: performance.now() })
+    setCur({ ex: buildExercise(item, data.all, pick.format), n: cardN.current, t0: performance.now(), locked: partsRight.current.get(pick.key) })
     setResponse(undefined); setGrade(undefined); setRevealed(false); hinted.current = false
   }, [data])
 
@@ -139,7 +142,13 @@ export function LearnPage() {
     if (revealed || !cur) return
     setResponse(r)
     if (!final) return
-    const g = gradeResponse(cur.ex, r)
+    let g = gradeResponse(cur.ex, r)
+    if (cur.ex.kind === 'scenario' && g.parts) {
+      const parts = g.parts.map((p, i) => (cur.locked?.[i] ? { correct: true } : p))
+      g = { correct: parts.every((p) => p.correct), parts }
+      if (g.correct) partsRight.current.delete(cur.ex.key)
+      else partsRight.current.set(cur.ex.key, parts.map((p) => p.correct))
+    }
     setGrade(g)
     setRevealed(true)
     revealedAt.current = performance.now()
@@ -193,6 +202,18 @@ export function LearnPage() {
       setLeaving(false); advancing.current = false; window.scrollTo({ top: 0 })
     }, 150)
   }, [commit, draw, data, learnMatch, match])
+
+  // "I know this": saved as an easy right answer (counts as learned, back in about two weeks) and out of this session.
+  const knowIt = useCallback(() => {
+    if (!cur || revealed || advancing.current) return
+    const key = cur.ex.key
+    session.current?.drop(key)
+    partsRight.current.delete(key)
+    repo.recordAnswer({ deckId, key, correct: true, ms: 0, mode: 'learn', rating: Rating.Easy, known: true })
+      .then((ns) => { states.current.set(key, ns); setTick((t) => t + 1) })
+    toast('Marked as learned', 'It won’t come up again for a while.', 'check')
+    next()
+  }, [cur, revealed, deckId, next])
 
   const exit = useCallback(() => {
     commit()
@@ -257,10 +278,11 @@ export function LearnPage() {
       if (isTyping(e) && !revealed) return
       if ((e.key === 'Enter' || e.key === ' ') && canContinue && performance.now() - revealedAt.current > 150) { e.preventDefault(); next() }
       else if ((e.key === 'm' || e.key === 'M') && !isTyping(e)) setSettings({ sound: !useSettings.getState().sound })
+      else if ((e.key === 'k' || e.key === 'K') && !isTyping(e) && !e.ctrlKey && !e.metaKey && !e.altKey) knowIt()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [revealed, canContinue, next, exit, setSettings])
+  }, [revealed, canContinue, next, exit, setSettings, knowIt])
 
   // Save a pending answer if the tab closes mid-card.
   useEffect(() => {
@@ -312,8 +334,13 @@ export function LearnPage() {
               <span className="tag">{cur.ex.item.kind === 'term' ? 'Term' : 'Question'}</span>
               <span>Card {cur.n}</span>
               {data.deck.topics.length > 1 && <span>{data.deck.topics.find((t) => t.id === cur.ex.item.topic)?.name}</span>}
+              {!revealed && (
+                <button className="btn ghost sm know" onClick={knowIt} title="Mark as learned and skip it for a while">
+                  <Icon name="check" size={14} />I know this<span className="kbd">K</span>
+                </button>
+              )}
             </div>
-            <QuestionView ex={cur.ex} mode="learn" response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
+            <QuestionView ex={cur.ex} mode="learn" response={response} revealed={revealed} grade={grade} onRespond={onRespond} locked={cur.locked} />
             <Hints key={cur.n} hints={cur.ex.item.hints} done={revealed} onUse={() => { hinted.current = true }} />
             {revealed && (
               <ContinueRow onNext={next}>

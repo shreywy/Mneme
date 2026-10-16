@@ -141,11 +141,11 @@ export async function getCardStates(deckId: string): Promise<Map<string, CardSta
   return new Map(rows.map((r) => [r.key, r]))
 }
 
-export async function recordAnswer(a: { deckId: string; key: string; correct: boolean; ms: number; mode: StudyMode; rating: Grade; now?: Date }): Promise<CardState> {
+export async function recordAnswer(a: { deckId: string; key: string; correct: boolean; ms: number; mode: StudyMode; rating: Grade; now?: Date; known?: boolean }): Promise<CardState> {
   const now = a.now ?? new Date()
   return db.transaction('rw', db.cards, db.reviews, db.records, db.decks, async () => {
     const prev = await db.cards.get([a.deckId, a.key])
-    const next = applyAnswer(prev, { deckId: a.deckId, key: a.key, correct: a.correct, rating: a.rating, now })
+    const next = applyAnswer(prev, { deckId: a.deckId, key: a.key, correct: a.correct, rating: a.rating, now, known: a.known })
     await db.cards.put(next)
     await db.reviews.add({ deckId: a.deckId, key: a.key, correct: a.correct, rating: a.rating, ms: Math.round(a.ms), mode: a.mode, at: +now })
     const rec = await getDeckRecord(a.deckId)

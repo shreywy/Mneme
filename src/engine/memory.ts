@@ -31,7 +31,7 @@ const dayKey = (d: Date) => d.toISOString().slice(0, 10)
 
 export function applyAnswer(
   prev: CardState | undefined,
-  a: { deckId: string; key: string; correct: boolean; rating: Grade; now: Date },
+  a: { deckId: string; key: string; correct: boolean; rating: Grade; now: Date; known?: boolean },
 ): CardState {
   const card = prev ? { ...prev.card, due: new Date(prev.card.due), last_review: prev.card.last_review ? new Date(prev.card.last_review) : undefined } : createEmptyCard(a.now)
   const next = scheduler.next(card, a.now, a.rating).card
@@ -43,7 +43,8 @@ export function applyAnswer(
     card: next,
     seen: (prev?.seen ?? 0) + 1,
     correct: (prev?.correct ?? 0) + (a.correct ? 1 : 0),
-    streak: a.correct ? (prev?.streak ?? 0) + 1 : 0,
+    // "I know this" counts as learned straight away.
+    streak: a.correct ? Math.max((prev?.streak ?? 0) + 1, a.known ? 2 : 0) : 0,
     lapses: (prev?.lapses ?? 0) + (!a.correct && wasRightBefore ? 1 : 0),
     lastCorrect: a.correct,
     lastAnswerAt: +a.now,

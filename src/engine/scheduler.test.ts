@@ -88,7 +88,7 @@ describe('LearnSession', () => {
     }
     expect(gapTo(true)).toBeLessThanOrEqual(5)   // came back after the miss, now right once
     expect(gapTo(true)).toBeLessThanOrEqual(12)  // stays close until right twice in a row
-    expect(gapTo(true)).toBeGreaterThanOrEqual(35) // then it leaves for a long while
+    expect(gapTo(true)).toBeGreaterThanOrEqual(35) // then it's done until the rest have had a turn
   })
 
   it('introduces new cards in random order when shuffled', () => {
@@ -104,6 +104,28 @@ describe('LearnSession', () => {
     const seen = new Set<string>()
     for (let i = 0; i < 20; i++) { const p = s.next(); seen.add(p.key); s.record(p.key, i % 5 !== 0) }
     expect(seen.size).toBeGreaterThanOrEqual(13)
+  })
+
+  it('gets through a big deck instead of cycling cards already learned', () => {
+    const rng = mulberry32(3)
+    const s = new LearnSession(pool(420), { rng })
+    const seen = new Set<string>()
+    for (let t = 0; t < 1400; t++) { const p = s.next(); seen.add(p.key); s.record(p.key, rng() < 0.8) }
+    expect(seen.size).toBe(420)
+  })
+
+  it('asks a card known before the session once, then moves on', () => {
+    const s = new LearnSession([...pool(30, 'familiar')], { rng: mulberry32(6) })
+    const shown: string[] = []
+    for (let t = 0; t < 30; t++) { const p = s.next(); shown.push(p.key); s.record(p.key, true) }
+    expect(new Set(shown).size).toBe(30)
+  })
+
+  it('drop takes a card out until the rest have had a turn', () => {
+    const s = new LearnSession(pool(80), { rng: mulberry32(8) })
+    const target = s.next().key
+    s.drop(target)
+    for (let t = 0; t < 60; t++) { const p = s.next(); expect(p.key).not.toBe(target); s.record(p.key, true) }
   })
 
   it('pulls learning items before new ones', () => {

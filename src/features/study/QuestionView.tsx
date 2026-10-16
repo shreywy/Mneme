@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Exercise } from '../../engine/exercises'
+import { answerText, promptText, type Exercise } from '../../engine/exercises'
 import type { Grade, Response } from '../../engine/respond'
 import { Markdown } from '../../content/Markdown'
 import { isTyping } from '../../app/ui'
@@ -15,11 +15,13 @@ type Props = {
   onRespond: (r: Response, final: boolean) => void
   /** Global keyboard shortcuts and autofocus. Off for inline questions on a notes page. */
   keyboard?: boolean
+  /** Case parts already answered right, shown as done instead of asked again. */
+  locked?: boolean[]
 }
 
 export const sizeClass = (s: string) => (s.length > 300 ? 'xlong' : s.length > 140 ? 'long' : '')
 
-export function QuestionView({ ex, mode, response, revealed, grade, onRespond, keyboard = true }: Props) {
+export function QuestionView({ ex, mode, response, revealed, grade, onRespond, keyboard = true, locked }: Props) {
   const lead = ex.kind === 'mc' && ex.promptKind === 'term' ? 'Pick the definition'
     : ex.kind === 'mc' && ex.promptKind === 'definition' ? 'Pick the term'
       : ex.kind === 'typed' && ex.promptKind === 'definition' ? 'Type the term'
@@ -33,7 +35,7 @@ export function QuestionView({ ex, mode, response, revealed, grade, onRespond, k
         <div className="q" style={{ marginBottom: 10 }}><span className="lead">Read the case, then answer each part</span></div>
         <div className="case"><Markdown>{ex.prompt}</Markdown></div>
         {ex.item.demo?.placement === 'question' && <Demo demo={ex.item.demo} />}
-        <ScenarioParts ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} />
+        <ScenarioParts ex={ex} mode={mode} response={response} revealed={revealed} grade={grade} onRespond={onRespond} locked={locked} />
       </>
     )
   }
@@ -67,16 +69,21 @@ function Body({ ex, mode, response, revealed, grade, onRespond, keyboard }: Prop
 }
 
 /** Every part of a case on one screen. Answers are collected, then checked together. */
-function ScenarioParts({ ex, mode, response, revealed, grade, onRespond }: { ex: Extract<Exercise, { kind: 'scenario' }> } & Omit<Props, 'ex'>) {
+function ScenarioParts({ ex, mode, response, revealed, grade, onRespond, locked }: { ex: Extract<Exercise, { kind: 'scenario' }> } & Omit<Props, 'ex'>) {
   const [rs, setRs] = useState<(Response | undefined)[]>(response?.kind === 'parts' ? response.responses : ex.parts.map(() => undefined))
   const set = (i: number, r: Response) => {
     const next = [...rs]; next[i] = r; setRs(next)
     if (mode === 'test') onRespond({ kind: 'parts', responses: next }, false)
   }
-  const answered = rs.filter(Boolean).length
+  const answered = rs.filter((r, i) => r || locked?.[i]).length
   return (
     <div className="parts">
-      {ex.parts.map((p, i) => (
+      {ex.parts.map((p, i) => locked?.[i] ? (
+        <div className="part ok" key={p.key}>
+          <div className="part-n">Part {i + 1} of {ex.parts.length}<span>Right last time</span></div>
+          <div className="part-done"><Markdown>{promptText(p.item)}</Markdown><b><Markdown inline>{answerText(p.item)}</Markdown></b></div>
+        </div>
+      ) : (
         <div className={`part ${revealed ? (grade?.parts?.[i]?.correct ? 'ok' : 'miss') : ''}`} key={p.key}>
           <div className="part-n">Part {i + 1} of {ex.parts.length}{revealed && <span>{grade?.parts?.[i]?.correct ? 'Correct' : 'Missed'}</span>}</div>
           <QuestionView ex={p} mode={revealed ? 'learn' : 'test'} response={rs[i]} revealed={revealed} grade={grade?.parts?.[i]} keyboard={false}

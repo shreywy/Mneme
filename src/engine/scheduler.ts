@@ -34,13 +34,15 @@ export function studyOrder(items: { key: string; kind: string; topic: string }[]
  * - A small working set holds cards in play.
  * - A miss comes back 3–4 cards later and stays close until it's right twice in a row.
  * - A card right on the first try steps aside and returns 12–25 cards later (typed, if it's a term).
- * - Two right in a row sends a card 40–70 cards away.
- * New cards keep flowing in, so the first few don't cycle. The session never runs out.
+ * - Two right in a row (or one, for a card already known before this session) puts it in `done`.
+ * - Done cards only come back once every other card has had its turn, so a big deck keeps moving
+ *   forward instead of re-asking what you've just learned. The session never runs out.
  */
 export class LearnSession {
   private queue: Slot[]
   private waiting: (Slot & { returnAt: number })[] = []
   private working: Slot[] = []
+  private done: Slot[] = []
   private history: string[] = []
   private t = 0
   private readonly size: number
@@ -73,6 +75,7 @@ export class LearnSession {
       if (this.waiting.length && this.waiting[0].returnAt <= this.t) s = this.waiting.shift()
       else if (this.queue.length) s = this.queue.shift()
       else if (this.waiting.length) s = this.waiting.shift()
+      else if (this.done.length) s = this.done.shift()
       if (!s) break
       const { returnAt: _r, ...slot } = s as Slot & { returnAt?: number }
       this.working.push({ ...slot, availableAt: this.t })
@@ -103,6 +106,17 @@ export class LearnSession {
     this.waiting.push({ ...w, returnAt: this.t + from + Math.floor(this.rng() * spread) })
   }
 
+  private finish(i: number) {
+    const [w] = this.working.splice(i, 1)
+    this.done.push({ ...w, consecutive: 0, retry: false, missed: false, startMastery: 'familiar' })
+  }
+
+  /** "I know this": out of play until everything else has had a turn. */
+  drop(key: string) {
+    const i = this.working.findIndex((w) => w.key === key)
+    if (i !== -1) this.finish(i)
+  }
+
   record(key: string, correct: boolean) {
     const i = this.working.findIndex((w) => w.key === key)
     if (i === -1) return
@@ -116,7 +130,8 @@ export class LearnSession {
     }
     w.consecutive++
     w.retry = false
-    if (w.consecutive >= GRADUATE_AFTER) { w.missed = false; w.startMastery = 'familiar'; this.park(i, 40, 31) }
+    const known = !w.missed && (w.startMastery === 'familiar' || w.startMastery === 'mastered')
+    if (w.consecutive >= GRADUATE_AFTER || known) this.finish(i)
     else if (!w.missed) this.park(i, 12, 14)
     else w.availableAt = this.t + 5 + Math.floor(this.rng() * 4)
   }
