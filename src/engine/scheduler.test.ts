@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LearnSession, studyOrder, type PoolEntry } from './scheduler'
+import { FastRun, LearnSession, studyOrder, type PoolEntry } from './scheduler'
 import { mulberry32 } from './rng'
 
 const pool = (n: number, mastery: PoolEntry['mastery'] = 'new'): PoolEntry[] =>
@@ -142,5 +142,39 @@ describe('LearnSession', () => {
     let again = s.next()
     while (again.key !== a.key) { s.record(again.key, false); again = s.next() }
     expect(again.format).toBe('typed')
+  })
+})
+
+describe('FastRun', () => {
+  const run = (r: FastRun, answer: (k: string) => boolean) => {
+    const shown: string[] = []
+    for (let p = r.next(); p; p = r.next()) { shown.push(p.key); r.record(p.key, answer(p.key)) }
+    return shown
+  }
+
+  it('asks each card once, and a card right on its first ask is learned and gone', () => {
+    const r = new FastRun(['a', 'b', 'c'])
+    expect(r.next()!.key).toBe('a')
+    expect(r.record('a', true)).toBe(true)
+    expect(run(r, () => true)).toEqual(['b', 'c'])
+    expect(r.left).toBe(0)
+  })
+
+  it('keeps a missed card until it is right twice in a row in later passes', () => {
+    const r = new FastRun(['a', 'b', 'c'])
+    const tries = new Map<string, number>()
+    const shown = run(r, (k) => {
+      const n = (tries.get(k) ?? 0) + 1
+      tries.set(k, n)
+      return k !== 'b' || n === 2 || n >= 4 // b: miss, right, miss, right, right
+    })
+    expect(shown).toEqual(['a', 'b', 'c', 'b', 'b', 'b', 'b'])
+    expect(r.passNo).toBe(5)
+  })
+
+  it('drop takes a card out of the run', () => {
+    const r = new FastRun(['a', 'b'])
+    r.drop('b')
+    expect(run(r, () => true)).toEqual(['a'])
   })
 })

@@ -136,3 +136,50 @@ export class LearnSession {
     else w.availableAt = this.t + 5 + Math.floor(this.rng() * 4)
   }
 }
+
+/**
+ * Fast mode: every card once per pass, in order, no repeats inside a pass. A card right on its first ask
+ * is done (and counts as learned). A miss keeps it until it's right twice in a row in later passes.
+ * Each pass after the first holds only what's left.
+ */
+export class FastRun {
+  private pass: string[]
+  private i = 0
+  private need = new Map<string, number>() // right answers in a row still needed
+  private asked = new Set<string>()
+  passNo = 1
+
+  constructor(keys: string[]) {
+    this.pass = [...keys]
+    for (const k of keys) this.need.set(k, 1)
+  }
+
+  get left() { return this.need.size }
+
+  next(): Pick | null {
+    if (!this.need.size) return null
+    for (;;) {
+      if (this.i >= this.pass.length) {
+        this.pass = this.pass.filter((k) => this.need.has(k))
+        this.i = 0
+        this.passNo++
+      }
+      const key = this.pass[this.i++]
+      if (this.need.has(key)) return { key, format: 'recall' }
+    }
+  }
+
+  /** True when this answer finishes the card on its first ask. */
+  record(key: string, correct: boolean): boolean {
+    if (!this.need.has(key)) return false
+    const first = !this.asked.has(key)
+    this.asked.add(key)
+    if (!correct) { this.need.set(key, 2); return false }
+    const n = this.need.get(key)! - 1
+    if (n > 0) { this.need.set(key, n); return false }
+    this.need.delete(key)
+    return first
+  }
+
+  drop(key: string) { this.need.delete(key) }
+}

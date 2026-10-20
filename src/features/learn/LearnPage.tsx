@@ -8,7 +8,7 @@ import type { Item, TermItem } from '../../deck-format/types'
 import { buildExercise, promptText, type Exercise } from '../../engine/exercises'
 import { masteryOf, rateAnswer, retrievability, type CardState } from '../../engine/memory'
 import { gradeResponse, type Grade, type Response } from '../../engine/respond'
-import { LearnSession, studyOrder } from '../../engine/scheduler'
+import { FastRun, LearnSession, studyOrder } from '../../engine/scheduler'
 import { shuffle } from '../../engine/rng'
 import { Markdown } from '../../content/Markdown'
 import { Demo } from '../../content/Demo'
@@ -40,11 +40,13 @@ export function LearnPage() {
   const filter = (sp.get('f') as Filter) || 'all'
   const topic = sp.get('topic')
   const back = studyBack(sp, deckId)
-  const { sound, learnShuffle, learnPanel, learnMatch, set: setSettings } = useSettings()
+  const { sound, learnShuffle, learnPanel, learnMatch, learnFast, set: setSettings } = useSettings()
 
   const [data, setData] = useState<Loaded | null | 'missing'>(null)
   const states = useRef(new Map<string, CardState>())
-  const session = useRef<LearnSession | null>(null)
+  const session = useRef<LearnSession | FastRun | null>(null)
+  const [finished, setFinished] = useState(false)
+  const [runId, setRunId] = useState(0) // bumped by "Go again" to rebuild the session
   const median = useRef(0)
   const [cur, setCur] = useState<{ ex: Exercise; n: number; t0: number; locked?: boolean[] } | null>(null)
   // Case parts answered right on a case's last showing, so a retry only asks the parts that were missed.
@@ -73,7 +75,7 @@ export function LearnPage() {
     setTimeout(() => { setSettings({ learnPanel: false }); setPanelClosing(false) }, 210)
   }
 
-  // Load deck, states and build the session. Rebuilt when shuffle is toggled.
+  // Load deck, states and build the session. Rebuilt when shuffle or fast mode is toggled.
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -85,19 +87,29 @@ export function LearnPage() {
       median.current = med
       const pool = filterItems(all, filter, topic)
       const now = new Date()
-      const order = new Map(studyOrder(pool, deck.topics.map((t) => t.id)).map((k, i) => [k, i]))
-      session.current = pool.length ? new LearnSession(pool.map((it) => ({
-        key: it.key, order: order.get(it.key) ?? 0, mastery: masteryOf(st.get(it.key)), retrievability: retrievability(st.get(it.key), now),
-      })), { shuffle: learnShuffle }) : null
+      const ordered = studyOrder(pool, deck.topics.map((t) => t.id))
+      const order = new Map(ordered.map((k, i) => [k, i]))
+      if (learnFast) {
+        // Fast: one pass over what isn't learned yet (everything, once it all is).
+        const todo = ordered.filter((k) => ['new', 'learning'].includes(masteryOf(st.get(k))))
+        const keys = todo.length ? todo : ordered
+        session.current = keys.length ? new FastRun(learnShuffle ? shuffle(keys) : keys) : null
+      } else {
+        session.current = pool.length ? new LearnSession(pool.map((it) => ({
+          key: it.key, order: order.get(it.key) ?? 0, mastery: masteryOf(st.get(it.key)), retrievability: retrievability(st.get(it.key), now),
+        })), { shuffle: learnShuffle }) : null
+      }
+      setFinished(false)
       setData({ deck, all, pool, byKey: new Map(all.map((i) => [i.key, i])) })
       firstDrawn.current = false
     })()
     return () => { alive = false }
-  }, [deckId, filter, topic, learnShuffle])
+  }, [deckId, filter, topic, learnShuffle, learnFast, runId])
 
   const draw = useCallback(() => {
     if (!session.current || !data || data === 'missing') return
     const pick = session.current.next()
+    if (!pick) { setCur(null); setMatch(null); setFinished(true); return }
     const item = data.byKey.get(pick.key)!
     cardN.current++
     setMatch(null)
@@ -113,9 +125,10 @@ export function LearnPage() {
   const save = useCallback((key: string, correct: boolean, ms: number, hinted = false) => {
     const prev = states.current.get(key)
     const rating = rateAnswer({ correct, ms, medianMs: median.current, mastery: masteryOf(prev), hinted })
-    session.current?.record(key, correct)
+    // Fast mode: right on the first ask counts as learned straight away.
+    const known = session.current?.record(key, correct) === true
     setStats((s) => ({ answered: s.answered + 1, correct: s.correct + (correct ? 1 : 0), misses: correct ? s.misses : [key, ...s.misses.filter((k) => k !== key)].slice(0, 6) }))
-    repo.recordAnswer({ deckId, key, correct, ms, mode: 'learn', rating }).then((ns) => { states.current.set(key, ns); setTick((t) => t + 1) })
+    repo.recordAnswer({ deckId, key, correct, ms, mode: 'learn', rating, known }).then((ns) => { states.current.set(key, ns); setTick((t) => t + 1) })
   }, [deckId])
 
   const commit = useCallback(() => {
@@ -193,7 +206,7 @@ export function LearnPage() {
     setLeaving(true)
     setTimeout(() => {
       const termPool = data && data !== 'missing' ? recentTerms.current.map((k) => data.byKey.get(k)).filter((i): i is TermItem => i?.kind === 'term') : []
-      if (learnMatch && !match && termsSinceMatch.current >= MATCH_EVERY && termPool.length >= 4) {
+      if (learnMatch && !learnFast && !match && termsSinceMatch.current >= MATCH_EVERY && termPool.length >= 4) {
         termsSinceMatch.current = 0
         cardN.current++
         setCur(null)
@@ -201,7 +214,7 @@ export function LearnPage() {
       } else draw()
       setLeaving(false); advancing.current = false; window.scrollTo({ top: 0 })
     }, 150)
-  }, [commit, draw, data, learnMatch, match])
+  }, [commit, draw, data, learnMatch, learnFast, match])
 
   // "I know this": saved as an easy right answer (counts as learned, back in about two weeks) and out of this session.
   const knowIt = useCallback(() => {
@@ -296,6 +309,7 @@ export function LearnPage() {
   const total = data.pool.length
   const m = countMastery(data.pool, states.current)
   const learned = m.familiar + m.mastered
+  const fast = session.current instanceof FastRun ? session.current : null
 
   return (
     <div className={`study ${learnPanel ? 'with-panel' : ''}`}>
@@ -307,8 +321,13 @@ export function LearnPage() {
         <div className="prog">
           <div className="track"><div className="fill" style={{ width: `${total ? (learned / total) * 100 : 0}%` }} /></div>
           <span>{learned} / {total} learned</span>
+          {fast && !finished && <span className="muted">· {fast.left} left, pass {fast.passNo}</span>}
         </div>
         <div className="lb-right">
+        <button className={`btn ghost sm ${learnFast ? 'on' : ''}`} onClick={() => setSettings({ learnFast: !learnFast })} aria-pressed={learnFast}
+          title={learnFast ? 'Fast: every card once, right first time counts as learned. Turn off for spaced practice.' : 'Turn on Fast: every card once per pass, right first time counts as learned'}>
+          <Icon name="loop" size={14} />Fast
+        </button>
         <button className={`iconbtn ${learnShuffle ? 'on' : ''}`} onClick={() => setSettings({ learnShuffle: !learnShuffle })}
           title={learnShuffle ? 'Shuffled. Turn off to go in order.' : 'In order. Turn on to shuffle.'} aria-pressed={learnShuffle}><Icon name="shuffle" /></button>
         <button className="iconbtn" onClick={() => setSettings({ sound: !sound })} title={sound ? 'Mute  M' : 'Unmute  M'} aria-label={sound ? 'Mute' : 'Unmute'}>
@@ -320,6 +339,15 @@ export function LearnPage() {
 
       <div className="stage">
         {total === 0 && <p className="empty-note">No cards match this filter. Go back and pick another.</p>}
+        {finished && (
+          <div className="qcard enter">
+            <div className="q"><span className="lead">Fast run done</span>Every card in this run is learned.</div>
+            <div className="cont-row">
+              <button className="btn ghost" onClick={exit}>Back to the deck</button>
+              <button className="btn primary" onClick={() => setRunId((n) => n + 1)}>Go again</button>
+            </div>
+          </div>
+        )}
         {match && (
           <div className={`qcard ${leaving ? 'out' : 'enter'}`} key={`m${match.n}`}>
             <div className="qmeta"><span className="tag">Match</span><span>Quick round on terms you just saw</span></div>

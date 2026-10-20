@@ -123,6 +123,7 @@ This is the single to-do list. Anything agreed in conversation and not built yet
 ## Study features
 - [x] Hints: an option in the prompt (three per card: lecture, topic, a clue), shown one at a time with H in Learn and Flashcards; a right answer after a hint is rated Hard (2026-10-08). Not in Test, which is meant to be unaided
 - [x] Learn gets through big decks (2026-10-16): a card right twice in a row (or once, if known before the session) is done until every other card has had a turn, instead of coming back every 40–70 cards and crowding out new ones. **I know this** (K) marks a card learned (an Easy answer, back in about two weeks) and drops it from the session. A case retried after a miss shows the parts you got right as done and only asks the missed ones (this session only)
+- [x] Fast mode in Learn (2026-10-20, the **Fast** toggle in the top bar, synced setting `learnFast`): every card not yet learned once per pass, in order or shuffled; right on the first ask counts as learned and leaves the run, a miss needs two rights in a row in later passes; no Match rounds; "Fast run done" with Go again at the end
 - [ ] Weak spots: a virtual deck of the most-missed cards across all decks
 - [ ] Stats page (accuracy over time, weakest topics)
 - [ ] Trophies and a trophy case

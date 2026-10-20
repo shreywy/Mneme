@@ -71,6 +71,8 @@ type Settings = {
   /** Notes pages: show the contents rail. */
   notesContents: boolean
   learnShuffle: boolean
+  /** Learn goes through every card once per pass instead of the spaced queue. */
+  learnFast: boolean
   learnPanel: boolean
   learnMatch: boolean
   hiddenHints: string[]
@@ -101,6 +103,7 @@ export const useSettings = create<Settings>()(
       sidebar: 'full',
       notesContents: true,
       learnShuffle: true,
+      learnFast: false,
       learnPanel: false,
       learnMatch: true,
       hiddenHints: [],

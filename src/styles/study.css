@@ -188,7 +188,7 @@
 /* ---------- learn: continue row, stats panel, match rounds ---------- */
 .cont-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 18px; animation: whyin .2s var(--ease); }
 .cont-row .btn.primary { min-width: 160px; }
-.iconbtn.on { color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.iconbtn.on, .lbar .btn.on { color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
 .dock .center { display: flex; gap: 6px; justify-content: center; grid-column: 2; }
 .ai.on { color: var(--ink); background: var(--surface2); }
 .statspanel { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); width: min(560px, calc(100vw - 24px)); max-height: 56dvh; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px 18px; z-index: 6; box-shadow: 0 -8px 40px rgba(0, 0, 0, .12); transform: translateX(-50%); animation: sheetup .32s cubic-bezier(.2, .9, .25, 1); }
