@@ -510,5 +510,29 @@ begin
   if n <> 1 then raise exception 'FAIL: signed-out feedback was not kept without an account'; end if;
 end $$;
 
+-- keepalive(): anyone can call it and it writes, but nobody can touch its table directly.
+set local role anon;
+select public.keepalive();
+do $$
+begin
+  begin
+    perform 1 from public.keepalive_pings;
+    raise exception 'FAIL: anon read keepalive_pings';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.keepalive_pings set pings = 0;
+    raise exception 'FAIL: anon wrote keepalive_pings';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$
+begin
+  if not exists (select 1 from public.keepalive_pings where id = 1 and at > now() - interval '1 minute') then
+    raise exception 'FAIL: keepalive() did not write its row';
+  end if;
+end $$;
+
 select 'RLS tests passed' as result;
 rollback;

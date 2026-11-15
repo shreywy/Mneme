@@ -1,6 +1,8 @@
 name: Keep Supabase awake
 
-# Free projects pause after 7 days without database activity. This runs a trivial query twice a week.
+# Free projects pause after 7 days without database activity. Twice a week this calls keepalive(), which
+# writes a row (a read-only `select now()` wasn't counted as activity).
+# GitHub turns off scheduled workflows after 60 days with no commits, so check this still runs if the repo goes quiet.
 on:
   schedule:
     - cron: '17 9 * * 1,4'
